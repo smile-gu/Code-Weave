@@ -10,6 +10,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/** 验证 Claude Code 协议事件能否被可靠地映射或拒绝。 */
 class ClaudeStreamEventMapperTest {
 
     private final ClaudeStreamEventMapper mapper = new ClaudeStreamEventMapper(new ObjectMapper());
@@ -51,4 +52,3 @@ class ClaudeStreamEventMapperTest {
                 .isInstanceOf(ClaudeStreamProtocolException.class);
     }
 }
-

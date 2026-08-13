@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 验证 M0 命令参数、能力限制以及 Prompt 的传递方式。 */
 class ClaudeCommandFactoryTest {
 
     @Test
@@ -38,4 +39,3 @@ class ClaudeCommandFactoryTest {
         assertThat(spec.workingDirectory()).isEqualTo(request.worktree().normalize());
     }
 }
-

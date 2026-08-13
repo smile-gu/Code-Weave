@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 
+/** 将 Claude Code 的单行 NDJSON 事件转换为平台统一事件。 */
 public final class ClaudeStreamEventMapper {
 
     private final ObjectMapper objectMapper;
@@ -17,6 +18,7 @@ public final class ClaudeStreamEventMapper {
         this.objectMapper = objectMapper;
     }
 
+    /** 解析一行协议数据；无须持久化的事件返回空列表。 */
     public List<AgentEvent> mapLine(String line) {
         final JsonNode root;
         try {
@@ -57,7 +59,7 @@ public final class ClaudeStreamEventMapper {
                 case "text" -> events.add(event(AgentEventType.MESSAGE_COMPLETED, root.path("uuid").asText(null), content));
                 case "tool_use" -> events.add(event(AgentEventType.TOOL_CALL_STARTED, content.path("id").asText(null), content));
                 default -> {
-                    // Thinking content is intentionally not persisted.
+                    // Thinking 等内部内容按约定不持久化、不展示。
                 }
             }
         }
@@ -82,4 +84,3 @@ public final class ClaudeStreamEventMapper {
         return new AgentEvent(type, externalId, payload.deepCopy());
     }
 }
-

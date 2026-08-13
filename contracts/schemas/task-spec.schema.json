@@ -2,17 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://coding-review.local/schemas/task-spec.schema.json",
   "title": "TaskSpec",
+  "description": "描述一次 Coding 任务的输入、验收标准和执行边界。",
   "type": "object",
   "required": ["repositoryPath", "baseRef", "taskPrompt", "acceptanceCriteria"],
   "properties": {
-    "repositoryPath": { "type": "string", "minLength": 1 },
-    "baseRef": { "type": "string", "minLength": 1 },
-    "taskPrompt": { "type": "string", "minLength": 1 },
-    "acceptanceCriteria": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "allowedPaths": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
-    "deniedPaths": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
-    "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 3600, "default": 600 }
+    "repositoryPath": { "type": "string", "minLength": 1, "description": "用户选择的本地 Git 仓库绝对路径。" },
+    "baseRef": { "type": "string", "minLength": 1, "description": "创建任务 Worktree 时使用的基础 Git 引用。" },
+    "taskPrompt": { "type": "string", "minLength": 1, "description": "交给 Coding Agent 的任务描述。" },
+    "acceptanceCriteria": { "type": "array", "description": "用于判断任务是否完成的验收标准。", "items": { "type": "string", "minLength": 1 } },
+    "allowedPaths": { "type": "array", "description": "允许 Agent 修改的仓库相对路径。", "items": { "type": "string", "minLength": 1 }, "default": [] },
+    "deniedPaths": { "type": "array", "description": "禁止 Agent 修改的仓库相对路径。", "items": { "type": "string", "minLength": 1 }, "default": [] },
+    "timeoutSeconds": { "type": "integer", "description": "任务执行超时时间，单位为秒。", "minimum": 1, "maximum": 3600, "default": 600 }
   },
   "additionalProperties": false
 }
-

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+/** Control Plane 发起一次 Claude Code 运行所需的业务输入。 */
 public record ClaudeRunRequest(
         UUID sessionId,
         Path worktree,
@@ -14,6 +15,7 @@ public record ClaudeRunRequest(
         List<String> deniedPaths
 ) {
     public ClaudeRunRequest {
+        // 在进入进程启动层前完成边界校验，避免 Claude Code 运行在错误目录。
         Objects.requireNonNull(sessionId, "sessionId");
         Objects.requireNonNull(worktree, "worktree");
         if (!worktree.isAbsolute()) {
@@ -27,4 +29,3 @@ public record ClaudeRunRequest(
         deniedPaths = List.copyOf(deniedPaths);
     }
 }
-

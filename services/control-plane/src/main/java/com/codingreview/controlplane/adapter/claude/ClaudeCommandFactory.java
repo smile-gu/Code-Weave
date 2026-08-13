@@ -4,8 +4,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+/** 根据运行请求和能力配置生成 Claude Code 进程启动规格。 */
 public final class ClaudeCommandFactory {
 
+    /**
+     * 参数以列表形式交给进程启动层，动态内容不会拼接成 Shell 命令。
+     */
     public ClaudeLaunchSpec create(Path executable, ClaudeRunRequest request, CapabilityProfile profile) {
         if (!executable.isAbsolute()) {
             throw new IllegalArgumentException("Claude executable path must be absolute");
@@ -47,4 +51,3 @@ public final class ClaudeCommandFactory {
         );
     }
 }
-

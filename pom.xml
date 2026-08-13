@@ -17,10 +17,12 @@
     <packaging>pom</packaging>
 
     <name>Coding Review Platform</name>
-    <description>Coding and review agent platform monorepo</description>
+    <description>Coding 与 Review 一体化 Agent 平台 Monorepo</description>
 
     <modules>
+        <!-- 全局工作流编排与运行控制。 -->
         <module>services/control-plane</module>
+        <!-- M0 用于验证 Coding 链路的最小 Spring Boot 项目。 -->
         <module>fixtures/spring-boot-demo</module>
     </modules>
 
@@ -30,4 +32,3 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
 </project>
-
