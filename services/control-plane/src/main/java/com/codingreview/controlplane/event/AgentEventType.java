@@ -1,0 +1,15 @@
+package com.codingreview.controlplane.event;
+
+public enum AgentEventType {
+    RUNTIME_INITIALIZED,
+    USAGE_UPDATED,
+    MESSAGE_COMPLETED,
+    TOOL_CALL_STARTED,
+    TOOL_CALL_COMPLETED,
+    TOOL_CALL_FAILED,
+    PERMISSION_DENIED,
+    RUNTIME_COMPLETED,
+    RUNTIME_FAILED,
+    DIAGNOSTIC
+}
+

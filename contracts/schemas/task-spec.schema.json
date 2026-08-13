@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://coding-review.local/schemas/task-spec.schema.json",
+  "title": "TaskSpec",
+  "type": "object",
+  "required": ["repositoryPath", "baseRef", "taskPrompt", "acceptanceCriteria"],
+  "properties": {
+    "repositoryPath": { "type": "string", "minLength": 1 },
+    "baseRef": { "type": "string", "minLength": 1 },
+    "taskPrompt": { "type": "string", "minLength": 1 },
+    "acceptanceCriteria": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "allowedPaths": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+    "deniedPaths": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+    "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 3600, "default": 600 }
+  },
+  "additionalProperties": false
+}
+
