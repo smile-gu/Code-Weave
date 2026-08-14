@@ -1,0 +1,22 @@
+package com.codingreview.controlplane.observability.run;
+
+/** 一次 Run 从创建到结束的统一事件类型。 */
+public enum RunEventType {
+    RUN_CREATED,
+    RUN_NOTICE,
+    STAGE_STARTED,
+    PROCESS_START_REQUESTED,
+    PROCESS_STARTED,
+    PROCESS_STDOUT,
+    PROCESS_STDERR,
+    PROCESS_EXIT_OBSERVED,
+    PROCESS_TERMINATION_REQUESTED,
+    PROCESS_TERMINATED,
+    LOG_CAPTURE_COMPLETED,
+    ARTIFACT_RECORDED,
+    ANALYSIS_COMPLETED,
+    STAGE_COMPLETED,
+    STAGE_FAILED,
+    RUN_COMPLETED,
+    RUN_FAILED
+}
