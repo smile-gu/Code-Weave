@@ -1,4 +1,4 @@
-package com.codingreview.controlplane.adapter.claude;
+package com.codingreview.controlplane.adapter.claude.invocation;
 
 import org.junit.jupiter.api.Test;
 

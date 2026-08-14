@@ -1,4 +1,4 @@
-package com.codingreview.controlplane.adapter.claude;
+package com.codingreview.controlplane.adapter.claude.protocol;
 
 import com.codingreview.controlplane.event.AgentEvent;
 import com.codingreview.controlplane.event.AgentEventType;

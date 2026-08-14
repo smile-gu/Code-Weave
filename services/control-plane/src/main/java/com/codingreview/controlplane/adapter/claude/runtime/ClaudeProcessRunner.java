@@ -1,4 +1,6 @@
-package com.codingreview.controlplane.adapter.claude;
+package com.codingreview.controlplane.adapter.claude.runtime;
+
+import com.codingreview.controlplane.adapter.claude.invocation.ClaudeLaunchSpec;
 
 /** 负责按照启动计划管理 Claude Code 进程生命周期的运行器。 */
 public interface ClaudeProcessRunner {

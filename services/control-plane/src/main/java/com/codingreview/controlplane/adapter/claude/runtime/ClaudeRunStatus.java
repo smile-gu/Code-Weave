@@ -1,4 +1,4 @@
-package com.codingreview.controlplane.adapter.claude;
+package com.codingreview.controlplane.adapter.claude.runtime;
 
 /** Claude 进程一次运行的最终状态。 */
 public enum ClaudeRunStatus {

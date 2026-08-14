@@ -1,4 +1,4 @@
-package com.codingreview.controlplane.adapter.claude;
+package com.codingreview.controlplane.adapter.claude.invocation;
 
 import java.time.Duration;
 import java.util.List;
