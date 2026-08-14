@@ -45,6 +45,7 @@ public final class ClaudeCommandFactory {
                 command,
                 request.worktree().normalize(),
                 ClaudePromptRenderer.render(request),
+                profile.tools(),
                 profile.startupTimeout(),
                 profile.taskTimeout(),
                 profile.cancellationGracePeriod()

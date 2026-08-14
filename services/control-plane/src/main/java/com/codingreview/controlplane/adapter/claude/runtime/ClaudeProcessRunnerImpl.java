@@ -31,6 +31,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
     private static final long LIFECYCLE_POLL_MILLIS = 25;
 
     private final ClaudeStreamEventMapper eventMapper;
+    private final ClaudeRuntimePolicyValidator policyValidator;
 
     public ClaudeProcessRunnerImpl(ObjectMapper objectMapper) {
         this(new ClaudeStreamEventMapper(objectMapper));
@@ -38,6 +39,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
 
     public ClaudeProcessRunnerImpl(ClaudeStreamEventMapper eventMapper) {
         this.eventMapper = Objects.requireNonNull(eventMapper, "eventMapper");
+        this.policyValidator = new ClaudeRuntimePolicyValidator();
     }
 
     @Override
@@ -57,7 +59,9 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
 
         RunState state = new RunState();
         ExecutorService streamExecutor = Executors.newFixedThreadPool(2);
-        Future<?> stdoutFuture = streamExecutor.submit(() -> readStdout(process, state, eventSink));
+        Future<?> stdoutFuture = streamExecutor.submit(() -> readStdout(
+                process, state, launchSpec, eventSink
+        ));
         Future<String> stderrFuture = streamExecutor.submit(() -> readStderr(process.getErrorStream()));
         writePrompt(process, state, launchSpec.standardInput());
         ClaudeRunStatus forcedStatus = awaitLifecycle(process, state, launchSpec);
@@ -210,7 +214,12 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
-    private void readStdout(Process process, RunState state, AgentEventSink eventSink) {
+    private void readStdout(
+            Process process,
+            RunState state,
+            ClaudeLaunchSpec launchSpec,
+            AgentEventSink eventSink
+    ) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                 process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -230,6 +239,11 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
                     } catch (RuntimeException exception) {
                         state.fail(ClaudeRunStatus.EVENT_PUBLISH_FAILED,
                                 "Agent event sink failed: " + exception.getMessage());
+                        return;
+                    }
+                    var violation = policyValidator.validate(event, launchSpec);
+                    if (violation.isPresent()) {
+                        state.fail(violation.get().status(), violation.get().diagnostic());
                         return;
                     }
                 }

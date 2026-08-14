@@ -14,6 +14,10 @@ public enum ClaudeRunStatus {
     START_TIMEOUT,
     /** Claude 输出不符合约定协议。 */
     PROTOCOL_ERROR,
+    /** Claude 初始化到本次受管 Worktree 之外的目录。 */
+    WORKSPACE_MISMATCH,
+    /** Claude 暴露或调用了能力配置未授权的工具。 */
+    TOOL_POLICY_VIOLATION,
     /** 平台无法可靠发布 Agent 事件，因此主动终止运行。 */
     EVENT_PUBLISH_FAILED,
     /** 进程退出前没有收到终态事件。 */

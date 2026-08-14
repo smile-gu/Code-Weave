@@ -9,11 +9,13 @@ public record ClaudeLaunchSpec(
         List<String> command,
         Path workingDirectory,
         String standardInput,
+        List<String> allowedTools,
         Duration startupTimeout,
         Duration taskTimeout,
         Duration cancellationGracePeriod
 ) {
     public ClaudeLaunchSpec {
         command = List.copyOf(command);
+        allowedTools = List.copyOf(allowedTools);
     }
 }

@@ -37,5 +37,6 @@ class ClaudeCommandFactoryTest {
         assertThat(spec.command()).doesNotContain(request.taskPrompt(), "Bash");
         assertThat(spec.standardInput()).contains(request.taskPrompt());
         assertThat(spec.workingDirectory()).isEqualTo(request.worktree().normalize());
+        assertThat(spec.allowedTools()).containsExactly("Read", "Glob", "Grep", "Edit", "Write");
     }
 }

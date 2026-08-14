@@ -29,10 +29,9 @@ class ClaudeProcessRunnerImplTest {
 
     @Test
     void publishesEventsAndReturnsCompletedResult() throws Exception {
-        String script = "$lines = @(" +
-                "'{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s-1\"}'," +
-                "'{\"type\":\"result\",\"subtype\":\"success\",\"session_id\":\"s-1\"}'" +
-                "); $lines | ForEach-Object { Write-Output $_ }";
+        String script = "$lines = @('" + initializedEvent(List.of("Read", "Edit")) + "',"
+                + "'{\"type\":\"result\",\"subtype\":\"success\",\"session_id\":\"s-1\"}'); "
+                + "$lines | ForEach-Object { Write-Output $_ }";
         ClaudeRunResult result = runner.run(spec(script, Duration.ofSeconds(2), Duration.ofSeconds(5)),
                 events::add);
 
@@ -69,7 +68,8 @@ class ClaudeProcessRunnerImplTest {
 
     @Test
     void terminatesRunWhenEventSinkFails() throws Exception {
-        String script = "Write-Output '{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s-1\"}'; Start-Sleep -Seconds 3";
+        String script = "Write-Output '" + initializedEvent(List.of("Read"))
+                + "'; Start-Sleep -Seconds 3";
 
         ClaudeRunResult result = runner.run(spec(script, Duration.ofSeconds(2), Duration.ofSeconds(5)),
                 event -> {
@@ -82,7 +82,8 @@ class ClaudeProcessRunnerImplTest {
 
     @Test
     void terminatesProcessWhenTaskTimesOut() throws Exception {
-        String script = "$lines = @('{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s-1\"}'); $lines | ForEach-Object { Write-Output $_ }; Start-Sleep -Seconds 3";
+        String script = "Write-Output '" + initializedEvent(List.of("Read"))
+                + "'; Start-Sleep -Seconds 3";
         ClaudeRunResult result = runner.run(spec(script, Duration.ofSeconds(2), Duration.ofMillis(100)),
                 event -> {
                 });
@@ -93,7 +94,7 @@ class ClaudeProcessRunnerImplTest {
     @Test
     void startsTaskTimeoutAfterRuntimeInitialization() throws Exception {
         String script = "Start-Sleep -Milliseconds 600; " +
-                "Write-Output '{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s-1\"}'; " +
+                "Write-Output '" + initializedEvent(List.of("Read")) + "'; " +
                 "Start-Sleep -Milliseconds 100; " +
                 "Write-Output '{\"type\":\"result\",\"subtype\":\"success\",\"session_id\":\"s-1\"}'";
 
@@ -112,7 +113,7 @@ class ClaudeProcessRunnerImplTest {
         String script = "$child = Start-Process powershell.exe -PassThru -ArgumentList " +
                 "'-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30'; " +
                 "$child.Id | Set-Content -Encoding ascii '" + escapedPidFile + "'; " +
-                "Write-Output '{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s-1\"}'; " +
+                "Write-Output '" + initializedEvent(List.of("Read")) + "'; " +
                 "Start-Sleep -Seconds 30";
 
         ClaudeRunResult result = runner.run(
@@ -126,21 +127,110 @@ class ClaudeProcessRunnerImplTest {
         assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false)).isFalse();
     }
 
+    @Test
+    void terminatesWhenClaudeInitializesOutsideManagedWorktree() throws Exception {
+        String script = "Write-Output '{\"type\":\"system\",\"subtype\":\"init\","
+                + "\"session_id\":\"s-1\",\"cwd\":\"C:/unexpected\"}'; "
+                + "Start-Sleep -Seconds 3";
+
+        ClaudeRunResult result = runner.run(
+                spec(script, Duration.ofSeconds(2), Duration.ofSeconds(5)),
+                events::add
+        );
+
+        assertThat(result.status()).isEqualTo(ClaudeRunStatus.WORKSPACE_MISMATCH);
+        assertThat(result.diagnostic()).contains("C:/unexpected");
+        assertThat(events).extracting(AgentEvent::type)
+                .containsExactly(AgentEventType.RUNTIME_INITIALIZED);
+    }
+
+    @Test
+    void terminatesWhenInitializationExposesUnauthorizedTool() throws Exception {
+        String script = "Write-Output '" + initializedEvent(List.of("Read", "Bash"))
+                + "'; Start-Sleep -Seconds 3";
+
+        ClaudeRunResult result = runner.run(
+                spec(script, Duration.ofSeconds(2), Duration.ofSeconds(5)),
+                events::add
+        );
+
+        assertThat(result.status()).isEqualTo(ClaudeRunStatus.TOOL_POLICY_VIOLATION);
+        assertThat(result.diagnostic()).contains("Bash");
+        assertThat(events).extracting(AgentEvent::type)
+                .containsExactly(AgentEventType.RUNTIME_INITIALIZED);
+    }
+
+    @Test
+    void publishesUnauthorizedToolCallBeforeTerminating() throws Exception {
+        String toolCall = "{\"type\":\"assistant\",\"uuid\":\"message-1\",\"message\":{"
+                + "\"content\":[{\"type\":\"tool_use\",\"id\":\"call-1\",\"name\":\"Bash\"}]}}";
+        String script = "$lines = @('" + initializedEvent(List.of("Read")) + "','" + toolCall
+                + "'); $lines | ForEach-Object { Write-Output $_ }; Start-Sleep -Seconds 3";
+
+        ClaudeRunResult result = runner.run(
+                spec(script, Duration.ofSeconds(2), Duration.ofSeconds(5)),
+                event -> {
+                    events.add(event);
+                    if (event.type() == AgentEventType.TOOL_CALL_STARTED) {
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) event.payload())
+                                .put("name", "Read");
+                    }
+                }
+        );
+
+        assertThat(result.status()).isEqualTo(ClaudeRunStatus.TOOL_POLICY_VIOLATION);
+        assertThat(events).extracting(AgentEvent::type)
+                .containsExactly(AgentEventType.RUNTIME_INITIALIZED, AgentEventType.TOOL_CALL_STARTED);
+    }
+
+    @Test
+    void eventPublishingFailureWinsOverToolPolicyViolation() throws Exception {
+        String toolCall = "{\"type\":\"assistant\",\"uuid\":\"message-1\",\"message\":{"
+                + "\"content\":[{\"type\":\"tool_use\",\"id\":\"call-1\",\"name\":\"Bash\"}]}}";
+        String script = "$lines = @('" + initializedEvent(List.of("Read")) + "','" + toolCall
+                + "'); $lines | ForEach-Object { Write-Output $_ }; Start-Sleep -Seconds 3";
+
+        ClaudeRunResult result = runner.run(
+                spec(script, Duration.ofSeconds(2), Duration.ofSeconds(5)),
+                event -> {
+                    if (event.type() == AgentEventType.TOOL_CALL_STARTED) {
+                        throw new IllegalStateException("event journal unavailable");
+                    }
+                }
+        );
+
+        assertThat(result.status()).isEqualTo(ClaudeRunStatus.EVENT_PUBLISH_FAILED);
+        assertThat(result.diagnostic()).contains("event journal unavailable");
+    }
+
     private ClaudeLaunchSpec spec(String script, Duration startupTimeout, Duration taskTimeout) throws Exception {
         return spec(script, createWorktree(), startupTimeout, taskTimeout);
     }
 
     private ClaudeLaunchSpec spec(String script, Path worktree,
                                   Duration startupTimeout, Duration taskTimeout) {
+        String escapedWorktree = worktree.toString()
+                .replace("\\", "\\\\")
+                .replace("'", "''");
+        script = script.replace("__WORKTREE__", escapedWorktree);
         String encodedScript = Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_16LE));
         return new ClaudeLaunchSpec(
                 List.of(POWERSHELL.toString(), "-NoProfile", "-NonInteractive", "-EncodedCommand", encodedScript),
                 worktree,
                 "test prompt",
+                List.of("Read", "Glob", "Grep", "Edit", "Write"),
                 startupTimeout,
                 taskTimeout,
                 Duration.ofMillis(100)
         );
+    }
+
+    private String initializedEvent(List<String> tools) {
+        String serializedTools = tools.stream()
+                .map(tool -> "\"" + tool + "\"")
+                .collect(java.util.stream.Collectors.joining(","));
+        return "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"s-1\","
+                + "\"cwd\":\"__WORKTREE__\",\"tools\":[" + serializedTools + "]}";
     }
 
     private Path createWorktree() throws Exception {
