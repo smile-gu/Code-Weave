@@ -4,6 +4,7 @@ package com.codingreview.controlplane.observability.run;
 public enum RunEventType {
     RUN_CREATED,
     RUN_NOTICE,
+    AGENT_EVENT_OBSERVED,
     STAGE_STARTED,
     PROCESS_START_REQUESTED,
     PROCESS_STARTED,
@@ -18,5 +19,6 @@ public enum RunEventType {
     STAGE_COMPLETED,
     STAGE_FAILED,
     RUN_COMPLETED,
+    RUN_CANCELLED,
     RUN_FAILED
 }
