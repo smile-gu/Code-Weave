@@ -139,7 +139,7 @@ export function RunPage() {
       <section className="run-detail">
         <nav className="detail-tabs" aria-label="Run 详情">
           <button className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>
-            实时事件 <span>{stream.events.length}</span>
+            执行过程
           </button>
           <button className={tab === 'result' ? 'active' : ''} disabled={!terminalStatus} onClick={() => setTab('result')}>
             执行结果

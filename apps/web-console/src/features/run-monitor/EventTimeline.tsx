@@ -1,35 +1,35 @@
-import { TerminalSquare } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import type { RunEvent } from '../../shared/api/types'
-import { eventSummary } from './runProjection'
+import { ActivityTimeline } from './ActivityTimeline'
+import { projectActivities, projectProcessOutput } from './activityProjection'
+import { ProcessConsole } from './ProcessConsole'
+import { RawEventTimeline } from './RawEventTimeline'
 
-const time = new Intl.DateTimeFormat('zh-CN', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-})
+type EventView = 'activities' | 'raw'
 
-/** 按事实序号展示 Run 的完整事件时间线。 */
+/** 在用户活动和原始事实事件之间提供分层查看。 */
 export function EventTimeline({ events }: { events: RunEvent[] }) {
-  if (events.length === 0) {
-    return <div className="empty-state">等待第一条运行事件…</div>
-  }
+  const [view, setView] = useState<EventView>('activities')
+  const activities = useMemo(() => projectActivities(events), [events])
+  const processOutput = useMemo(() => projectProcessOutput(events), [events])
+
   return (
-    <ol className="event-list">
-      {events.map((event) => (
-        <li key={event.eventId}>
-          <span className="event-sequence">#{event.sequence}</span>
-          <span className="event-dot"><TerminalSquare size={13} /></span>
-          <div>
-            <div className="event-title">
-              <strong>{event.type}</strong>
-              <time>{time.format(new Date(event.timestamp))}</time>
-            </div>
-            <p>{eventSummary(event)}</p>
-            <small>{event.stage} · attempt {event.attempt}</small>
-          </div>
-        </li>
-      ))}
-    </ol>
+    <div className="event-workspace">
+      <div className="event-view-switch" role="group" aria-label="事件展示方式">
+        <button className={view === 'activities' ? 'active' : ''} onClick={() => setView('activities')}>
+          执行动态 <span>{activities.length}</span>
+        </button>
+        <button className={view === 'raw' ? 'active' : ''} onClick={() => setView('raw')}>
+          原始事件 <span>{events.length}</span>
+        </button>
+      </div>
+      {view === 'activities' && (
+        <>
+          <ActivityTimeline activities={activities} />
+          <ProcessConsole output={processOutput} />
+        </>
+      )}
+      {view === 'raw' && <RawEventTimeline events={events} />}
+    </div>
   )
 }
