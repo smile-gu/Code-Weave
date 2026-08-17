@@ -69,7 +69,6 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
     public M0RunResult execute(M0RunRequest request) {
         Objects.requireNonNull(request, "request");
         RunProgress progress = new RunProgress(request, Instant.now());
-        appendRunCreated(request);
 
         M0RunResult failure = executeWorktree(progress);
         if (failure != null) {
@@ -349,21 +348,6 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
                 payload
         );
         return progress.failed(status, stage, failureCode, userMessage, diagnostic);
-    }
-
-    private void appendRunCreated(M0RunRequest request) {
-        ObjectNode payload = objectMapper.createObjectNode()
-                .put("workflow", "M0")
-                .put("repository", request.repository().toString())
-                .put("baseRef", request.baseRef())
-                .put("taskPrompt", request.taskPrompt());
-        payload.set("acceptanceCriteria", objectMapper.valueToTree(request.acceptanceCriteria()));
-        payload.set("allowedPaths", objectMapper.valueToTree(request.changePolicy().allowedPaths()));
-        payload.set("deniedPaths", objectMapper.valueToTree(request.changePolicy().deniedPaths()));
-        eventJournal.append(
-                request.runIdValue(), "run", FIRST_ATTEMPT,
-                RunEventType.RUN_CREATED, payload
-        );
     }
 
     private static final class RunProgress {

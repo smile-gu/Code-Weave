@@ -10,7 +10,7 @@ M0 用于验证以下技术链路是否可行：
 Git repository -> isolated Worktree -> Claude Code -> Git Diff -> Maven verification
 ```
 
-当前里程碑只包含工程骨架，以及已经冻结的 `M0_RESTRICTED` Claude Code Adapter 契约。当前代码尚未真正执行 Claude Code，也尚未创建 Worktree。
+当前已经完成 M0 主链路与 M1 异步 Run API：Control Plane 可以创建隔离 Worktree，调用受限 Claude Code，采集 Git Diff，执行路径门禁与 Maven 验证，并通过 HTTP 提交和查询任务。
 
 ## 仓库结构
 
@@ -38,3 +38,23 @@ docs/decisions/               已冻结的技术决策
 ```powershell
 .\mvnw.cmd test
 ```
+
+## 启动 Control Plane
+
+服务只监听本机 `127.0.0.1`。运行目录与 Claude Code 可执行文件属于部署配置，不能由单次 HTTP 请求指定：
+
+```powershell
+$env:CODE_WEAVE_RUNTIME_ROOT = "D:/code-weave-runtime"
+$env:CODE_WEAVE_CLAUDE_EXECUTABLE = "C:/path/to/claude.cmd"
+.\mvnw.cmd -pl services/control-plane spring-boot:run
+```
+
+M1 提供以下接口：
+
+```text
+POST /api/v1/m0/runs
+GET  /api/v1/m0/runs/{runId}
+GET  /api/v1/m0/runs/{runId}/events?afterSequence=0
+```
+
+默认只允许 1 个 Run 同时执行，最多排队 10 个。状态保存在当前服务进程内，服务重启后状态查询会丢失；NDJSON 事件和任务产物仍保留在运行目录中。

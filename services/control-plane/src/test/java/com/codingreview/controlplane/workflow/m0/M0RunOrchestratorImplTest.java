@@ -142,7 +142,6 @@ class M0RunOrchestratorImplTest {
         assertThat(eventJournal.events())
                 .extracting(RunEvent::type)
                 .containsExactly(
-                        RunEventType.RUN_CREATED,
                         RunEventType.STAGE_STARTED,
                         RunEventType.STAGE_COMPLETED,
                         RunEventType.STAGE_STARTED,
@@ -156,7 +155,11 @@ class M0RunOrchestratorImplTest {
                         RunEventType.STAGE_COMPLETED,
                         RunEventType.RUN_COMPLETED
                 );
-        assertThat(eventJournal.events().get(4).payload().path("agentEventType").asText())
+        RunEvent agentEvent = eventJournal.events().stream()
+                .filter(event -> event.type() == RunEventType.AGENT_EVENT_OBSERVED)
+                .findFirst()
+                .orElseThrow();
+        assertThat(agentEvent.payload().path("agentEventType").asText())
                 .isEqualTo("MESSAGE_COMPLETED");
     }
 
@@ -245,7 +248,6 @@ class M0RunOrchestratorImplTest {
         assertThat(eventJournal.events())
                 .extracting(RunEvent::type)
                 .containsExactly(
-                        RunEventType.RUN_CREATED,
                         RunEventType.STAGE_STARTED,
                         RunEventType.STAGE_FAILED,
                         RunEventType.RUN_FAILED
@@ -304,7 +306,7 @@ class M0RunOrchestratorImplTest {
                     JsonNode payload
             ) {
                 appends++;
-                if (appends == 2) {
+                if (appends == 1) {
                     throw new RunEventWriteException(
                             "事件日志写入失败", "simulated journal failure", null
                     );

@@ -3,6 +3,8 @@ package com.codingreview.controlplane.observability.run;
 /** 一次 Run 从创建到结束的统一事件类型。 */
 public enum RunEventType {
     RUN_CREATED,
+    RUN_QUEUED,
+    RUN_STARTED,
     RUN_NOTICE,
     AGENT_EVENT_OBSERVED,
     STAGE_STARTED,
