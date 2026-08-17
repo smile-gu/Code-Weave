@@ -16,6 +16,7 @@ import java.util.Set;
 /** 校验 Claude 实际工作目录和工具调用是否符合启动契约。 */
 final class ClaudeRuntimePolicyValidator {
 
+    /** 校验运行事件是否违反工作目录或工具白名单约束。 */
     Optional<ClaudeRuntimePolicyViolation> validate(AgentEvent event, ClaudeLaunchSpec spec) {
         if (event.type() == AgentEventType.RUNTIME_INITIALIZED) {
             Optional<ClaudeRuntimePolicyViolation> workspaceViolation = validateWorkspace(event, spec);
@@ -30,6 +31,7 @@ final class ClaudeRuntimePolicyValidator {
         return Optional.empty();
     }
 
+    /** 校验 Claude 报告的工作目录是否为约定的 Worktree。 */
     private Optional<ClaudeRuntimePolicyViolation> validateWorkspace(
             AgentEvent event,
             ClaudeLaunchSpec spec
@@ -54,6 +56,7 @@ final class ClaudeRuntimePolicyValidator {
         }
     }
 
+    /** 校验 Claude 初始化时暴露的工具是否都在白名单内。 */
     private Optional<ClaudeRuntimePolicyViolation> validateInitializedTools(
             AgentEvent event,
             ClaudeLaunchSpec spec
@@ -74,6 +77,7 @@ final class ClaudeRuntimePolicyValidator {
         return Optional.empty();
     }
 
+    /** 校验实际发起的工具调用是否得到运行规格授权。 */
     private Optional<ClaudeRuntimePolicyViolation> validateToolCall(
             AgentEvent event,
             ClaudeLaunchSpec spec
@@ -85,6 +89,7 @@ final class ClaudeRuntimePolicyValidator {
         return Optional.empty();
     }
 
+    /** 构造工作目录不匹配的策略违规结果。 */
     private Optional<ClaudeRuntimePolicyViolation> workspaceViolation(String diagnostic) {
         return Optional.of(new ClaudeRuntimePolicyViolation(
                 ClaudeRunStatus.WORKSPACE_MISMATCH,
@@ -92,6 +97,7 @@ final class ClaudeRuntimePolicyValidator {
         ));
     }
 
+    /** 构造工具越权的策略违规结果。 */
     private Optional<ClaudeRuntimePolicyViolation> toolViolation(String diagnostic) {
         return Optional.of(new ClaudeRuntimePolicyViolation(
                 ClaudeRunStatus.TOOL_POLICY_VIOLATION,

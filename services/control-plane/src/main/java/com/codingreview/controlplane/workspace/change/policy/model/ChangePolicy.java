@@ -14,6 +14,7 @@ public record ChangePolicy(
         deniedPaths = normalizeRules(deniedPaths, "deniedPaths");
     }
 
+    /** 校验并规范化一组仓库相对路径规则。 */
     private static List<String> normalizeRules(List<String> rules, String field) {
         Objects.requireNonNull(rules, field);
         List<String> normalizedRules = new ArrayList<>(rules.size());

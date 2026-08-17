@@ -47,6 +47,7 @@ public final class MavenProcessRunner {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper").copy();
     }
 
+    /** 启动 Maven 进程并汇总生命周期、日志与退出状态。 */
     public MavenProcessResult run(MavenProcessSpec spec, MavenProcessEventSink eventSink) {
         Objects.requireNonNull(spec, "spec");
         Objects.requireNonNull(eventSink, "eventSink");
@@ -140,6 +141,7 @@ public final class MavenProcessRunner {
         return result(status, exitCode, startedAt, logs.stdout(), logs.stderr(), diagnostic);
     }
 
+    /** 持续采集单个输出流并生成可校验的日志产物。 */
     private MavenLogArtifact capture(
             InputStream inputStream,
             String stream,
@@ -200,6 +202,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 等待 Maven 进程结束并识别超时、中断或日志采集失败。 */
     private MavenProcessStatus awaitLifecycle(
             Process process,
             MavenProcessSpec spec,
@@ -227,6 +230,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 等待标准输出与标准错误的采集任务结束。 */
     private CapturedLogs awaitLogs(
             Future<MavenLogArtifact> stdoutFuture,
             Future<MavenLogArtifact> stderrFuture,
@@ -238,6 +242,7 @@ public final class MavenProcessRunner {
         return new CapturedLogs(stdout, stderr, diagnostic);
     }
 
+    /** 等待单个日志采集任务并统一记录异步失败。 */
     private MavenLogArtifact awaitLog(
             Future<MavenLogArtifact> future,
             String stream,
@@ -269,6 +274,7 @@ public final class MavenProcessRunner {
         return null;
     }
 
+    /** 原子预留日志容量并阻止总日志超过安全上限。 */
     private void reserveLogBytes(AtomicLong combinedBytes, int requested, long limit) {
         while (true) {
             long current = combinedBytes.get();
@@ -283,6 +289,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 在记录终止事件的同时清理 Maven 进程树。 */
     private void terminateWithEvents(
             Process process,
             Duration gracePeriod,
@@ -316,12 +323,14 @@ public final class MavenProcessRunner {
         awaitTermination(descendants, parent, STREAM_SHUTDOWN_TIMEOUT);
     }
 
+    /** 按从最深子进程到父进程的顺序收集后代进程。 */
     private List<ProcessHandle> descendantsPostOrder(ProcessHandle parent) {
         List<ProcessHandle> result = new ArrayList<>();
         collectDescendantsPostOrder(parent, result);
         return result;
     }
 
+    /** 递归收集当前进程的后代进程。 */
     private void collectDescendantsPostOrder(ProcessHandle parent, List<ProcessHandle> result) {
         for (ProcessHandle child : parent.children().toList()) {
             collectDescendantsPostOrder(child, result);
@@ -329,6 +338,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 在指定时限内等待整棵进程树终止。 */
     private void awaitTermination(List<ProcessHandle> descendants, ProcessHandle parent, Duration timeout) {
         long deadlineNanos = System.nanoTime() + Math.max(0, timeout.toNanos());
         while (parent.isAlive() || descendants.stream().anyMatch(ProcessHandle::isAlive)) {
@@ -344,6 +354,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 尝试温和终止进程并忽略清理阶段异常。 */
     private void destroyQuietly(ProcessHandle processHandle) {
         try {
             processHandle.destroy();
@@ -352,6 +363,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 尝试强制终止进程并忽略最终清理异常。 */
     private void destroyForciblyQuietly(ProcessHandle processHandle) {
         try {
             processHandle.destroyForcibly();
@@ -360,6 +372,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 等待 Maven 进程退出并返回可用的退出码。 */
     private Integer waitForExit(Process process) {
         try {
             if (process.isAlive()) {
@@ -372,6 +385,7 @@ public final class MavenProcessRunner {
         return process.isAlive() ? null : process.exitValue();
     }
 
+    /** 将本次读取的日志字节完整写入文件通道。 */
     private void writeFully(FileChannel channel, byte[] bytes, int length) throws IOException {
         ByteBuffer buffer = ByteBuffer.wrap(bytes, 0, length);
         while (buffer.hasRemaining()) {
@@ -379,6 +393,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 将日志文件转换为运行时根目录内的相对路径。 */
     private String relativePath(Path runtimeRoot, Path file) {
         Path normalizedRoot = runtimeRoot.normalize();
         Path normalizedFile = file.normalize();
@@ -388,6 +403,7 @@ public final class MavenProcessRunner {
         return normalizedRoot.relativize(normalizedFile).toString().replace('\\', '/');
     }
 
+    /** 创建用于校验日志完整性的 SHA-256 摘要器。 */
     private MessageDigest sha256() {
         try {
             return MessageDigest.getInstance("SHA-256");
@@ -396,6 +412,7 @@ public final class MavenProcessRunner {
         }
     }
 
+    /** 构造允许整数值为空的事件载荷。 */
     private ObjectNode nullableIntegerPayload(String field, Integer value) {
         ObjectNode payload = objectMapper.createObjectNode();
         if (value == null) {
@@ -406,10 +423,12 @@ public final class MavenProcessRunner {
         return payload;
     }
 
+    /** 将一条 Maven 进程事件发布给上层事件接收器。 */
     private void publish(MavenProcessEventSink sink, RunEventType type, ObjectNode payload) {
         sink.onEvent(type, payload);
     }
 
+    /** 根据当前证据构造 Maven 进程结果。 */
     private MavenProcessResult result(
             MavenProcessStatus status,
             Integer exitCode,
@@ -441,6 +460,7 @@ public final class MavenProcessRunner {
             this.eventSink = eventSink;
         }
 
+        /** 接收日志片段并在达到阈值时发布输出事件。 */
         private void accept(byte[] bytes, int length, long streamBytes) {
             int previewRemaining = OUTPUT_PREVIEW_BYTES - preview.size();
             if (previewRemaining > 0) {
@@ -456,12 +476,14 @@ public final class MavenProcessRunner {
             }
         }
 
+        /** 发布缓冲区中尚未上报的日志片段。 */
         private void flush(long streamBytes) {
             if (pendingBytes > 0) {
                 publish(streamBytes);
             }
         }
 
+        /** 生成包含字节区间和预览内容的日志输出事件。 */
         private void publish(long streamBytes) {
             ObjectNode payload = objectMapper.createObjectNode()
                     .put("stream", stream)
@@ -485,6 +507,7 @@ public final class MavenProcessRunner {
             MavenLogArtifact stderr,
             String diagnostic
     ) {
+        /** 判断标准输出和标准错误是否都已形成日志产物。 */
         private boolean complete() {
             return stdout != null && stderr != null;
         }
@@ -495,6 +518,7 @@ public final class MavenProcessRunner {
             Throwable cause,
             boolean eventPublishFailure
     ) {
+        /** 将采集失败原因统一转换为可抛出的运行时异常。 */
         private RuntimeException runtimeCause() {
             if (cause instanceof RuntimeException runtimeException) {
                 return runtimeException;

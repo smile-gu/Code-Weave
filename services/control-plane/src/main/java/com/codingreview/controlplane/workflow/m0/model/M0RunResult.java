@@ -51,6 +51,7 @@ public record M0RunResult(
         }
     }
 
+    /** 判断五阶段主链路是否全部成功完成。 */
     public boolean completed() {
         return status == M0RunStatus.COMPLETED;
     }

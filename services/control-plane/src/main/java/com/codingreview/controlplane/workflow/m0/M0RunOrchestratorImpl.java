@@ -65,6 +65,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         this.stageLifecycle = new StageLifecycle(this.eventJournal, this.objectMapper);
     }
 
+    /** 依次执行五个阶段并在任一失败时立即短路。 */
     @Override
     public M0RunResult execute(M0RunRequest request) {
         Objects.requireNonNull(request, "request");
@@ -102,6 +103,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         return progress.completed();
     }
 
+    /** 创建隔离 Worktree 并记录仓库相关提示。 */
     private M0RunResult executeWorktree(RunProgress progress) {
         M0RunRequest request = progress.request;
         M0RunStage stage = M0RunStage.WORKTREE;
@@ -135,6 +137,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         }
     }
 
+    /** 在隔离 Worktree 中调用 Claude Code 完成代码修改。 */
     private M0RunResult executeCoding(RunProgress progress) {
         M0RunRequest request = progress.request;
         M0RunStage stage = M0RunStage.CODING;
@@ -192,6 +195,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         }
     }
 
+    /** 采集 Claude Code 实际产生的 Git 文件变更。 */
     private M0RunResult executeChangeCollection(RunProgress progress) {
         M0RunRequest request = progress.request;
         M0RunStage stage = M0RunStage.CHANGE_COLLECTION;
@@ -214,6 +218,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         }
     }
 
+    /** 检查实际文件变更是否满足任务路径策略。 */
     private M0RunResult executeChangePolicy(RunProgress progress) {
         M0RunRequest request = progress.request;
         M0RunStage stage = M0RunStage.CHANGE_POLICY;
@@ -257,6 +262,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         }
     }
 
+    /** 独立执行 Maven 编译与测试验证。 */
     private M0RunResult executeMaven(RunProgress progress) {
         M0RunRequest request = progress.request;
         M0RunStage stage = M0RunStage.MAVEN;
@@ -292,6 +298,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         }
     }
 
+    /** 将未分类运行时异常转换为当前阶段的内部失败。 */
     private M0RunResult internalFailure(
             RunProgress progress,
             M0RunStage stage,
@@ -307,6 +314,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         );
     }
 
+    /** 使用默认失败状态结束当前 Run。 */
     private M0RunResult fail(
             RunProgress progress,
             M0RunStage stage,
@@ -318,6 +326,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         return fail(progress, stage, failureCode, userMessage, diagnostic, details, M0RunStatus.FAILED);
     }
 
+    /** 发布阶段和 Run 终态事件并构造失败结果。 */
     private M0RunResult fail(
             RunProgress progress,
             M0RunStage stage,
@@ -364,6 +373,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
             this.startedAt = startedAt;
         }
 
+        /** 汇总五个阶段的产出并创建成功结果。 */
         private M0RunResult completed() {
             return new M0RunResult(
                     request.runId(), M0RunStatus.COMPLETED, null, null,
@@ -374,6 +384,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
             );
         }
 
+        /** 保留已完成阶段的产出并创建失败结果。 */
         private M0RunResult failed(
                 M0RunStatus status,
                 M0RunStage stage,

@@ -24,14 +24,17 @@ public record MavenTestSummary(
         failedTests = List.copyOf(failedTests);
     }
 
+    /** 判断本次验证是否发现了 Surefire 报告。 */
     public boolean reportsFound() {
         return reportFiles > 0;
     }
 
+    /** 计算成功通过且未跳过的测试数量。 */
     public long passed() {
         return tests - failures - errors - skipped;
     }
 
+    /** 判断测试报告中是否包含失败或错误。 */
     public boolean hasTestFailures() {
         return failures > 0 || errors > 0;
     }

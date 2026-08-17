@@ -9,5 +9,6 @@ import com.codingreview.controlplane.workflow.m0.model.M0RunResult;
  */
 public interface M0RunOrchestrator {
 
+    /** 按固定顺序执行五阶段主链路并返回最终业务结果。 */
     M0RunResult execute(M0RunRequest request);
 }

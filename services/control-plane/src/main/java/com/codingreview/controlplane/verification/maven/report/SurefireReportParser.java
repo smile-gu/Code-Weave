@@ -27,6 +27,7 @@ public final class SurefireReportParser {
     private static final int MAX_FAILURE_DETAILS = 100;
     private static final int MAX_FAILURE_MESSAGE_CHARS = 4_000;
 
+    /** 扫描并汇总 Worktree 中的全部 Surefire 测试报告。 */
     public MavenTestSummary parse(Path worktreePath) {
         List<Path> reports = findReports(worktreePath);
         long tests = 0;
@@ -64,6 +65,7 @@ public final class SurefireReportParser {
         }
     }
 
+    /** 查找 Worktree 内符合命名约定的 Surefire XML 报告。 */
     private List<Path> findReports(Path worktreePath) {
         try (var paths = Files.walk(worktreePath)) {
             return paths.filter(Files::isRegularFile)
@@ -75,6 +77,7 @@ public final class SurefireReportParser {
         }
     }
 
+    /** 判断文件是否位于 Maven Surefire 的标准报告目录。 */
     private boolean isSurefireReport(Path path) {
         String fileName = path.getFileName().toString();
         Path parent = path.getParent();
@@ -87,6 +90,7 @@ public final class SurefireReportParser {
                 && "target".equals(grandparent.getFileName().toString());
     }
 
+    /** 安全解析单个报告并返回 testsuite 根节点。 */
     private Element parseSuite(Path worktreePath, Path report) {
         try {
             DocumentBuilder builder = secureDocumentBuilder();
@@ -107,6 +111,7 @@ public final class SurefireReportParser {
         }
     }
 
+    /** 创建禁用外部实体和外部资源访问的 XML 解析器。 */
     private DocumentBuilder secureDocumentBuilder() throws ParserConfigurationException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -120,6 +125,7 @@ public final class SurefireReportParser {
         return factory.newDocumentBuilder();
     }
 
+    /** 读取并校验非负整数类型的报告属性。 */
     private long readLong(Element element, String attribute, boolean required, Path report) {
         String value = element.getAttribute(attribute);
         if (value.isBlank()) {
@@ -142,6 +148,7 @@ public final class SurefireReportParser {
         }
     }
 
+    /** 读取并校验非负有限小数类型的报告属性。 */
     private double readDouble(Element element, String attribute, Path report) {
         String value = element.getAttribute(attribute);
         if (value.isBlank()) {
@@ -161,6 +168,7 @@ public final class SurefireReportParser {
         }
     }
 
+    /** 提取测试套件中的失败与错误详情。 */
     private List<MavenTestFailure> readFailures(Element suite) {
         List<MavenTestFailure> failures = new ArrayList<>();
         NodeList testCases = suite.getElementsByTagName("testcase");
@@ -184,6 +192,7 @@ public final class SurefireReportParser {
         return failures;
     }
 
+    /** 提取并限制单条测试失败信息的长度。 */
     private String failureMessage(Element detail) {
         String message = detail.getAttribute("message");
         if (message.isBlank()) {
@@ -195,6 +204,7 @@ public final class SurefireReportParser {
         return message.isBlank() ? null : message;
     }
 
+    /** 将空白 XML 属性统一转换为 null。 */
     private String nullableAttribute(Element element, String name) {
         String value = element.getAttribute(name);
         return value.isBlank() ? null : value;

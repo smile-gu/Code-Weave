@@ -20,6 +20,7 @@ public record GitChangedFile(
         }
     }
 
+    /** 校验并规范化仓库相对路径。 */
     private static String normalizeRelativePath(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");

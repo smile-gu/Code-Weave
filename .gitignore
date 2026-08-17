@@ -1,9 +1,14 @@
 **/target/
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+.playwright-cli/
+output/playwright/
 .idea/
 .vscode/
 *.iml
 runtime/worktrees/*
 runtime/runs/*
+runtime/e2e/
 !runtime/worktrees/.gitkeep
 !runtime/runs/.gitkeep
-

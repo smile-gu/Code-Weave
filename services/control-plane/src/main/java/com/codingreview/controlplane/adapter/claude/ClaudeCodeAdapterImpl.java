@@ -50,6 +50,7 @@ public final class ClaudeCodeAdapterImpl implements ClaudeCodeAdapter {
         this.processRunner = Objects.requireNonNull(processRunner, "processRunner");
     }
 
+    /** 组装启动规格并执行一次受约束的 Claude Code 任务。 */
     @Override
     public ClaudeRunResult run(ClaudeRunRequest request, AgentEventSink eventSink) {
         Objects.requireNonNull(request, "request");

@@ -97,6 +97,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         this.maxLogBytes = maxLogBytes;
     }
 
+    /** 执行 Maven 验证并汇总进程、日志和测试报告证据。 */
     @Override
     public MavenVerificationResult verify(MavenVerificationRequest request) {
         Objects.requireNonNull(request, "request");
@@ -190,6 +191,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         );
     }
 
+    /** 构造平台固定的 Maven clean test 命令。 */
     private List<String> command() {
         List<String> command = new ArrayList<>(commandPrefix);
         command.add("-B");
@@ -201,6 +203,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         return List.copyOf(command);
     }
 
+    /** 校验 Worktree 是否具备 Maven 项目的基本运行条件。 */
     private String validateWorkspace(Path worktree) {
         if (!worktree.isAbsolute()) {
             return "Worktree path is not absolute: " + worktree;
@@ -214,6 +217,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         return null;
     }
 
+    /** 将 Maven 进程层失败转换为业务验证结果。 */
     private MavenVerificationResult processFailure(List<String> command, MavenProcessResult process) {
         MavenVerificationStatus status = switch (process.status()) {
             case START_FAILED -> MavenVerificationStatus.START_FAILED;
@@ -226,6 +230,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         return result(status, command, process, null, userMessage(status, null), process.diagnostic());
     }
 
+    /** 根据退出码和测试报告区分通过、构建失败与测试失败。 */
     private MavenVerificationStatus classify(Integer exitCode, MavenTestSummary summary) {
         if (Integer.valueOf(0).equals(exitCode)) {
             return MavenVerificationStatus.PASSED;
@@ -235,6 +240,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
                 : MavenVerificationStatus.BUILD_FAILED;
     }
 
+    /** 生成面向用户的 Maven 验证结论。 */
     private String userMessage(MavenVerificationStatus status, MavenTestSummary summary) {
         return switch (status) {
             case PASSED -> summary != null && !summary.reportsFound()
@@ -251,6 +257,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         };
     }
 
+    /** 生成便于排查的 Maven 验证诊断摘要。 */
     private String diagnostic(
             MavenVerificationStatus status,
             Integer exitCode,
@@ -264,6 +271,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
                 + ", errors=" + summary.errors();
     }
 
+    /** 合并进程证据与报告结论生成验证结果。 */
     private MavenVerificationResult result(
             MavenVerificationStatus status,
             List<String> command,
@@ -286,6 +294,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         );
     }
 
+    /** 记录 Maven 测试报告分析完成事件。 */
     private void appendAnalysisCompleted(
             MavenVerificationRequest request,
             MavenVerificationStatus status,
@@ -304,6 +313,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         appendEvent(request, RunEventType.ANALYSIS_COMPLETED, payload);
     }
 
+    /** 记录需要用户关注但不属于进程输出的提示事件。 */
     private void appendNotice(
             MavenVerificationRequest request,
             String code,
@@ -321,6 +331,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         appendEvent(request, RunEventType.RUN_NOTICE, payload);
     }
 
+    /** 将 Maven 阶段事件写入当前 Run 的事件日志。 */
     private void appendEvent(
             MavenVerificationRequest request,
             RunEventType type,
@@ -335,6 +346,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         );
     }
 
+    /** 将 Surefire 汇总结果持久化为 JSON 证据。 */
     private String writeSummary(Path artifactDirectory, MavenTestSummary summary) throws IOException {
         Path summaryFile = artifactDirectory.resolve("surefire-summary.json").normalize();
         byte[] json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(summary);
@@ -351,6 +363,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         return relativePath(summaryFile);
     }
 
+    /** 计算本次 Maven 尝试的安全产物目录。 */
     private Path artifactDirectory(String runId, int attempt) {
         Path runsRoot = runtimeRoot.resolve("runs").normalize();
         Path directory = runsRoot.resolve(runId)
@@ -362,6 +375,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         return directory;
     }
 
+    /** 将 Maven 产物路径转换为运行时根目录内的相对路径。 */
     private String relativePath(Path file) {
         Path normalized = file.normalize();
         if (!normalized.startsWith(runtimeRoot)) {
@@ -370,12 +384,14 @@ public final class MavenVerifierImpl implements MavenVerifier {
         return runtimeRoot.relativize(normalized).toString().replace('\\', '/');
     }
 
+    /** 校验 Run 标识可安全用于产物目录。 */
     private void validateRunId(String runId) {
         if (runId == null || !runId.matches(SAFE_RUN_ID_PATTERN)) {
             throw new IllegalArgumentException("runId contains unsupported characters");
         }
     }
 
+    /** 从系统 PATH 中解析 Maven 可执行文件的绝对路径。 */
     private static String resolveSystemMavenExecutable() {
         boolean windows = System.getProperty("os.name", "")
                 .toLowerCase(Locale.ROOT)
@@ -402,6 +418,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
                 ));
     }
 
+    /** 去除 PATH 条目首尾可能存在的引号。 */
     private static String unquotePathEntry(String value) {
         String stripped = value.strip();
         if (stripped.length() >= 2 && stripped.startsWith("\"") && stripped.endsWith("\"")) {

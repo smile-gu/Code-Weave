@@ -42,6 +42,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         this.policyValidator = new ClaudeRuntimePolicyValidator();
     }
 
+    /** 启动 Claude Code 进程并汇总流式事件与最终状态。 */
     @Override
     public ClaudeRunResult run(ClaudeLaunchSpec launchSpec, AgentEventSink eventSink) {
         Objects.requireNonNull(launchSpec, "launchSpec");
@@ -87,6 +88,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         );
     }
 
+    /** 将任务 Prompt 写入进程标准输入并关闭输入流。 */
     private void writePrompt(Process process, RunState state, String prompt) {
         try {
             process.getOutputStream().write(prompt.getBytes(StandardCharsets.UTF_8));
@@ -98,6 +100,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 等待初始化和任务执行，并处理超时、失败与中断。 */
     private ClaudeRunStatus awaitLifecycle(Process process, RunState state, ClaudeLaunchSpec spec) {
         try {
             state.initializedLatch.await(
@@ -141,6 +144,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 等待进程退出并返回可用的退出码。 */
     private Integer waitForExit(Process process) {
         try {
             if (process.isAlive()) {
@@ -169,12 +173,14 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         awaitTermination(descendants, parent, STREAM_SHUTDOWN_TIMEOUT);
     }
 
+    /** 按从最深子进程到父进程的顺序收集后代进程。 */
     private List<ProcessHandle> descendantsPostOrder(ProcessHandle parent) {
         List<ProcessHandle> result = new ArrayList<>();
         collectDescendantsPostOrder(parent, result);
         return result;
     }
 
+    /** 递归收集当前进程的后代进程。 */
     private void collectDescendantsPostOrder(ProcessHandle parent, List<ProcessHandle> result) {
         List<ProcessHandle> children = parent.children().toList();
         for (ProcessHandle child : children) {
@@ -183,6 +189,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 在指定时限内等待整棵进程树终止。 */
     private void awaitTermination(List<ProcessHandle> descendants, ProcessHandle parent, Duration timeout) {
         long deadlineNanos = System.nanoTime() + Math.max(0, timeout.toNanos());
         while (parent.isAlive() || descendants.stream().anyMatch(ProcessHandle::isAlive)) {
@@ -198,6 +205,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 尝试温和终止进程并忽略清理阶段异常。 */
     private void destroyQuietly(ProcessHandle processHandle) {
         try {
             processHandle.destroy();
@@ -206,6 +214,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 尝试强制终止进程并忽略最终清理异常。 */
     private void destroyForciblyQuietly(ProcessHandle processHandle) {
         try {
             processHandle.destroyForcibly();
@@ -214,6 +223,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 持续解析标准输出并实时发布通过策略校验的 Agent 事件。 */
     private void readStdout(
             Process process,
             RunState state,
@@ -259,10 +269,12 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 读取并整理 Claude 进程的标准错误输出。 */
     private String readStderr(InputStream errorStream) throws IOException {
         return new String(errorStream.readAllBytes(), StandardCharsets.UTF_8).trim();
     }
 
+    /** 等待标准错误读取任务完成并返回诊断文本。 */
     private String awaitStderr(Future<String> stderrFuture) {
         try {
             return stderrFuture.get(STREAM_SHUTDOWN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
@@ -274,6 +286,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 等待标准输出读取任务完成或达到关闭时限。 */
     private void awaitStream(Future<?> stdoutFuture) {
         try {
             stdoutFuture.get(STREAM_SHUTDOWN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
@@ -284,6 +297,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         }
     }
 
+    /** 根据协议终态和退出码判定最终运行状态。 */
     private ClaudeRunStatus determineStatus(RunState state, Integer exitCode) {
         if (state.failureStatus != null) {
             return state.failureStatus;
@@ -301,6 +315,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
                 : ClaudeRunStatus.PROCESS_FAILED;
     }
 
+    /** 构造未进入正常流式阶段的运行结果。 */
     private ClaudeRunResult result(ClaudeRunStatus status, Integer exitCode, Instant startedAt,
                                    AgentEvent terminalEvent, String diagnostic) {
         Instant endedAt = Instant.now();
@@ -308,6 +323,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
                 startedAt, endedAt, diagnostic);
     }
 
+    /** 合并所有非空诊断信息。 */
     private String joinDiagnostics(String... values) {
         return java.util.Arrays.stream(values)
                 .filter(value -> value != null && !value.isBlank())
@@ -323,6 +339,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
         private volatile ClaudeRunStatus failureStatus;
         private volatile String failureMessage;
 
+        /** 原子记录首次运行失败并结束初始化等待。 */
         private synchronized void fail(ClaudeRunStatus status, String message) {
             if (failureStatus == null) {
                 failureStatus = status;

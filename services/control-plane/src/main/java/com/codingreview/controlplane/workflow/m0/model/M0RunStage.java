@@ -14,6 +14,7 @@ public enum M0RunStage {
         this.eventName = eventName;
     }
 
+    /** 返回该阶段写入事件日志时使用的稳定名称。 */
     public String eventName() {
         return eventName;
     }

@@ -16,14 +16,17 @@ public class GitChangeException extends RuntimeException {
         this.diagnostic = diagnostic;
     }
 
+    /** 返回稳定的 Git 变更失败类型。 */
     public GitChangeFailureType failureType() {
         return failureType;
     }
 
+    /** 返回面向用户的失败说明。 */
     public String userMessage() {
         return userMessage;
     }
 
+    /** 返回供日志排查使用的技术诊断。 */
     public String diagnostic() {
         return diagnostic;
     }

@@ -10,6 +10,7 @@ public record ChangePolicyResult(
         violations = List.copyOf(violations);
     }
 
+    /** 判断本次代码变更是否满足全部路径规则。 */
     public boolean compliant() {
         return violations.isEmpty();
     }

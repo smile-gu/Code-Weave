@@ -41,6 +41,7 @@ public final class ClaudePromptRenderer {
         );
     }
 
+    /** 将约束条目渲染为 Prompt 中的项目列表。 */
     private static String bullets(List<String> values) {
         if (values.isEmpty()) {
             return "- None specified";

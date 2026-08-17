@@ -31,6 +31,7 @@ public final class AgentRunEventMapper {
         this.maxPayloadBytes = maxPayloadBytes;
     }
 
+    /** 将 Agent 事件映射为带大小控制和摘要的持久化载荷。 */
     public ObjectNode map(AgentEvent event) {
         Objects.requireNonNull(event, "event");
         byte[] serializedPayload;
@@ -62,6 +63,7 @@ public final class AgentRunEventMapper {
         return mapped;
     }
 
+    /** 计算事件原始载荷的 SHA-256 摘要。 */
     private String sha256(byte[] value) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value));

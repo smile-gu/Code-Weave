@@ -7,5 +7,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 @FunctionalInterface
 public interface MavenProcessEventSink {
 
+    /** 接收一条 Maven 进程生命周期事件。 */
     void onEvent(RunEventType type, ObjectNode payload);
 }

@@ -52,6 +52,7 @@ public final class ClaudeStreamEventMapper {
         return List.of();
     }
 
+    /** 将助手消息中的文本和工具调用块映射为平台事件。 */
     private List<AgentEvent> mapAssistant(JsonNode root) {
         List<AgentEvent> events = new ArrayList<>();
         for (JsonNode content : root.path("message").path("content")) {
@@ -66,6 +67,7 @@ public final class ClaudeStreamEventMapper {
         return events;
     }
 
+    /** 将用户消息中的工具执行结果映射为平台事件。 */
     private List<AgentEvent> mapToolResults(JsonNode root) {
         List<AgentEvent> events = new ArrayList<>();
         for (JsonNode content : root.path("message").path("content")) {
@@ -80,6 +82,7 @@ public final class ClaudeStreamEventMapper {
         return events;
     }
 
+    /** 构造一条与 Claude 原始载荷隔离的平台事件。 */
     private AgentEvent event(AgentEventType type, String externalId, JsonNode payload) {
         return new AgentEvent(type, externalId, payload.deepCopy());
     }

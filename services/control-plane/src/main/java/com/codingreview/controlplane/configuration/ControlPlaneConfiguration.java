@@ -5,6 +5,8 @@ import com.codingreview.controlplane.adapter.claude.ClaudeCodeAdapterImpl;
 import com.codingreview.controlplane.adapter.claude.invocation.CapabilityProfile;
 import com.codingreview.controlplane.observability.run.FileRunEventJournal;
 import com.codingreview.controlplane.observability.run.RunEventJournal;
+import com.codingreview.controlplane.observability.run.stream.PublishingRunEventJournal;
+import com.codingreview.controlplane.observability.run.stream.RunEventStreamHub;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.verification.maven.MavenVerifierImpl;
 import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
@@ -20,15 +22,36 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /** 集中装配 M0 核心对象，业务类本身不依赖 Spring。 */
 @Configuration(proxyBeanMethods = false)
 public class ControlPlaneConfiguration {
 
-    /** 创建基于 NDJSON 文件的 Run 事件日志。 */
+    /** 创建负责管理实时事件订阅的内存 Hub。 */
     @Bean
-    RunEventJournal runEventJournal(CodeWeaveProperties properties, ObjectMapper objectMapper) {
-        return new FileRunEventJournal(runtimeRoot(properties), objectMapper);
+    RunEventStreamHub runEventStreamHub() {
+        return new RunEventStreamHub();
+    }
+
+    /** 创建承载 SSE 长连接发送任务的虚拟线程执行器。 */
+    @Bean(destroyMethod = "close")
+    ExecutorService runEventStreamExecutor() {
+        return Executors.newVirtualThreadPerTaskExecutor();
+    }
+
+    /** 创建持久化后通知实时订阅者的 Run 事件日志。 */
+    @Bean
+    RunEventJournal runEventJournal(
+            CodeWeaveProperties properties,
+            ObjectMapper objectMapper,
+            RunEventStreamHub streamHub
+    ) {
+        return new PublishingRunEventJournal(
+                new FileRunEventJournal(runtimeRoot(properties), objectMapper),
+                streamHub
+        );
     }
 
     /** 创建负责隔离工作目录的 Git Worktree 管理器。 */

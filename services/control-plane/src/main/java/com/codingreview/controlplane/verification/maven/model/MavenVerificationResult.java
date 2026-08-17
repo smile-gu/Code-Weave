@@ -33,6 +33,7 @@ public record MavenVerificationResult(
         }
     }
 
+    /** 判断 Maven 验证是否完整通过。 */
     public boolean passed() {
         return status == MavenVerificationStatus.PASSED;
     }

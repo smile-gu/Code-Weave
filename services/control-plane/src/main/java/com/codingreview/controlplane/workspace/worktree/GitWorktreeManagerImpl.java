@@ -49,6 +49,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         this.commandTimeout = commandTimeout;
     }
 
+    /** 检查仓库有效性、脏状态和当前提交。 */
     @Override
     public GitRepositoryStatus inspect(Path repository) {
         Path normalizedRepository = resolveRepository(repository);
@@ -63,6 +64,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
                 head.success() ? head.output().trim() : null);
     }
 
+    /** 在运行根目录中创建基于指定提交的隔离 Worktree。 */
     @Override
     public WorktreeCreateResult create(WorktreeCreateRequest request) {
         Objects.requireNonNull(request, "request");
@@ -112,6 +114,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         return new WorktreeCreateResult(handle, notices);
     }
 
+    /** 仅在 Worktree 干净时执行普通清理。 */
     @Override
     public void cleanup(WorktreeHandle handle) {
         validateHandle(handle);
@@ -132,6 +135,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         removeWorktree(handle, false);
     }
 
+    /** 强制删除属于当前运行环境的 Worktree。 */
     @Override
     public void forceCleanup(WorktreeHandle handle) {
         validateHandle(handle);
@@ -140,6 +144,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         }
     }
 
+    /** 调用 Git worktree remove 删除隔离目录。 */
     private void removeWorktree(WorktreeHandle handle, boolean force) {
         List<String> command = new ArrayList<>(List.of("worktree", "remove"));
         if (force) {
@@ -155,6 +160,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         }
     }
 
+    /** 校验并解析仓库的真实顶层目录。 */
     private Path resolveRepository(Path repository) {
         if (repository == null || !repository.isAbsolute() || !Files.isDirectory(repository)) {
             throw failure(WorktreeFailureType.INVALID_REPOSITORY,
@@ -173,6 +179,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         }
     }
 
+    /** 校验 Worktree 句柄是否属于当前运行根目录。 */
     private void validateHandle(WorktreeHandle handle) {
         Objects.requireNonNull(handle, "handle");
         Path expectedRoot = runtimeRoot.resolve("worktrees").normalize();
@@ -187,6 +194,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         }
     }
 
+    /** 在指定仓库上下文中执行一次受控 Git 命令。 */
     private CommandResult runGit(Path repository, List<String> arguments) {
         List<String> command = new ArrayList<>();
         command.add(gitExecutable);
@@ -218,11 +226,13 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         }
     }
 
+    /** 创建包含用户提示和技术诊断的 Worktree 异常。 */
     private WorktreeException failure(WorktreeFailureType type, String userMessage, String diagnostic) {
         return new WorktreeException(type, userMessage, diagnostic);
     }
 
     private record CommandResult(int exitCode, String output) {
+        /** 判断 Git 命令是否正常退出。 */
         private boolean success() {
             return exitCode == 0;
         }

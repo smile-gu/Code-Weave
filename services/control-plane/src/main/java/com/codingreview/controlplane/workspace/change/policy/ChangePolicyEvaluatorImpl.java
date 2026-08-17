@@ -22,6 +22,7 @@ public final class ChangePolicyEvaluatorImpl implements ChangePolicyEvaluator {
         pathMatcher.setCaseSensitive(false);
     }
 
+    /** 逐文件检查旧路径和新路径是否符合修改范围。 */
     @Override
     public ChangePolicyResult evaluate(GitChangeSet changeSet, ChangePolicy policy) {
         Objects.requireNonNull(changeSet, "changeSet");
@@ -36,6 +37,7 @@ public final class ChangePolicyEvaluatorImpl implements ChangePolicyEvaluator {
         return new ChangePolicyResult(violations);
     }
 
+    /** 对单个仓库相对路径执行禁止优先的规则检查。 */
     private void evaluatePath(String path, GitChangedFile file, ChangePolicy policy,
                               List<ChangePolicyViolation> violations) {
         String deniedRule = firstMatchingRule(policy.deniedPaths(), path);
@@ -61,6 +63,7 @@ public final class ChangePolicyEvaluatorImpl implements ChangePolicyEvaluator {
         }
     }
 
+    /** 返回第一条能够匹配指定路径的规则。 */
     private String firstMatchingRule(List<String> rules, String path) {
         return rules.stream()
                 .filter(rule -> pathMatcher.match(rule, path))

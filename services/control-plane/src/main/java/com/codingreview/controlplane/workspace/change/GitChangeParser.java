@@ -14,6 +14,7 @@ import java.util.Set;
 /** 解析 Git 使用 NUL 分隔的 name-status 和 numstat 输出。 */
 final class GitChangeParser {
 
+    /** 解析已跟踪文件的 name-status 元数据。 */
     List<GitChangedFile> parseTrackedFiles(byte[] output, Set<String> binaryPaths) {
         List<String> fields = splitNullTerminated(output);
         List<GitChangedFile> files = new ArrayList<>();
@@ -44,6 +45,7 @@ final class GitChangeParser {
         return files;
     }
 
+    /** 解析 numstat 输出中的二进制文件路径。 */
     Set<String> parseBinaryPaths(byte[] output) {
         List<String> records = splitNullTerminated(output);
         Set<String> binaryPaths = new HashSet<>();
@@ -71,6 +73,7 @@ final class GitChangeParser {
         return binaryPaths;
     }
 
+    /** 将 Git 的 NUL 分隔字节流拆分为 UTF-8 字段。 */
     List<String> splitNullTerminated(byte[] output) {
         List<String> fields = new ArrayList<>();
         int start = 0;
@@ -86,15 +89,18 @@ final class GitChangeParser {
         return fields;
     }
 
+    /** 判断补丁内容是否包含 Git 二进制标记。 */
     boolean containsBinaryMarker(byte[] patch) {
         String text = new String(patch, StandardCharsets.ISO_8859_1);
         return text.contains("Binary files ");
     }
 
+    /** 将 Git 路径统一转换为正斜杠形式。 */
     private String normalizePath(String path) {
         return path.replace('\\', '/');
     }
 
+    /** 创建表示 Git 元数据格式异常的采集错误。 */
     private GitChangeException malformedMetadata(String kind, List<String> fields) {
         return new GitChangeException(GitChangeFailureType.COLLECT_FAILED,
                 "Git 返回的变更数据无法解析，已停止本次采集。", kind + ": " + fields);

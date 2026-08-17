@@ -54,6 +54,7 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         this.parser = new GitChangeParser();
     }
 
+    /** 采集并合并已跟踪文件与未跟踪文件的完整 Diff。 */
     @Override
     public GitChangeSet collect(WorktreeHandle handle) {
         Path worktree = validateWorktree(handle);
@@ -107,6 +108,7 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
                 new String(diffBytes, StandardCharsets.UTF_8), diffBytes.length);
     }
 
+    /** 校验 Worktree 路径和 Git 顶层目录是否一致。 */
     private Path validateWorktree(WorktreeHandle handle) {
         Objects.requireNonNull(handle, "handle");
         Path worktree = handle.worktreePath();
@@ -133,6 +135,7 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         }
     }
 
+    /** 确认用于比较的基准提交在 Worktree 中仍然可用。 */
     private void validateBaseCommit(Path worktree, String baseCommit) {
         CommandResult result = runGit(worktree,
                 List.of("cat-file", "-e", baseCommit + "^{commit}"), METADATA_OUTPUT_LIMIT);
@@ -142,6 +145,7 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         }
     }
 
+    /** 在总大小限制内追加一段补丁内容。 */
     private void appendPatch(ByteArrayOutputStream target, byte[] patch) {
         if (patch.length == 0) {
             return;
@@ -155,12 +159,14 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         target.writeBytes(patch);
     }
 
+    /** 拒绝超过平台展示上限的补丁输出。 */
     private void requirePatchWithinLimit(CommandResult result) {
         if (result.truncated() || result.output().length > maxDiffBytes) {
             throw diffTooLarge();
         }
     }
 
+    /** 校验 Git 命令是否成功且输出完整。 */
     private CommandResult requireSuccess(CommandResult result, String userMessage, GitChangeFailureType failureType) {
         if (!result.success() || result.truncated()) {
             throw failure(failureType, userMessage, result.outputAsText());
@@ -168,12 +174,14 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         return result;
     }
 
+    /** 创建表示 Diff 超过大小上限的异常。 */
     private GitChangeException diffTooLarge() {
         return failure(GitChangeFailureType.DIFF_TOO_LARGE,
                 "本次代码变更超过平台展示上限，请缩小任务范围后重试。",
                 "maxDiffBytes=" + maxDiffBytes);
     }
 
+    /** 执行一次带输出上限和超时限制的 Git 命令。 */
     private CommandResult runGit(Path workingDirectory, List<String> arguments, int outputLimit) {
         List<String> command = new ArrayList<>();
         command.add(gitExecutable);
@@ -207,6 +215,7 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         }
     }
 
+    /** 在指定字节上限内读取命令输出。 */
     private LimitedOutput readLimited(InputStream input, int limit) throws IOException {
         ByteArrayOutputStream output = new ByteArrayOutputStream(Math.min(limit, 8192));
         byte[] buffer = new byte[8192];
@@ -224,6 +233,7 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         return new LimitedOutput(output.toByteArray(), truncated);
     }
 
+    /** 创建包含稳定类型和用户提示的 Git 变更异常。 */
     private GitChangeException failure(GitChangeFailureType type, String userMessage, String diagnostic) {
         return new GitChangeException(type, userMessage, diagnostic);
     }
@@ -232,10 +242,12 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
     }
 
     private record CommandResult(int exitCode, byte[] output, boolean truncated) {
+        /** 判断 Git 命令是否正常退出。 */
         private boolean success() {
             return exitCode == 0;
         }
 
+        /** 将 Git 输出按 UTF-8 转换为诊断文本。 */
         private String outputAsText() {
             return new String(output, StandardCharsets.UTF_8);
         }

@@ -16,14 +16,17 @@ public class WorktreeException extends RuntimeException {
         this.diagnostic = diagnostic;
     }
 
+    /** 返回稳定的 Worktree 失败类型。 */
     public WorktreeFailureType failureType() {
         return failureType;
     }
 
+    /** 返回面向用户的失败说明。 */
     public String userMessage() {
         return userMessage;
     }
 
+    /** 返回供日志排查使用的技术诊断。 */
     public String diagnostic() {
         return diagnostic;
     }

@@ -27,6 +27,7 @@ public record GitChangeSet(
         }
     }
 
+    /** 判断本次采集是否没有产生任何文件变更。 */
     public boolean isEmpty() {
         return files.isEmpty();
     }

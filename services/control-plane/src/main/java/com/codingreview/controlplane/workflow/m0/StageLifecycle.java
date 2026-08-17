@@ -22,14 +22,17 @@ final class StageLifecycle {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper").copy();
     }
 
+    /** 发布指定阶段的开始事件。 */
     void started(String runId, M0RunStage stage, ObjectNode details) {
         append(runId, stage, RunEventType.STAGE_STARTED, details);
     }
 
+    /** 发布指定阶段的完成事件。 */
     void completed(String runId, M0RunStage stage, ObjectNode details) {
         append(runId, stage, RunEventType.STAGE_COMPLETED, details);
     }
 
+    /** 发布不包含额外详情的阶段失败事件。 */
     void failed(
             String runId,
             M0RunStage stage,
@@ -40,6 +43,7 @@ final class StageLifecycle {
         failed(runId, stage, failureCode, userMessage, diagnostic, null);
     }
 
+    /** 发布包含结构化详情的阶段失败事件。 */
     void failed(
             String runId,
             M0RunStage stage,
@@ -62,6 +66,7 @@ final class StageLifecycle {
         append(runId, stage, RunEventType.STAGE_FAILED, payload);
     }
 
+    /** 将阶段生命周期事件追加到 Run 事实日志。 */
     private void append(String runId, M0RunStage stage, RunEventType type, ObjectNode details) {
         eventJournal.append(
                 runId,

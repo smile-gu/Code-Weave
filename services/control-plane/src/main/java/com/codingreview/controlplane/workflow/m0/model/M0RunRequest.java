@@ -33,6 +33,7 @@ public record M0RunRequest(
         Objects.requireNonNull(changePolicy, "changePolicy");
     }
 
+    /** 将 UUID 形式的 Run 标识转换为事件系统使用的字符串。 */
     public String runIdValue() {
         return runId.toString();
     }
