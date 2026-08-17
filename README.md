@@ -55,6 +55,8 @@ M1 提供以下接口：
 POST /api/v1/m0/runs
 GET  /api/v1/m0/runs/{runId}
 GET  /api/v1/m0/runs/{runId}/events?afterSequence=0
+GET  /api/v1/m0/runs/{runId}/result
+GET  /api/v1/m0/runs/{runId}/changes
 ```
 
 默认只允许 1 个 Run 同时执行，最多排队 10 个。状态保存在当前服务进程内，服务重启后状态查询会丢失；NDJSON 事件和任务产物仍保留在运行目录中。

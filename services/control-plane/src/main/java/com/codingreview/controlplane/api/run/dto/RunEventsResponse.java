@@ -16,6 +16,7 @@ public record RunEventsResponse(
         events = List.copyOf(events);
     }
 
+    /** 根据增量事件计算下一次轮询使用的序号游标。 */
     public static RunEventsResponse from(
             UUID runId,
             long afterSequence,

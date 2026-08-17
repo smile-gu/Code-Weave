@@ -25,6 +25,7 @@ public record RunExecutionSnapshot(
         }
     }
 
+    /** 判断该状态快照是否已经结束。 */
     public boolean terminal() {
         return switch (status) {
             case COMPLETED, FAILED, CANCELLED, INFRASTRUCTURE_FAILED -> true;

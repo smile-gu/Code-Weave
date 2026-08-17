@@ -12,6 +12,7 @@ public class RunNotFoundException extends RuntimeException {
         this.runId = runId;
     }
 
+    /** 返回未找到的 Run 标识。 */
     public UUID runId() {
         return runId;
     }

@@ -21,6 +21,7 @@ public record RunStatusResponse(
         Integer changedFiles,
         String mavenStatus
 ) {
+    /** 将内部 Run 快照映射为状态查询响应。 */
     public static RunStatusResponse from(RunExecutionSnapshot snapshot) {
         M0RunResult result = snapshot.result();
         return new RunStatusResponse(

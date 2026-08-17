@@ -1,6 +1,8 @@
 package com.codingreview.controlplane.application.run;
 
 import com.codingreview.controlplane.application.run.error.RunNotFoundException;
+import com.codingreview.controlplane.application.run.error.RunOutputUnavailableException;
+import com.codingreview.controlplane.application.run.error.RunOutputUnavailableReason;
 import com.codingreview.controlplane.application.run.error.RunQueueFullException;
 import com.codingreview.controlplane.observability.run.RunEvent;
 import com.codingreview.controlplane.observability.run.RunEventJournal;
@@ -8,6 +10,7 @@ import com.codingreview.controlplane.observability.run.RunEventType;
 import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
 import com.codingreview.controlplane.workflow.m0.model.M0RunRequest;
 import com.codingreview.controlplane.workflow.m0.model.M0RunResult;
+import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
@@ -49,6 +52,7 @@ public class M0RunApplicationService {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper").copy();
     }
 
+    /** 创建 Run、记录排队事实并提交异步执行。 */
     public RunExecutionSnapshot submit(SubmitM0RunCommand command) {
         Objects.requireNonNull(command, "command");
         UUID runId = UUID.randomUUID();
@@ -80,6 +84,7 @@ public class M0RunApplicationService {
         return snapshot;
     }
 
+    /** 查询当前进程内指定 Run 的状态快照。 */
     public RunExecutionSnapshot get(UUID runId) {
         RunExecutionSnapshot snapshot = registry.find(runId);
         if (snapshot == null) {
@@ -88,11 +93,34 @@ public class M0RunApplicationService {
         return snapshot;
     }
 
+    /** 从事实日志中读取指定序号之后的 Run 事件。 */
     public List<RunEvent> events(UUID runId, long afterSequence) {
         get(runId);
         return eventJournal.readAfter(runId.toString(), afterSequence);
     }
 
+    /** 读取已结束 Run 的业务执行结果。 */
+    public M0RunResult result(UUID runId) {
+        RunExecutionSnapshot snapshot = get(runId);
+        if (!snapshot.terminal()) {
+            throw unavailable(runId, RunOutputUnavailableReason.RUN_NOT_FINISHED);
+        }
+        if (snapshot.result() == null) {
+            throw unavailable(runId, RunOutputUnavailableReason.RESULT_UNAVAILABLE);
+        }
+        return snapshot.result();
+    }
+
+    /** 读取已结束 Run 产生的代码变更快照。 */
+    public GitChangeSet changes(UUID runId) {
+        M0RunResult result = result(runId);
+        if (result.changes() == null) {
+            throw unavailable(runId, RunOutputUnavailableReason.CHANGES_UNAVAILABLE);
+        }
+        return result.changes();
+    }
+
+    /** 在线程池工作线程中执行 M0 主工作流并更新终态。 */
     private void execute(M0RunRequest request) {
         try {
             append(request.runId(), RunEventType.RUN_STARTED,
@@ -111,6 +139,7 @@ public class M0RunApplicationService {
         }
     }
 
+    /** 写入包含本次任务输入摘要的 Run 创建事件。 */
     private void appendCreated(M0RunRequest request) {
         ObjectNode payload = objectMapper.createObjectNode()
                 .put("workflow", "M0")
@@ -123,6 +152,7 @@ public class M0RunApplicationService {
         append(request.runId(), RunEventType.RUN_CREATED, payload);
     }
 
+    /** 在队列拒绝任务时尽力写入基础设施失败事件。 */
     private void appendQueueRejected(UUID runId, String message, RuntimeException exception) {
         try {
             appendFailure(runId, "RUN_QUEUE_FULL", message, exception);
@@ -131,6 +161,7 @@ public class M0RunApplicationService {
         }
     }
 
+    /** 在工作线程异常时尽力写入基础设施失败事件。 */
     private void appendUnexpectedFailure(UUID runId, String message, RuntimeException exception) {
         try {
             appendFailure(runId, "RUN_INFRASTRUCTURE_FAILED", message, exception);
@@ -139,6 +170,7 @@ public class M0RunApplicationService {
         }
     }
 
+    /** 组装并写入统一的基础设施失败事件。 */
     private void appendFailure(
             UUID runId,
             String failureCode,
@@ -154,9 +186,18 @@ public class M0RunApplicationService {
                                 + ": " + exception.getMessage()));
     }
 
+    /** 向 Run 级事件流追加一条事件。 */
     private RunEvent append(UUID runId, RunEventType type, ObjectNode payload) {
         return eventJournal.append(
                 runId.toString(), "run", FIRST_ATTEMPT, type, payload
         );
+    }
+
+    /** 创建携带稳定失败原因的结果不可用异常。 */
+    private RunOutputUnavailableException unavailable(
+            UUID runId,
+            RunOutputUnavailableReason reason
+    ) {
+        return new RunOutputUnavailableException(runId, reason);
     }
 }

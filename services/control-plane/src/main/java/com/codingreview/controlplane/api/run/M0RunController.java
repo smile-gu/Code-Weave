@@ -4,6 +4,8 @@ import com.codingreview.controlplane.api.run.dto.CreateM0RunRequest;
 import com.codingreview.controlplane.api.run.dto.CreateRunResponse;
 import com.codingreview.controlplane.api.run.dto.RunEventsResponse;
 import com.codingreview.controlplane.api.run.dto.RunStatusResponse;
+import com.codingreview.controlplane.api.run.dto.change.RunChangesResponse;
+import com.codingreview.controlplane.api.run.dto.result.RunResultResponse;
 import com.codingreview.controlplane.application.run.M0RunApplicationService;
 import com.codingreview.controlplane.application.run.RunExecutionSnapshot;
 import com.codingreview.controlplane.application.run.SubmitM0RunCommand;
@@ -37,6 +39,7 @@ public class M0RunController {
         this.applicationService = applicationService;
     }
 
+    /** 接收并异步提交一次 M0 Coding Run。 */
     @PostMapping
     public ResponseEntity<CreateRunResponse> create(
             @Valid @RequestBody CreateM0RunRequest request
@@ -51,11 +54,25 @@ public class M0RunController {
         return ResponseEntity.accepted().body(CreateRunResponse.queued(snapshot.runId()));
     }
 
+    /** 查询指定 Run 的当前执行状态。 */
     @GetMapping("/{runId}")
     public RunStatusResponse status(@PathVariable UUID runId) {
         return RunStatusResponse.from(applicationService.get(runId));
     }
 
+    /** 查询已结束 Run 的结构化业务结果。 */
+    @GetMapping("/{runId}/result")
+    public RunResultResponse result(@PathVariable UUID runId) {
+        return RunResultResponse.from(applicationService.result(runId));
+    }
+
+    /** 查询指定 Run 已采集的文件列表和 Unified Diff。 */
+    @GetMapping("/{runId}/changes")
+    public RunChangesResponse changes(@PathVariable UUID runId) {
+        return RunChangesResponse.from(runId, applicationService.changes(runId));
+    }
+
+    /** 按事件序号增量查询指定 Run 的运行事件。 */
     @GetMapping("/{runId}/events")
     public RunEventsResponse events(
             @PathVariable UUID runId,

@@ -1,5 +1,7 @@
 package com.codingreview.controlplane.application.run;
 
+import com.codingreview.controlplane.application.run.error.RunOutputUnavailableException;
+import com.codingreview.controlplane.application.run.error.RunOutputUnavailableReason;
 import com.codingreview.controlplane.application.run.error.RunQueueFullException;
 import com.codingreview.controlplane.observability.run.RunEvent;
 import com.codingreview.controlplane.observability.run.RunEventJournal;
@@ -9,6 +11,9 @@ import com.codingreview.controlplane.workflow.m0.model.M0RunFailureCode;
 import com.codingreview.controlplane.workflow.m0.model.M0RunResult;
 import com.codingreview.controlplane.workflow.m0.model.M0RunStage;
 import com.codingreview.controlplane.workflow.m0.model.M0RunStatus;
+import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
+import com.codingreview.controlplane.workspace.change.model.GitChangeType;
+import com.codingreview.controlplane.workspace.change.model.GitChangedFile;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -42,6 +47,10 @@ class M0RunApplicationServiceTest {
 
         assertThat(queued.status()).isEqualTo(RunExecutionStatus.QUEUED);
         assertThat(service.get(queued.runId()).status()).isEqualTo(RunExecutionStatus.QUEUED);
+        assertThatThrownBy(() -> service.result(queued.runId()))
+                .isInstanceOfSatisfying(RunOutputUnavailableException.class,
+                        exception -> assertThat(exception.reason())
+                                .isEqualTo(RunOutputUnavailableReason.RUN_NOT_FINISHED));
         assertThat(journal.types()).containsExactly(
                 RunEventType.RUN_CREATED,
                 RunEventType.RUN_QUEUED
@@ -54,6 +63,11 @@ class M0RunApplicationServiceTest {
         assertThat(failed.startedAt()).isNotNull();
         assertThat(failed.endedAt()).isNotNull();
         assertThat(failed.result().failureCode()).isEqualTo(M0RunFailureCode.WORKTREE_FAILED);
+        assertThat(service.result(queued.runId())).isSameAs(failed.result());
+        assertThatThrownBy(() -> service.changes(queued.runId()))
+                .isInstanceOfSatisfying(RunOutputUnavailableException.class,
+                        exception -> assertThat(exception.reason())
+                                .isEqualTo(RunOutputUnavailableReason.CHANGES_UNAVAILABLE));
         assertThat(journal.types()).containsExactly(
                 RunEventType.RUN_CREATED,
                 RunEventType.RUN_QUEUED,
@@ -91,6 +105,10 @@ class M0RunApplicationServiceTest {
 
         assertThat(service.get(snapshot.runId()).status())
                 .isEqualTo(RunExecutionStatus.INFRASTRUCTURE_FAILED);
+        assertThatThrownBy(() -> service.result(snapshot.runId()))
+                .isInstanceOfSatisfying(RunOutputUnavailableException.class,
+                        exception -> assertThat(exception.reason())
+                                .isEqualTo(RunOutputUnavailableReason.RESULT_UNAVAILABLE));
         assertThat(journal.types()).endsWith(
                 RunEventType.RUN_STARTED,
                 RunEventType.RUN_FAILED
@@ -108,6 +126,20 @@ class M0RunApplicationServiceTest {
         assertThat(service.events(runId, 1))
                 .extracting(RunEvent::type)
                 .containsExactly(RunEventType.RUN_QUEUED);
+    }
+
+    @Test
+    void returnsCollectedChangesFromTerminalResult() {
+        M0RunApplicationService service = service(
+                request -> failedWithChanges(request.runId()),
+                Runnable::run
+        );
+
+        UUID runId = service.submit(command()).runId();
+
+        assertThat(service.changes(runId).files())
+                .extracting(GitChangedFile::path)
+                .containsExactly("src/main/java/demo/UserService.java");
     }
 
     private M0RunApplicationService service(
@@ -149,6 +181,37 @@ class M0RunApplicationServiceTest {
                 now,
                 "无法创建 Worktree。",
                 "simulated"
+        );
+    }
+
+    private M0RunResult failedWithChanges(UUID runId) {
+        Instant now = Instant.now();
+        GitChangeSet changes = new GitChangeSet(
+                "abc123",
+                Path.of("D:/runtime/worktrees/" + runId),
+                List.of(new GitChangedFile(
+                        "src/main/java/demo/UserService.java",
+                        null,
+                        GitChangeType.MODIFIED,
+                        false
+                )),
+                "diff --git a/UserService.java b/UserService.java",
+                48
+        );
+        return new M0RunResult(
+                runId,
+                M0RunStatus.FAILED,
+                M0RunStage.CHANGE_POLICY,
+                M0RunFailureCode.CHANGE_POLICY_REJECTED,
+                null,
+                null,
+                changes,
+                null,
+                null,
+                now,
+                now,
+                "代码修改超出允许范围。",
+                "internal diagnostic"
         );
     }
 

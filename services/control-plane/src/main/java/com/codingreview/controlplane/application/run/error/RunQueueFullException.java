@@ -12,6 +12,7 @@ public class RunQueueFullException extends RuntimeException {
         this.runId = runId;
     }
 
+    /** 返回因队列过载而失败的 Run 标识。 */
     public UUID runId() {
         return runId;
     }

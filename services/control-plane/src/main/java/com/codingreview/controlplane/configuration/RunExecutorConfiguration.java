@@ -12,6 +12,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @EnableConfigurationProperties(CodeWeaveProperties.class)
 public class RunExecutorConfiguration {
 
+    /** 创建限制并发数和排队容量的 M0 Run 执行器。 */
     @Bean
     @Qualifier("m0RunExecutor")
     TaskExecutor m0RunExecutor(CodeWeaveProperties properties) {

@@ -1,6 +1,7 @@
 package com.codingreview.controlplane.api.run.error;
 
 import com.codingreview.controlplane.application.run.error.RunNotFoundException;
+import com.codingreview.controlplane.application.run.error.RunOutputUnavailableException;
 import com.codingreview.controlplane.application.run.error.RunQueueFullException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -26,6 +27,7 @@ public class ApiExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
+    /** 将请求体字段校验失败转换为带字段详情的 400 响应。 */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ApiErrorResponse> handleValidation(
             MethodArgumentNotValidException exception,
@@ -39,6 +41,7 @@ public class ApiExceptionHandler {
                 "提交参数不符合要求，请检查标记字段。", request, null, fields);
     }
 
+    /** 将方法参数约束失败转换为 400 响应。 */
     @ExceptionHandler(ConstraintViolationException.class)
     ResponseEntity<ApiErrorResponse> handleConstraintViolation(
             ConstraintViolationException exception,
@@ -48,6 +51,7 @@ public class ApiExceptionHandler {
                 exception.getMessage(), request, null, Map.of());
     }
 
+    /** 将请求格式和参数类型错误统一转换为 400 响应。 */
     @ExceptionHandler({
             IllegalArgumentException.class,
             HttpMessageNotReadableException.class,
@@ -64,6 +68,7 @@ public class ApiExceptionHandler {
                 message, request, null, Map.of());
     }
 
+    /** 将未知 Run 查询转换为 404 响应。 */
     @ExceptionHandler(RunNotFoundException.class)
     ResponseEntity<ApiErrorResponse> handleNotFound(
             RunNotFoundException exception,
@@ -73,6 +78,7 @@ public class ApiExceptionHandler {
                 exception.getMessage(), request, exception.runId(), Map.of());
     }
 
+    /** 将执行队列过载转换为 503 响应。 */
     @ExceptionHandler(RunQueueFullException.class)
     ResponseEntity<ApiErrorResponse> handleQueueFull(
             RunQueueFullException exception,
@@ -82,6 +88,17 @@ public class ApiExceptionHandler {
                 exception.getMessage(), request, exception.runId(), Map.of());
     }
 
+    /** 将尚不可读取的 Run 输出转换为 409 响应。 */
+    @ExceptionHandler(RunOutputUnavailableException.class)
+    ResponseEntity<ApiErrorResponse> handleOutputUnavailable(
+            RunOutputUnavailableException exception,
+            HttpServletRequest request
+    ) {
+        return response(HttpStatus.CONFLICT, exception.reason().code(),
+                exception.getMessage(), request, exception.runId(), Map.of());
+    }
+
+    /** 记录未分类异常并返回不泄露诊断的 500 响应。 */
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiErrorResponse> handleUnexpected(
             Exception exception,
@@ -92,6 +109,7 @@ public class ApiExceptionHandler {
                 "服务暂时无法完成请求，请查看服务日志后重试。", request, null, Map.of());
     }
 
+    /** 创建统一结构的 API 错误响应。 */
     private ResponseEntity<ApiErrorResponse> response(
             HttpStatus status,
             String code,

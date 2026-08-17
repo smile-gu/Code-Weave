@@ -11,6 +11,7 @@ public record CreateRunResponse(
         String statusUrl,
         String eventsUrl
 ) {
+    /** 创建表示任务已排队的提交响应。 */
     public static CreateRunResponse queued(UUID runId) {
         String baseUrl = "/api/v1/m0/runs/" + runId;
         return new CreateRunResponse(

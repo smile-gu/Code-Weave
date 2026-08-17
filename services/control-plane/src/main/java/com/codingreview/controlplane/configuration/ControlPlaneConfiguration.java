@@ -25,16 +25,19 @@ import java.nio.file.Path;
 @Configuration(proxyBeanMethods = false)
 public class ControlPlaneConfiguration {
 
+    /** 创建基于 NDJSON 文件的 Run 事件日志。 */
     @Bean
     RunEventJournal runEventJournal(CodeWeaveProperties properties, ObjectMapper objectMapper) {
         return new FileRunEventJournal(runtimeRoot(properties), objectMapper);
     }
 
+    /** 创建负责隔离工作目录的 Git Worktree 管理器。 */
     @Bean
     GitWorktreeManager gitWorktreeManager(CodeWeaveProperties properties) {
         return new GitWorktreeManagerImpl(runtimeRoot(properties));
     }
 
+    /** 使用固定能力配置创建 Claude Code Adapter。 */
     @Bean
     ClaudeCodeAdapter claudeCodeAdapter(
             CodeWeaveProperties properties,
@@ -47,16 +50,19 @@ public class ControlPlaneConfiguration {
         );
     }
 
+    /** 创建 Git 代码变更采集器。 */
     @Bean
     GitChangeCollector gitChangeCollector() {
         return new GitChangeCollectorImpl();
     }
 
+    /** 创建代码修改路径策略检查器。 */
     @Bean
     ChangePolicyEvaluator changePolicyEvaluator() {
         return new ChangePolicyEvaluatorImpl();
     }
 
+    /** 创建独立执行 Maven 编译与测试的验证器。 */
     @Bean
     MavenVerifier mavenVerifier(
             CodeWeaveProperties properties,
@@ -65,6 +71,7 @@ public class ControlPlaneConfiguration {
         return new MavenVerifierImpl(runtimeRoot(properties), eventJournal);
     }
 
+    /** 将五个核心阶段装配为 M0 主工作流。 */
     @Bean
     M0RunOrchestrator m0RunOrchestrator(
             GitWorktreeManager worktreeManager,
@@ -86,6 +93,7 @@ public class ControlPlaneConfiguration {
         );
     }
 
+    /** 获取已经校验的运行数据根目录。 */
     private Path runtimeRoot(CodeWeaveProperties properties) {
         return properties.requireRuntimeRoot();
     }
