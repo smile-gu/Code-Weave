@@ -10,6 +10,11 @@ import com.codingreview.controlplane.application.run.error.RunOutputUnavailableR
 import com.codingreview.controlplane.application.run.error.RunQueueFullException;
 import com.codingreview.controlplane.observability.run.RunEvent;
 import com.codingreview.controlplane.observability.run.RunEventType;
+import com.codingreview.controlplane.runtime.readiness.error.RuntimeNotReadyException;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeCheck;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeCheckStatus;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeComponent;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeReadiness;
 import com.codingreview.controlplane.workflow.m0.model.M0RunFailureCode;
 import com.codingreview.controlplane.workflow.m0.model.M0RunResult;
 import com.codingreview.controlplane.workflow.m0.model.M0RunStage;
@@ -104,6 +109,31 @@ class M0RunControllerTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value("RUN_QUEUE_FULL"))
                 .andExpect(jsonPath("$.runId").value(runId.toString()));
+    }
+
+    @Test
+    void returnsServiceUnavailableWhenRuntimeIsNotReady() throws Exception {
+        RuntimeReadiness readiness = RuntimeReadiness.from(
+                Instant.now(),
+                List.of(new RuntimeCheck(
+                        RuntimeComponent.CLAUDE_CODE,
+                        RuntimeCheckStatus.FAILED,
+                        true,
+                        null,
+                        null,
+                        "Claude Code 不可用。",
+                        "请配置 claude.cmd。"
+                ))
+        );
+        when(applicationService.submit(any()))
+                .thenThrow(new RuntimeNotReadyException(readiness));
+
+        mockMvc.perform(post("/api/v1/m0/runs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validRequest()))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("RUNTIME_NOT_READY"))
+                .andExpect(jsonPath("$.runId").doesNotExist());
     }
 
     @Test

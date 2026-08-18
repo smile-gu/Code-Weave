@@ -5,6 +5,7 @@ import type {
   RunChanges,
   RunResult,
   RunStatus,
+  RuntimeReadiness,
 } from './types'
 
 export class ApiError extends Error {
@@ -68,4 +69,9 @@ export function getRunResult(runId: string) {
 /** 查询 Run 已采集的代码变更。 */
 export function getRunChanges(runId: string) {
   return request<RunChanges>(`/api/v1/m0/runs/${runId}/changes`)
+}
+
+/** 实时检查创建 Coding Run 所需的本机运行环境。 */
+export function getRuntimeReadiness() {
+  return request<RuntimeReadiness>('/api/v1/system/readiness')
 }

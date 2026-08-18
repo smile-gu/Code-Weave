@@ -6,6 +6,12 @@ import com.codingreview.controlplane.application.run.error.RunQueueFullException
 import com.codingreview.controlplane.observability.run.RunEvent;
 import com.codingreview.controlplane.observability.run.RunEventJournal;
 import com.codingreview.controlplane.observability.run.RunEventType;
+import com.codingreview.controlplane.runtime.readiness.RuntimeReadinessService;
+import com.codingreview.controlplane.runtime.readiness.error.RuntimeNotReadyException;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeCheck;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeCheckStatus;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeComponent;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeReadiness;
 import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
 import com.codingreview.controlplane.workflow.m0.model.M0RunFailureCode;
 import com.codingreview.controlplane.workflow.m0.model.M0RunResult;
@@ -142,17 +148,66 @@ class M0RunApplicationServiceTest {
                 .containsExactly("src/main/java/demo/UserService.java");
     }
 
+    @Test
+    void rejectsNotReadyEnvironmentBeforeCreatingRunFacts() {
+        RuntimeReadiness notReady = RuntimeReadiness.from(
+                Instant.now(),
+                List.of(new RuntimeCheck(
+                        RuntimeComponent.CLAUDE_CODE,
+                        RuntimeCheckStatus.FAILED,
+                        true,
+                        null,
+                        null,
+                        "Claude Code 不可用。",
+                        "请配置 claude.cmd。"
+                ))
+        );
+        M0RunApplicationService service = service(
+                request -> failedResult(request.runId()),
+                Runnable::run,
+                () -> notReady
+        );
+
+        assertThatThrownBy(() -> service.submit(command()))
+                .isInstanceOf(RuntimeNotReadyException.class)
+                .hasMessageContaining("尚未就绪");
+        assertThat(journal.types()).isEmpty();
+    }
+
     private M0RunApplicationService service(
             M0RunOrchestrator orchestrator,
             TaskExecutor executor
+    ) {
+        return service(orchestrator, executor, () -> ready());
+    }
+
+    /** 使用指定环境检查服务创建应用服务。 */
+    private M0RunApplicationService service(
+            M0RunOrchestrator orchestrator,
+            TaskExecutor executor,
+            RuntimeReadinessService readinessService
     ) {
         return new M0RunApplicationService(
                 orchestrator,
                 journal,
                 registry,
                 executor,
-                JsonMapper.builder().findAndAddModules().build()
+                JsonMapper.builder().findAndAddModules().build(),
+                readinessService
         );
+    }
+
+    /** 创建不会阻止现有测试提交 Run 的就绪结果。 */
+    private RuntimeReadiness ready() {
+        return RuntimeReadiness.from(Instant.now(), List.of(new RuntimeCheck(
+                RuntimeComponent.CLAUDE_CODE,
+                RuntimeCheckStatus.PASSED,
+                true,
+                "2.1.217",
+                "D:/develop/nodejs/claude.cmd",
+                "Claude Code 已就绪。",
+                null
+        )));
     }
 
     private SubmitM0RunCommand command() {

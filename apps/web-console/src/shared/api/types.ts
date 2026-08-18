@@ -159,3 +159,23 @@ export type ApiErrorBody = {
   runId: string | null
   fieldErrors: Record<string, string>
 }
+
+export type RuntimeReadinessStatus = 'READY' | 'NOT_READY'
+export type RuntimeCheckStatus = 'PASSED' | 'WARNING' | 'FAILED'
+export type RuntimeComponent = 'RUNTIME_ROOT' | 'GIT' | 'JAVA' | 'MAVEN' | 'CLAUDE_CODE'
+
+export type RuntimeCheck = {
+  component: RuntimeComponent
+  status: RuntimeCheckStatus
+  required: boolean
+  version: string | null
+  executable: string | null
+  message: string
+  remediation: string | null
+}
+
+export type RuntimeReadiness = {
+  status: RuntimeReadinessStatus
+  checkedAt: string
+  checks: RuntimeCheck[]
+}

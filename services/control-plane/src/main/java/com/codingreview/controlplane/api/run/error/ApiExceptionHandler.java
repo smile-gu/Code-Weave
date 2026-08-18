@@ -3,6 +3,7 @@ package com.codingreview.controlplane.api.run.error;
 import com.codingreview.controlplane.application.run.error.RunNotFoundException;
 import com.codingreview.controlplane.application.run.error.RunOutputUnavailableException;
 import com.codingreview.controlplane.application.run.error.RunQueueFullException;
+import com.codingreview.controlplane.runtime.readiness.error.RuntimeNotReadyException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -86,6 +87,16 @@ public class ApiExceptionHandler {
     ) {
         return response(HttpStatus.SERVICE_UNAVAILABLE, "RUN_QUEUE_FULL",
                 exception.getMessage(), request, exception.runId(), Map.of());
+    }
+
+    /** 将本机环境未就绪转换为不创建 Run 的 503 响应。 */
+    @ExceptionHandler(RuntimeNotReadyException.class)
+    ResponseEntity<ApiErrorResponse> handleRuntimeNotReady(
+            RuntimeNotReadyException exception,
+            HttpServletRequest request
+    ) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE, "RUNTIME_NOT_READY",
+                exception.getMessage(), request, null, Map.of());
     }
 
     /** 将尚不可读取的 Run 输出转换为 409 响应。 */

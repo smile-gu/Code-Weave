@@ -7,6 +7,10 @@ import com.codingreview.controlplane.observability.run.FileRunEventJournal;
 import com.codingreview.controlplane.observability.run.RunEventJournal;
 import com.codingreview.controlplane.observability.run.stream.PublishingRunEventJournal;
 import com.codingreview.controlplane.observability.run.stream.RunEventStreamHub;
+import com.codingreview.controlplane.runtime.readiness.LocalRuntimeReadinessService;
+import com.codingreview.controlplane.runtime.readiness.RuntimeReadinessService;
+import com.codingreview.controlplane.runtime.readiness.probe.CommandProbe;
+import com.codingreview.controlplane.runtime.readiness.probe.LocalCommandProbe;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.verification.maven.MavenVerifierImpl;
 import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
@@ -28,6 +32,21 @@ import java.util.concurrent.Executors;
 /** 集中装配 M0 核心对象，业务类本身不依赖 Spring。 */
 @Configuration(proxyBeanMethods = false)
 public class ControlPlaneConfiguration {
+
+    /** 创建带超时和输出上限的本机只读命令探测器。 */
+    @Bean
+    CommandProbe commandProbe() {
+        return new LocalCommandProbe();
+    }
+
+    /** 创建实时检查 Coding Run 运行依赖的环境服务。 */
+    @Bean
+    RuntimeReadinessService runtimeReadinessService(
+            CodeWeaveProperties properties,
+            CommandProbe commandProbe
+    ) {
+        return new LocalRuntimeReadinessService(properties, commandProbe);
+    }
 
     /** 创建负责管理实时事件订阅的内存 Hub。 */
     @Bean

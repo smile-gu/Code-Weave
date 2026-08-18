@@ -58,9 +58,18 @@ GET  /api/v1/m0/runs/{runId}/events?afterSequence=0
 GET  /api/v1/m0/runs/{runId}/stream?afterSequence=0
 GET  /api/v1/m0/runs/{runId}/result
 GET  /api/v1/m0/runs/{runId}/changes
+GET  /api/v1/system/readiness
 ```
 
 `stream` 使用 SSE 实时发送 Run 事件，并支持通过 `Last-Event-ID` 或 `afterSequence` 断点恢复。`events` REST 接口继续用于排障和手动重放。
+
+`readiness` 使用只读命令检查 Runtime Root、Git、Java、Maven 和 Claude Code。创建 Run 前会重新检查，必要项失败时返回 `503 RUNTIME_NOT_READY`，不会创建 Run 或 Worktree。
+
+Windows 环境应将 `CODE_WEAVE_CLAUDE_EXECUTABLE` 指向 `claude.cmd`，不要配置 PowerShell 默认解析到的 `claude.ps1`：
+
+```powershell
+$env:CODE_WEAVE_CLAUDE_EXECUTABLE = "D:/develop/nodejs/claude.cmd"
+```
 
 ## 启动 Web 工作台
 

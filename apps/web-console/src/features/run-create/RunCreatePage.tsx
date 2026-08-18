@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { ArrowRight, FolderGit2, Info, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { ApiError, createRun } from '../../shared/api/runApi'
+import { ApiError, createRun, getRuntimeReadiness } from '../../shared/api/runApi'
+import { RuntimeReadinessPanel } from './RuntimeReadinessPanel'
 
 type FormState = {
   repository: string
@@ -31,6 +32,12 @@ function lines(value: string) {
 export function RunCreatePage() {
   const navigate = useNavigate()
   const [form, setForm] = useState(initialForm)
+  const readinessQuery = useQuery({
+    queryKey: ['runtime-readiness'],
+    queryFn: getRuntimeReadiness,
+    retry: false,
+    refetchOnWindowFocus: false,
+  })
   const mutation = useMutation({
     mutationFn: createRun,
     onSuccess: (response) => navigate(`/runs/${response.runId}`),
@@ -51,6 +58,7 @@ export function RunCreatePage() {
     })
   }
   const apiError = mutation.error instanceof ApiError ? mutation.error : null
+  const runtimeReady = readinessQuery.data?.status === 'READY'
 
   return (
     <div className="create-layout">
@@ -74,6 +82,13 @@ export function RunCreatePage() {
       </section>
 
       <section className="form-panel">
+        <RuntimeReadinessPanel
+          readiness={readinessQuery.data}
+          loading={readinessQuery.isLoading}
+          refreshing={readinessQuery.isFetching && !readinessQuery.isLoading}
+          error={readinessQuery.isError ? readinessQuery.error.message : null}
+          onRefresh={() => { void readinessQuery.refetch() }}
+        />
         <div className="section-heading">
           <span>任务配置</span>
           <small>所有字段只服务于本次 Run</small>
@@ -138,9 +153,13 @@ export function RunCreatePage() {
             </div>
           )}
 
-          <button className="primary-button" disabled={mutation.isPending} type="submit">
-            {mutation.isPending ? '正在提交…' : '创建 Coding Run'}
-            {!mutation.isPending && <ArrowRight size={17} />}
+          <button className="primary-button" disabled={mutation.isPending || !runtimeReady} type="submit">
+            {mutation.isPending
+              ? '正在提交…'
+              : readinessQuery.isLoading
+                ? '正在检查运行环境…'
+                : runtimeReady ? '创建 Coding Run' : '运行环境未就绪'}
+            {!mutation.isPending && runtimeReady && <ArrowRight size={17} />}
           </button>
         </form>
       </section>

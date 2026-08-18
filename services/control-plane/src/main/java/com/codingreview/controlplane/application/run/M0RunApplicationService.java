@@ -7,6 +7,9 @@ import com.codingreview.controlplane.application.run.error.RunQueueFullException
 import com.codingreview.controlplane.observability.run.RunEvent;
 import com.codingreview.controlplane.observability.run.RunEventJournal;
 import com.codingreview.controlplane.observability.run.RunEventType;
+import com.codingreview.controlplane.runtime.readiness.RuntimeReadinessService;
+import com.codingreview.controlplane.runtime.readiness.error.RuntimeNotReadyException;
+import com.codingreview.controlplane.runtime.readiness.model.RuntimeReadiness;
 import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
 import com.codingreview.controlplane.workflow.m0.model.M0RunRequest;
 import com.codingreview.controlplane.workflow.m0.model.M0RunResult;
@@ -37,24 +40,31 @@ public class M0RunApplicationService {
     private final RunExecutionRegistry registry;
     private final TaskExecutor executor;
     private final ObjectMapper objectMapper;
+    private final RuntimeReadinessService readinessService;
 
     public M0RunApplicationService(
             M0RunOrchestrator orchestrator,
             RunEventJournal eventJournal,
             RunExecutionRegistry registry,
             @Qualifier("m0RunExecutor") TaskExecutor executor,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            RuntimeReadinessService readinessService
     ) {
         this.orchestrator = Objects.requireNonNull(orchestrator, "orchestrator");
         this.eventJournal = Objects.requireNonNull(eventJournal, "eventJournal");
         this.registry = Objects.requireNonNull(registry, "registry");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper").copy();
+        this.readinessService = Objects.requireNonNull(readinessService, "readinessService");
     }
 
     /** 创建 Run、记录排队事实并提交异步执行。 */
     public RunExecutionSnapshot submit(SubmitM0RunCommand command) {
         Objects.requireNonNull(command, "command");
+        RuntimeReadiness readiness = readinessService.check();
+        if (!readiness.ready()) {
+            throw new RuntimeNotReadyException(readiness);
+        }
         UUID runId = UUID.randomUUID();
         M0RunRequest request = new M0RunRequest(
                 runId,
