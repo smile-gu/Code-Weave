@@ -38,6 +38,7 @@ class GitChangeCollectorImplTest {
         Files.move(worktree.resolve("rename-old.txt"), worktree.resolve("rename-new.txt"));
         // 暂存仅用于验证 Git 原生重命名信息；Collector 本身不会修改真实索引。
         runGit(worktree, List.of("add", "-A"));
+        runGit(worktree, List.of("config", "core.autocrlf", "true"));
         Files.createDirectories(worktree.resolve("src"));
         Files.writeString(worktree.resolve("src/NewFile.java"), "class NewFile {}\n", StandardCharsets.UTF_8);
         String statusBeforeCollection = runGit(worktree,
@@ -54,6 +55,8 @@ class GitChangeCollectorImplTest {
         assertThat(find(changeSet, "rename-new.txt").oldPath()).isEqualTo("rename-old.txt");
         assertThat(find(changeSet, "src/NewFile.java").changeType()).isEqualTo(GitChangeType.ADDED);
         assertThat(changeSet.unifiedDiff())
+                .startsWith("diff --git")
+                .doesNotContain("warning:")
                 .contains("modify.txt", "rename-new.txt", "src/NewFile.java", "class NewFile");
         assertThat(changeSet.unifiedDiffBytes()).isPositive();
         assertThat(runGit(worktree, List.of("status", "--porcelain", "--untracked-files=all")))

@@ -19,6 +19,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /** 基于系统 Git CLI 生成结构化文件列表和统一 Diff。 */
@@ -191,20 +195,26 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         command.add(workingDirectory.toString());
         command.addAll(arguments);
         try {
-            ProcessBuilder processBuilder = new ProcessBuilder(command).redirectErrorStream(true);
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
             processBuilder.environment().keySet().removeIf(key -> key.startsWith("GIT_"));
             processBuilder.environment().put("GIT_TERMINAL_PROMPT", "0");
             Process process = processBuilder.start();
-            LimitedOutput output;
-            try (InputStream input = process.getInputStream()) {
-                output = readLimited(input, outputLimit);
+            try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+                Future<LimitedOutput> stdoutFuture = executor.submit(
+                        () -> readProcessOutput(process.getInputStream(), outputLimit));
+                Future<LimitedOutput> stderrFuture = executor.submit(
+                        () -> readProcessOutput(process.getErrorStream(), METADATA_OUTPUT_LIMIT));
+                if (!process.waitFor(commandTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                    process.destroyForcibly();
+                    process.waitFor();
+                    throw failure(GitChangeFailureType.GIT_COMMAND_FAILED,
+                            "Git 变更采集命令执行超时。", String.join(" ", command));
+                }
+                LimitedOutput stdout = awaitOutput(stdoutFuture);
+                LimitedOutput stderr = awaitOutput(stderrFuture);
+                return new CommandResult(process.exitValue(), stdout.bytes(), stdout.truncated(),
+                        stderr.bytes(), stderr.truncated());
             }
-            if (!process.waitFor(commandTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
-                process.destroyForcibly();
-                throw failure(GitChangeFailureType.GIT_COMMAND_FAILED,
-                        "Git 变更采集命令执行超时。", String.join(" ", command));
-            }
-            return new CommandResult(process.exitValue(), output.bytes(), output.truncated());
         } catch (IOException exception) {
             throw failure(GitChangeFailureType.GIT_COMMAND_FAILED,
                     "无法执行 Git，请确认 Git 已安装并加入 PATH。", exception.getMessage());
@@ -212,6 +222,25 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
             Thread.currentThread().interrupt();
             throw failure(GitChangeFailureType.GIT_COMMAND_FAILED,
                     "Git 变更采集被中断。", exception.getMessage());
+        }
+    }
+
+    /** 读取并关闭 Git 进程的单个输出流。 */
+    private LimitedOutput readProcessOutput(InputStream input, int limit) throws IOException {
+        try (input) {
+            return readLimited(input, limit);
+        }
+    }
+
+    /** 获取异步读取结果并还原底层输入输出异常。 */
+    private LimitedOutput awaitOutput(Future<LimitedOutput> future) throws IOException, InterruptedException {
+        try {
+            return future.get();
+        } catch (ExecutionException exception) {
+            if (exception.getCause() instanceof IOException ioException) {
+                throw ioException;
+            }
+            throw new IOException("无法读取 Git 命令输出。", exception.getCause());
         }
     }
 
@@ -241,14 +270,24 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
     private record LimitedOutput(byte[] bytes, boolean truncated) {
     }
 
-    private record CommandResult(int exitCode, byte[] output, boolean truncated) {
+    private record CommandResult(
+            int exitCode,
+            byte[] output,
+            boolean truncated,
+            byte[] diagnostic,
+            boolean diagnosticTruncated
+    ) {
         /** 判断 Git 命令是否正常退出。 */
         private boolean success() {
             return exitCode == 0;
         }
 
-        /** 将 Git 输出按 UTF-8 转换为诊断文本。 */
+        /** 优先将 Git 错误流转换为诊断文本，避免污染业务输出。 */
         private String outputAsText() {
+            String errorText = new String(diagnostic, StandardCharsets.UTF_8).trim();
+            if (!errorText.isEmpty()) {
+                return diagnosticTruncated ? errorText + "\n[stderr truncated]" : errorText;
+            }
             return new String(output, StandardCharsets.UTF_8);
         }
     }

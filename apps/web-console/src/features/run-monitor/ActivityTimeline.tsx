@@ -32,10 +32,26 @@ export function ActivityTimeline({ activities }: { activities: ActivityItem[] })
     return <div className="empty-state">等待第一项执行活动…</div>
   }
 
-  return (
-    <ol className="activity-list">
-      {activities.map((activity) => (
-        <li className={`activity-${activity.status}`} key={activity.id}>
+  const activityIds = new Set(activities.map((activity) => activity.id))
+  const childrenByParent = new Map<string, ActivityItem[]>()
+  const roots: ActivityItem[] = []
+
+  for (const activity of activities) {
+    if (!activity.parentId || !activityIds.has(activity.parentId)) {
+      roots.push(activity)
+      continue
+    }
+    const children = childrenByParent.get(activity.parentId) ?? []
+    children.push(activity)
+    childrenByParent.set(activity.parentId, children)
+  }
+
+  /** 递归渲染活动及其子活动，保留 Agent 内部操作的层级关系。 */
+  const renderActivity = (activity: ActivityItem): React.ReactNode => {
+    const children = childrenByParent.get(activity.id) ?? []
+    return (
+      <li className={`activity-item activity-${activity.status}`} key={activity.id}>
+        <div className="activity-row">
           <span className="activity-category-icon">{categoryIcons[activity.category]}</span>
           <span className="activity-status-icon">{statusIcons[activity.status]}</span>
           <div className="activity-content">
@@ -62,8 +78,19 @@ export function ActivityTimeline({ activities }: { activities: ActivityItem[] })
               </div>
             </details>
           </div>
-        </li>
-      ))}
+        </div>
+        {children.length > 0 && (
+          <ol className="activity-children" aria-label={`${activity.title}的执行明细`}>
+            {children.map(renderActivity)}
+          </ol>
+        )}
+      </li>
+    )
+  }
+
+  return (
+    <ol className="activity-list">
+      {roots.map(renderActivity)}
     </ol>
   )
 }

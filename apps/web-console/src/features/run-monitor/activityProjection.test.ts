@@ -71,6 +71,8 @@ describe('activityProjection', () => {
       'Coding Run 执行完成',
     ])
     expect(activities[3].sourceSequences).toEqual([8, 9])
+    expect(activities[2].parentId).toBeNull()
+    expect(activities[3].parentId).toBe('stage:coding:1')
     expect(activities[6].sourceSequences).toEqual([15, 16, 17, 18, 19, 21, 22])
     expect(activities[7]).toMatchObject({ status: 'warning' })
   })
@@ -89,6 +91,7 @@ describe('activityProjection', () => {
 
     expect(activities).toHaveLength(2)
     expect(activities[1]).toMatchObject({
+      parentId: 'stage:coding:1',
       title: '命令执行失败',
       summary: 'command failed',
       status: 'failed',

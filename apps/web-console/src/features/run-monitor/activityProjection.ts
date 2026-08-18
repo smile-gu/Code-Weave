@@ -10,6 +10,7 @@ export type ActivityDetail = {
 
 export type ActivityItem = {
   id: string
+  parentId: string | null
   category: ActivityCategory
   title: string
   summary: string
@@ -97,6 +98,7 @@ export function projectActivities(events: RunEvent[]): ActivityItem[] {
 
     if (event.type === 'RUN_NOTICE') {
       const activity = upsert(`notice:${event.sequence}`, event, {
+        parentId: null,
         category: event.stage === 'maven' ? 'verification' : 'run',
         title: '运行提示',
         summary: text(event.payload.message) ?? text(event.payload.code) ?? '系统记录了一条运行提示。',
@@ -138,6 +140,7 @@ function projectRunLifecycle(
   upsert: ActivityUpsert,
 ) {
   const activity = upsert('run:lifecycle', event, {
+    parentId: null,
     category: 'run',
     title: '任务已创建',
     summary: '正在准备执行 Coding Run。',
@@ -166,6 +169,7 @@ function projectStageLifecycle(event: RunEvent, upsert: ActivityUpsert) {
   const stageName = stageNames[event.stage] ?? event.stage
   const id = `stage:${event.stage}:${event.attempt}`
   const activity = upsert(id, event, {
+    parentId: null,
     category: categoryByStage[event.stage] ?? 'run',
     title: `正在执行${stageName}`,
     summary: stageStartedSummary(event),
@@ -194,7 +198,9 @@ function projectStageLifecycle(event: RunEvent, upsert: ActivityUpsert) {
 function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
   const agentType = text(event.payload.agentEventType)
   const payload = record(event.payload.payload)
-  const coding = upsert(`stage:coding:${event.attempt}`, event, {
+  const codingActivityId = `stage:coding:${event.attempt}`
+  const coding = upsert(codingActivityId, event, {
+    parentId: null,
     category: 'agent',
     title: 'Coding Agent 正在工作',
     summary: 'Agent 正在分析任务并修改代码。',
@@ -231,6 +237,7 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
     const message = text(payload.text)
     if (!message) return
     upsert(`agent:message:${event.sequence}`, event, {
+      parentId: codingActivityId,
       category: 'agent',
       title: 'Agent 阶段说明',
       summary: message,
@@ -241,6 +248,7 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
 
   if (agentType === 'DIAGNOSTIC') {
     upsert(`agent:diagnostic:${event.sequence}`, event, {
+      parentId: codingActivityId,
       category: 'agent',
       title: 'Agent 诊断提示',
       summary: text(payload.message) ?? 'Agent 记录了一条诊断信息。',
@@ -256,6 +264,7 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
   const toolName = text(payload.name)
   const input = record(payload.input)
   const existingTool = upsert(toolId, event, {
+    parentId: codingActivityId,
     category: 'agent',
     title: toolTitle(toolName, input, 'running'),
     summary: toolSummary(toolName, input),
@@ -281,6 +290,7 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
 /** 将 Maven 进程和分析事件合并为验证活动。 */
 function projectVerificationEvent(event: RunEvent, upsert: ActivityUpsert) {
   const activity = upsert(`stage:maven:${event.attempt}`, event, {
+    parentId: null,
     category: 'verification',
     title: '正在执行 Maven 验证',
     summary: '正在编译项目并执行测试。',
@@ -332,6 +342,7 @@ function projectRunTerminal(event: RunEvent, upsert: ActivityUpsert) {
   const completed = event.type === 'RUN_COMPLETED'
   const cancelled = event.type === 'RUN_CANCELLED'
   const activity = upsert('run:terminal', event, {
+    parentId: null,
     category: 'run',
     title: completed ? 'Coding Run 执行完成' : cancelled ? 'Coding Run 已取消' : 'Coding Run 执行失败',
     summary: completed ? completedRunSummary(event) : terminalFailureSummary(event),
