@@ -101,7 +101,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
     @Override
     public MavenVerificationResult verify(MavenVerificationRequest request) {
         Objects.requireNonNull(request, "request");
-        String runId = request.worktree().runId();
+        String runId = request.runId();
         validateRunId(runId);
         Path worktree = request.worktree().worktreePath().normalize();
         List<String> command = command();
@@ -338,7 +338,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
             ObjectNode payload
     ) {
         eventJournal.append(
-                request.worktree().runId(),
+                request.runId(),
                 "maven",
                 request.attempt(),
                 type,

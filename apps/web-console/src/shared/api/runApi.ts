@@ -23,7 +23,7 @@ export class ApiError extends Error {
 }
 
 /** 请求 JSON 接口并将稳定错误响应转换为前端异常。 */
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
     headers: {

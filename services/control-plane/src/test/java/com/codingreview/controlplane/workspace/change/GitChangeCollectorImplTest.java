@@ -118,7 +118,7 @@ class GitChangeCollectorImplTest {
         WorktreeHandle invalidHandle = new WorktreeHandle(
                 workspace.handle().sourceRepository(),
                 workspace.handle().worktreePath(),
-                workspace.handle().runId(),
+                workspace.handle().workspaceId(),
                 workspace.handle().baseRef(),
                 "0000000000000000000000000000000000000000",
                 workspace.handle().sourceRepositoryDirty()

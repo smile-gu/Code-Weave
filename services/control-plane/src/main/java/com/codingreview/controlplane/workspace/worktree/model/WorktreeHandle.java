@@ -7,7 +7,7 @@ import java.util.Objects;
 public record WorktreeHandle(
         Path sourceRepository,
         Path worktreePath,
-        String runId,
+        String workspaceId,
         String baseRef,
         String resolvedCommit,
         boolean sourceRepositoryDirty
@@ -19,8 +19,8 @@ public record WorktreeHandle(
         if (!sourceRepository.isAbsolute() || !worktreePath.isAbsolute()) {
             throw new IllegalArgumentException("repository paths must be absolute");
         }
-        if (runId == null || runId.isBlank()) {
-            throw new IllegalArgumentException("runId must not be blank");
+        if (workspaceId == null || workspaceId.isBlank()) {
+            throw new IllegalArgumentException("workspaceId must not be blank");
         }
         if (baseRef == null || baseRef.isBlank()) {
             throw new IllegalArgumentException("baseRef must not be blank");

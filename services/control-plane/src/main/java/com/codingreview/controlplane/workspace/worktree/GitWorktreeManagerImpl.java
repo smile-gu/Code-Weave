@@ -78,7 +78,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
         }
 
         GitRepositoryStatus repositoryStatus = inspect(repository);
-        Path worktreePath = runtimeRoot.resolve("worktrees").resolve(request.runId()).normalize();
+        Path worktreePath = runtimeRoot.resolve("worktrees").resolve(request.workspaceId()).normalize();
         Path worktreeRoot = runtimeRoot.resolve("worktrees").normalize();
         if (!worktreePath.startsWith(worktreeRoot)) {
             throw failure(WorktreeFailureType.INVALID_WORKTREE_PATH,
@@ -103,7 +103,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
                     "隔离 Worktree 创建失败，原始仓库未被修改。", created.output());
         }
 
-        WorktreeHandle handle = new WorktreeHandle(repository, worktreePath, request.runId(),
+        WorktreeHandle handle = new WorktreeHandle(repository, worktreePath, request.workspaceId(),
                 request.baseRef(), resolvedRef.output().trim(), repositoryStatus.dirty());
         List<WorktreeNotice> notices = new ArrayList<>();
         if (repositoryStatus.dirty()) {
@@ -188,7 +188,7 @@ public final class GitWorktreeManagerImpl implements GitWorktreeManager {
                 || !handle.worktreePath().isAbsolute()
                 || !sourceRepository.equals(handle.sourceRepository().normalize())
                 || !handle.worktreePath().normalize().startsWith(expectedRoot)
-                || !handle.worktreePath().getFileName().toString().equals(handle.runId())) {
+                || !handle.worktreePath().getFileName().toString().equals(handle.workspaceId())) {
             throw failure(WorktreeFailureType.INVALID_WORKTREE_PATH,
                     "隔离目录句柄不属于当前运行环境，拒绝执行清理。", handle.worktreePath().toString());
         }

@@ -11,6 +11,8 @@ import com.codingreview.controlplane.runtime.readiness.LocalRuntimeReadinessServ
 import com.codingreview.controlplane.runtime.readiness.RuntimeReadinessService;
 import com.codingreview.controlplane.runtime.readiness.probe.CommandProbe;
 import com.codingreview.controlplane.runtime.readiness.probe.LocalCommandProbe;
+import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
+import com.codingreview.controlplane.session.persistence.FileCodingSessionRepository;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.verification.maven.MavenVerifierImpl;
 import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
@@ -32,6 +34,15 @@ import java.util.concurrent.Executors;
 /** 集中装配 M0 核心对象，业务类本身不依赖 Spring。 */
 @Configuration(proxyBeanMethods = false)
 public class ControlPlaneConfiguration {
+
+    /** 创建以运行目录 JSON 快照为事实源的 Coding Session 仓储。 */
+    @Bean
+    CodingSessionRepository codingSessionRepository(
+            CodeWeaveProperties properties,
+            ObjectMapper objectMapper
+    ) {
+        return new FileCodingSessionRepository(runtimeRoot(properties), objectMapper);
+    }
 
     /** 创建带超时和输出上限的本机只读命令探测器。 */
     @Bean

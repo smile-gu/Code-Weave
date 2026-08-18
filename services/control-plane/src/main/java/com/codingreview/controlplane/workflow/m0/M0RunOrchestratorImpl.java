@@ -269,7 +269,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         stageLifecycle.started(request.runIdValue(), stage, objectMapper.createObjectNode());
         try {
             progress.maven = mavenVerifier.verify(new MavenVerificationRequest(
-                    progress.worktree.handle(), FIRST_ATTEMPT
+                    request.runIdValue(), progress.worktree.handle(), FIRST_ATTEMPT
             ));
             if (!progress.maven.passed()) {
                 boolean cancelled = progress.maven.status() == MavenVerificationStatus.CANCELLED;

@@ -3,6 +3,8 @@ package com.codingreview.controlplane.api.run.error;
 import com.codingreview.controlplane.application.run.error.RunNotFoundException;
 import com.codingreview.controlplane.application.run.error.RunOutputUnavailableException;
 import com.codingreview.controlplane.application.run.error.RunQueueFullException;
+import com.codingreview.controlplane.application.session.error.CodingSessionCreationException;
+import com.codingreview.controlplane.application.session.error.CodingSessionNotFoundException;
 import com.codingreview.controlplane.runtime.readiness.error.RuntimeNotReadyException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -87,6 +89,28 @@ public class ApiExceptionHandler {
     ) {
         return response(HttpStatus.SERVICE_UNAVAILABLE, "RUN_QUEUE_FULL",
                 exception.getMessage(), request, exception.runId(), Map.of());
+    }
+
+    /** 将未知 Coding Session 查询转换为 404 响应。 */
+    @ExceptionHandler(CodingSessionNotFoundException.class)
+    ResponseEntity<ApiErrorResponse> handleSessionNotFound(
+            CodingSessionNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return response(HttpStatus.NOT_FOUND, "SESSION_NOT_FOUND",
+                exception.getMessage(), request, null, Map.of());
+    }
+
+    /** 将 Session 初始化失败转换为可操作的 422 响应。 */
+    @ExceptionHandler(CodingSessionCreationException.class)
+    ResponseEntity<ApiErrorResponse> handleSessionCreation(
+            CodingSessionCreationException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.error("Coding Session 创建失败，sessionId={}，code={}，diagnostic={}",
+                exception.sessionId(), exception.code(), exception.diagnostic(), exception);
+        return response(HttpStatus.UNPROCESSABLE_ENTITY, exception.code(),
+                exception.userMessage(), request, null, Map.of());
     }
 
     /** 将本机环境未就绪转换为不创建 Run 的 503 响应。 */

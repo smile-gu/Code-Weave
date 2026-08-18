@@ -215,6 +215,7 @@ class MavenVerifierImplTest {
 
     private MavenVerificationRequest request(String runId, Path worktree) {
         return new MavenVerificationRequest(
+                runId,
                 new WorktreeHandle(worktree, worktree, runId, "HEAD", "fixture-commit", false),
                 1
         );

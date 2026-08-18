@@ -1,0 +1,117 @@
+package com.codingreview.controlplane.session.model;
+
+import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
+import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
+
+/** 表示一个跨多轮 Coding Turn 持续存在的开发会话。 */
+public record CodingSession(
+        UUID sessionId,
+        String title,
+        CodingSessionStatus status,
+        Path sourceRepository,
+        Path worktreePath,
+        String baseRef,
+        String resolvedCommit,
+        boolean sourceRepositoryDirty,
+        ChangePolicy changePolicy,
+        Instant createdAt,
+        Instant updatedAt,
+        String failureCode,
+        String failureMessage
+) {
+
+    /** 校验并规范化 Session 的完整持久状态。 */
+    public CodingSession {
+        Objects.requireNonNull(sessionId, "sessionId");
+        title = requireText(title, "title");
+        Objects.requireNonNull(status, "status");
+        sourceRepository = requireAbsolute(sourceRepository, "sourceRepository");
+        if (worktreePath != null) {
+            worktreePath = requireAbsolute(worktreePath, "worktreePath");
+        }
+        baseRef = requireText(baseRef, "baseRef");
+        Objects.requireNonNull(changePolicy, "changePolicy");
+        Objects.requireNonNull(createdAt, "createdAt");
+        Objects.requireNonNull(updatedAt, "updatedAt");
+        if (updatedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException("updatedAt must not be before createdAt");
+        }
+        if (status == CodingSessionStatus.ACTIVE
+                && (worktreePath == null || resolvedCommit == null || resolvedCommit.isBlank())) {
+            throw new IllegalArgumentException("active session requires worktree and resolved commit");
+        }
+        if (status == CodingSessionStatus.FAILED
+                && (failureCode == null || failureCode.isBlank()
+                || failureMessage == null || failureMessage.isBlank())) {
+            throw new IllegalArgumentException("failed session requires failure details");
+        }
+    }
+
+    /** 创建尚未完成 Worktree 初始化的 Session。 */
+    public static CodingSession initializing(
+            UUID sessionId,
+            String title,
+            Path sourceRepository,
+            String baseRef,
+            ChangePolicy changePolicy,
+            Instant now
+    ) {
+        return new CodingSession(
+                sessionId, title, CodingSessionStatus.INITIALIZING,
+                sourceRepository, null, baseRef, null, false,
+                changePolicy, now, now, null, null
+        );
+    }
+
+    /** 使用创建完成的 Worktree 激活 Session。 */
+    public CodingSession activate(WorktreeHandle handle, Instant now) {
+        Objects.requireNonNull(handle, "handle");
+        if (status != CodingSessionStatus.INITIALIZING) {
+            throw new IllegalStateException("only initializing session can become active");
+        }
+        if (!handle.workspaceId().equals(sessionId.toString())) {
+            throw new IllegalArgumentException("worktree does not belong to session");
+        }
+        return new CodingSession(
+                sessionId, title, CodingSessionStatus.ACTIVE,
+                handle.sourceRepository(), handle.worktreePath(), handle.baseRef(),
+                handle.resolvedCommit(), handle.sourceRepositoryDirty(), changePolicy,
+                createdAt, now, null, null
+        );
+    }
+
+    /** 将未关闭的 Session 转换为带稳定原因的失败状态。 */
+    public CodingSession fail(String code, String message, Instant now) {
+        if (status == CodingSessionStatus.CLOSED) {
+            throw new IllegalStateException("closed session cannot become failed");
+        }
+        return new CodingSession(
+                sessionId, title, CodingSessionStatus.FAILED,
+                sourceRepository, worktreePath, baseRef, resolvedCommit,
+                sourceRepositoryDirty, changePolicy, createdAt, now,
+                requireText(code, "failureCode"), requireText(message, "failureMessage")
+        );
+    }
+
+    /** 校验并规范化必填文本。 */
+    private static String requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        return value.trim();
+    }
+
+    /** 校验并规范化绝对路径。 */
+    private static Path requireAbsolute(Path value, String field) {
+        Objects.requireNonNull(value, field);
+        if (!value.isAbsolute()) {
+            throw new IllegalArgumentException(field + " must be absolute");
+        }
+        return value.normalize();
+    }
+}

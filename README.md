@@ -12,6 +12,8 @@ Git repository -> isolated Worktree -> Claude Code -> Git Diff -> Maven verifica
 
 当前已经完成 M0 主链路、异步 Run API、SSE 实时事件通道和首版 Web 工作台：Control Plane 可以创建隔离 Worktree，调用受限 Claude Code，采集 Git Diff，执行路径门禁与 Maven 验证；用户可以通过浏览器提交任务并实时查看五阶段进度、业务结果和代码变更。
 
+M5 新增了持续 Coding 的持久化底座。一个 `CodingSession` 长期拥有一个独立 Worktree，服务重启后仍可查询和恢复。当前尚未实现 Session 内的多轮 Coding Turn、Claude Code 上下文续接和 Review。
+
 ## 仓库结构
 
 ```text
@@ -59,6 +61,9 @@ GET  /api/v1/m0/runs/{runId}/stream?afterSequence=0
 GET  /api/v1/m0/runs/{runId}/result
 GET  /api/v1/m0/runs/{runId}/changes
 GET  /api/v1/system/readiness
+POST /api/v1/coding-sessions
+GET  /api/v1/coding-sessions?limit=20
+GET  /api/v1/coding-sessions/{sessionId}
 ```
 
 `stream` 使用 SSE 实时发送 Run 事件，并支持通过 `Last-Event-ID` 或 `afterSequence` 断点恢复。`events` REST 接口继续用于排障和手动重放。
@@ -81,6 +86,15 @@ npm install
 npm run dev
 ```
 
-浏览器访问 `http://127.0.0.1:5173`。Web 首版需要手动输入本地 Git 仓库的绝对路径，原生文件夹选择将在桌面端实现。
+浏览器访问 `http://127.0.0.1:5173`。一次性 Run 位于 `/`，持续会话入口位于 `/sessions`。Web 首版需要手动输入本地 Git 仓库的绝对路径，原生文件夹选择将在桌面端实现。
 
-默认只允许 1 个 Run 同时执行，最多排队 10 个。状态保存在当前服务进程内，服务重启后状态查询会丢失；NDJSON 事件和任务产物仍保留在运行目录中。
+默认只允许 1 个 Run 同时执行，最多排队 10 个。一次性 Run 状态保存在当前服务进程内，服务重启后状态查询会丢失；NDJSON 事件和任务产物仍保留在运行目录中。
+
+Coding Session 使用版本化 JSON 快照持久化：
+
+```text
+runtime/sessions/{sessionId}/session.json
+runtime/worktrees/{sessionId}/
+```
+
+启动时会将中断在 `INITIALIZING` 的 Session 标记为失败，并检查 `ACTIVE` Session 的 Worktree 是否仍然存在。完整设计见 [ADR-0007](docs/decisions/0007-coding-session-persistence.md)。

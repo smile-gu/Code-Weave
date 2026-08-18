@@ -179,3 +179,34 @@ export type RuntimeReadiness = {
   checkedAt: string
   checks: RuntimeCheck[]
 }
+
+export type CodingSessionStatus = 'INITIALIZING' | 'ACTIVE' | 'CLOSED' | 'FAILED'
+
+export type CreateCodingSessionInput = {
+  title: string | null
+  repository: string
+  baseRef: string
+  allowedPaths: string[]
+  deniedPaths: string[]
+}
+
+export type CodingSession = {
+  sessionId: string
+  title: string
+  status: CodingSessionStatus
+  sourceRepository: string
+  worktreePath: string | null
+  baseRef: string
+  resolvedCommit: string | null
+  sourceRepositoryDirty: boolean
+  allowedPaths: string[]
+  deniedPaths: string[]
+  createdAt: string
+  updatedAt: string
+  failureCode: string | null
+  failureMessage: string | null
+}
+
+export type CodingSessionList = {
+  sessions: CodingSession[]
+}
