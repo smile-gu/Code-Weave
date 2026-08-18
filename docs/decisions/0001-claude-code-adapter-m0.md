@@ -40,14 +40,14 @@ Claude 事件按下表映射为平台事件：
 | Claude 事件 | 平台事件 |
 |---|---|
 | `system/init` | `agent.runtime.initialized` |
-| `system/thinking_tokens` | `agent.usage.updated` |
+| `system/thinking_tokens` | 忽略中间增量 |
 | assistant `text` | `agent.message.completed` |
 | assistant `tool_use` | `tool.call.started` |
 | user `tool_result` | `tool.call.completed` or `tool.call.failed` |
 | result success | `agent.runtime.completed` |
 | result error | `agent.runtime.failed` |
 
-Thinking 文本既不持久化，也不展示。
+Thinking 文本既不持久化，也不展示。高频 `thinking_tokens` 增量同样不进入平台事实事件流；精确 Token、缓存用量和费用由 `result` 终态原样保留。详细决策见 ADR-0006。
 
 ## 失败判定
 

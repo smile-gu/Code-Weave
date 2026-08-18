@@ -44,6 +44,33 @@ class ClaudeProcessRunnerImplTest {
     }
 
     @Test
+    void dropsHighFrequencyUsageUpdatesButKeepsTerminalUsage() throws Exception {
+        String usageUpdate = "{\"type\":\"system\",\"subtype\":\"thinking_tokens\","
+                + "\"estimated_tokens\":42,\"estimated_tokens_delta\":1,\"uuid\":\"usage-1\"}";
+        String terminalResult = "{\"type\":\"result\",\"subtype\":\"success\","
+                + "\"session_id\":\"s-1\",\"total_cost_usd\":0.11,"
+                + "\"usage\":{\"input_tokens\":100,\"output_tokens\":20}}";
+        String script = "Write-Output '" + initializedEvent(List.of("Read")) + "'; "
+                + "1..200 | ForEach-Object { Write-Output '" + usageUpdate + "' }; "
+                + "Write-Output '" + terminalResult + "'";
+
+        ClaudeRunResult result = runner.run(
+                spec(script, Duration.ofSeconds(2), Duration.ofSeconds(5)),
+                events::add
+        );
+
+        assertThat(result.status()).isEqualTo(ClaudeRunStatus.COMPLETED);
+        assertThat(events).extracting(AgentEvent::type)
+                .containsExactly(AgentEventType.RUNTIME_INITIALIZED, AgentEventType.RUNTIME_COMPLETED);
+        assertThat(result.terminalEvent().payload().path("total_cost_usd").decimalValue())
+                .isEqualByComparingTo("0.11");
+        assertThat(result.terminalEvent().payload().path("usage").path("input_tokens").asInt())
+                .isEqualTo(100);
+        assertThat(result.terminalEvent().payload().path("usage").path("output_tokens").asInt())
+                .isEqualTo(20);
+    }
+
+    @Test
     void returnsProtocolErrorForMalformedOutput() throws Exception {
         ClaudeRunResult result = runner.run(spec("Write-Output 'not-json'", Duration.ofSeconds(2), Duration.ofSeconds(5)),
                 event -> {

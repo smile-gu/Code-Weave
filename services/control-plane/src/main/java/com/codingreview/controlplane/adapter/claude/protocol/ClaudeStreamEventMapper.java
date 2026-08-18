@@ -33,7 +33,8 @@ public final class ClaudeStreamEventMapper {
             return List.of(event(AgentEventType.RUNTIME_INITIALIZED, root.path("session_id").asText(null), root));
         }
         if ("system".equals(type) && "thinking_tokens".equals(subtype)) {
-            return List.of(event(AgentEventType.USAGE_UPDATED, root.path("uuid").asText(null), root));
+            // 中间 Token 增量不进入事实事件流，最终精确用量由 result 终态保留。
+            return List.of();
         }
         if ("assistant".equals(type)) {
             return mapAssistant(root);
