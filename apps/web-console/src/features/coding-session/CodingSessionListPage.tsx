@@ -79,7 +79,7 @@ export function CodingSessionListPage() {
           <Info size={18} />
           <div>
             <strong>当前阶段边界</strong>
-            <p>本阶段完成会话持久化、历史查询和启动恢复；多轮 Coding Turn 将在下一阶段开放。</p>
+            <p>持续 Session 承载多轮 Coding、实时五阶段进度、代码变更检查和用户确认合并。</p>
           </div>
         </div>
       </section>

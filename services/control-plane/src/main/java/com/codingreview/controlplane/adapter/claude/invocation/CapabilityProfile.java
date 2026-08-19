@@ -34,4 +34,13 @@ public record CapabilityProfile(
                 1.00
         );
     }
+
+    /** M6 多轮 Coding 复用受限工具集，但允许 Claude 原生会话持久化。 */
+    public static CapabilityProfile m6SessionRestricted() {
+        CapabilityProfile m0 = m0Restricted();
+        return new CapabilityProfile(
+                "M6_SESSION_RESTRICTED", m0.safeMode(), true, m0.permissionMode(), m0.tools(),
+                m0.startupTimeout(), m0.taskTimeout(), m0.cancellationGracePeriod(), m0.maxBudgetUsd()
+        );
+    }
 }

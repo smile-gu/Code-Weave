@@ -13,6 +13,10 @@ import com.codingreview.controlplane.runtime.readiness.probe.CommandProbe;
 import com.codingreview.controlplane.runtime.readiness.probe.LocalCommandProbe;
 import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
 import com.codingreview.controlplane.session.persistence.FileCodingSessionRepository;
+import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
+import com.codingreview.controlplane.session.persistence.FileCodingTurnRepository;
+import com.codingreview.controlplane.session.integration.persistence.CodingSessionIntegrationRepository;
+import com.codingreview.controlplane.session.integration.persistence.FileCodingSessionIntegrationRepository;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.verification.maven.MavenVerifierImpl;
 import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
@@ -42,6 +46,23 @@ public class ControlPlaneConfiguration {
             ObjectMapper objectMapper
     ) {
         return new FileCodingSessionRepository(runtimeRoot(properties), objectMapper);
+    }
+
+    /** 创建按 Session 目录保存多轮 Turn 的文件仓储。 */
+    @Bean
+    CodingTurnRepository codingTurnRepository(CodeWeaveProperties properties, ObjectMapper objectMapper) {
+        return new FileCodingTurnRepository(runtimeRoot(properties), objectMapper);
+    }
+
+    /** 创建记录 Session 写回原仓库全过程的文件仓储。 */
+    @Bean
+    CodingSessionIntegrationRepository codingSessionIntegrationRepository(
+            CodeWeaveProperties properties,
+            ObjectMapper objectMapper
+    ) {
+        return new FileCodingSessionIntegrationRepository(
+                runtimeRoot(properties), objectMapper
+        );
     }
 
     /** 创建带超时和输出上限的本机只读命令探测器。 */
@@ -98,7 +119,7 @@ public class ControlPlaneConfiguration {
     ) {
         return new ClaudeCodeAdapterImpl(
                 properties.requireClaudeExecutable(),
-                CapabilityProfile.m0Restricted(),
+                CapabilityProfile.m6SessionRestricted(),
                 objectMapper
         );
     }
@@ -143,6 +164,19 @@ public class ControlPlaneConfiguration {
                 mavenVerifier,
                 eventJournal,
                 objectMapper
+        );
+    }
+
+    /** 将现有 Claude、变更、Maven 基础设施组合为 M6 多轮编排器。 */
+    @Bean
+    com.codingreview.controlplane.workflow.m6.CodingTurnOrchestrator codingTurnOrchestrator(
+            ClaudeCodeAdapter claudeCodeAdapter, GitChangeCollector changeCollector,
+            ChangePolicyEvaluator changePolicyEvaluator, MavenVerifier mavenVerifier,
+            RunEventJournal eventJournal, ObjectMapper objectMapper
+    ) {
+        return new com.codingreview.controlplane.workflow.m6.CodingTurnOrchestratorImpl(
+                claudeCodeAdapter, changeCollector, changePolicyEvaluator, mavenVerifier,
+                eventJournal, objectMapper
         );
     }
 

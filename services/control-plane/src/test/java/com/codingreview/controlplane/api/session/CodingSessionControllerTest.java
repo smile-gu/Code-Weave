@@ -2,6 +2,7 @@ package com.codingreview.controlplane.api.session;
 
 import com.codingreview.controlplane.api.run.error.ApiExceptionHandler;
 import com.codingreview.controlplane.application.session.CodingSessionApplicationService;
+import com.codingreview.controlplane.application.session.CodingSessionIntegrationService;
 import com.codingreview.controlplane.application.session.error.CodingSessionCreationException;
 import com.codingreview.controlplane.application.session.error.CodingSessionNotFoundException;
 import com.codingreview.controlplane.session.model.CodingSession;
@@ -31,15 +32,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CodingSessionControllerTest {
 
     private CodingSessionApplicationService applicationService;
+    private CodingSessionIntegrationService integrationService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         applicationService = mock(CodingSessionApplicationService.class);
+        integrationService = mock(CodingSessionIntegrationService.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new CodingSessionController(applicationService))
+                .standaloneSetup(new CodingSessionController(
+                        applicationService, integrationService
+                ))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator)
                 .build();

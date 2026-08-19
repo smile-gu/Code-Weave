@@ -180,7 +180,7 @@ export type RuntimeReadiness = {
   checks: RuntimeCheck[]
 }
 
-export type CodingSessionStatus = 'INITIALIZING' | 'ACTIVE' | 'CLOSED' | 'FAILED'
+export type CodingSessionStatus = 'INITIALIZING' | 'ACTIVE' | 'CLOSED' | 'MERGED' | 'FAILED'
 
 export type CreateCodingSessionInput = {
   title: string | null
@@ -188,6 +188,50 @@ export type CreateCodingSessionInput = {
   baseRef: string
   allowedPaths: string[]
   deniedPaths: string[]
+}
+
+export type TurnStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED'
+export type TurnOutcome = 'NO_CHANGES' | 'CHANGES_VERIFIED' | 'VERIFICATION_FAILED' | 'POLICY_VIOLATION' | 'AGENT_FAILED'
+export type CodingTurn = {
+  turnId: string
+  sessionId: string
+  sequence: number
+  userPrompt: string
+  status: TurnStatus
+  outcome: TurnOutcome | null
+  assistantMessage: string | null
+  changedFiles: number
+  workspaceFingerprint: string | null
+  failureCode: string | null
+  userMessage: string
+  createdAt: string
+  startedAt: string | null
+  endedAt: string | null
+}
+export type CodingTurnList = { turns: CodingTurn[] }
+export type MergeReadiness = {
+  sessionId: string
+  ready: boolean
+  workspaceFingerprint: string
+  sourceHead: string
+  targetBranch: string
+  changedFiles: number
+  blockers: string[]
+}
+
+export type IntegrationStatus = 'MERGING' | 'MERGED' | 'INTERRUPTED' | 'NEEDS_ATTENTION'
+export type CodingSessionIntegration = {
+  sessionId: string
+  status: IntegrationStatus
+  sourceHeadBefore: string
+  targetBranch: string
+  workspaceFingerprint: string
+  sessionCommit: string | null
+  mergedHead: string | null
+  startedAt: string
+  updatedAt: string
+  failureCode: string | null
+  failureMessage: string | null
 }
 
 export type CodingSession = {
@@ -201,6 +245,7 @@ export type CodingSession = {
   sourceRepositoryDirty: boolean
   allowedPaths: string[]
   deniedPaths: string[]
+  claudeSessionId?: string | null
   createdAt: string
   updatedAt: string
   failureCode: string | null

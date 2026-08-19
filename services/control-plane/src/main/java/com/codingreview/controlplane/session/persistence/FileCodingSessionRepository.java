@@ -26,7 +26,7 @@ import java.util.UUID;
 public final class FileCodingSessionRepository implements CodingSessionRepository {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileCodingSessionRepository.class);
-    private static final int SCHEMA_VERSION = 1;
+    private static final int SCHEMA_VERSION = 2;
     private static final String SNAPSHOT_FILE = "session.json";
 
     private final Path sessionsRoot;
@@ -122,7 +122,7 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
     private CodingSession read(Path file) {
         try {
             SessionDocument document = objectMapper.readValue(file.toFile(), SessionDocument.class);
-            if (document.schemaVersion() != SCHEMA_VERSION) {
+            if (document.schemaVersion() < 1 || document.schemaVersion() > SCHEMA_VERSION) {
                 throw new CodingSessionPersistenceException(
                         "不支持的 Coding Session 快照版本：" + document.schemaVersion());
             }
@@ -150,6 +150,7 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
             boolean sourceRepositoryDirty,
             List<String> allowedPaths,
             List<String> deniedPaths,
+            String claudeSessionId,
             Instant createdAt,
             Instant updatedAt,
             String failureCode,
@@ -163,6 +164,7 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
                     session.worktreePath() == null ? null : session.worktreePath().toString(),
                     session.baseRef(), session.resolvedCommit(), session.sourceRepositoryDirty(),
                     session.changePolicy().allowedPaths(), session.changePolicy().deniedPaths(),
+                    session.claudeSessionId(),
                     session.createdAt(), session.updatedAt(),
                     session.failureCode(), session.failureMessage()
             );
@@ -175,6 +177,7 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
                     worktreePath == null ? null : Path.of(worktreePath),
                     baseRef, resolvedCommit, sourceRepositoryDirty,
                     new ChangePolicy(allowedPaths, deniedPaths),
+                    claudeSessionId,
                     createdAt, updatedAt, failureCode, failureMessage
             );
         }

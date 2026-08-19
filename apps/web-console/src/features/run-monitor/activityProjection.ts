@@ -139,11 +139,12 @@ function projectRunLifecycle(
   event: RunEvent,
   upsert: ActivityUpsert,
 ) {
+  const codingTurn = event.stage === 'coding-turn'
   const activity = upsert('run:lifecycle', event, {
     parentId: null,
     category: 'run',
     title: '任务已创建',
-    summary: '正在准备执行 Coding Run。',
+    summary: codingTurn ? '正在准备执行本轮 Coding。' : '正在准备执行 Coding Run。',
     status: 'running',
   })
 
@@ -196,7 +197,7 @@ function projectStageLifecycle(event: RunEvent, upsert: ActivityUpsert) {
 
 /** 将 Agent Runtime 事件转换为可读的代码操作活动。 */
 function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
-  const agentType = text(event.payload.agentEventType)
+  const agentType = text(event.payload.agentEventType) ?? text(event.payload.eventType)
   const payload = record(event.payload.payload)
   const codingActivityId = `stage:coding:${event.attempt}`
   const coding = upsert(codingActivityId, event, {
@@ -259,7 +260,8 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
 
   if (!agentType?.startsWith('TOOL_CALL_') && agentType !== 'PERMISSION_DENIED') return
 
-  const externalId = text(event.payload.externalId) ?? `sequence-${event.sequence}`
+  const externalId = text(event.payload.externalId) ?? text(payload.id)
+    ?? text(payload.tool_use_id) ?? `sequence-${event.sequence}`
   const toolId = `agent:tool:${externalId}`
   const toolName = text(payload.name)
   const input = record(payload.input)
@@ -341,10 +343,11 @@ function projectVerificationEvent(event: RunEvent, upsert: ActivityUpsert) {
 function projectRunTerminal(event: RunEvent, upsert: ActivityUpsert) {
   const completed = event.type === 'RUN_COMPLETED'
   const cancelled = event.type === 'RUN_CANCELLED'
+  const subject = event.stage === 'coding-turn' ? '本轮 Coding' : 'Coding Run'
   const activity = upsert('run:terminal', event, {
     parentId: null,
     category: 'run',
-    title: completed ? 'Coding Run 执行完成' : cancelled ? 'Coding Run 已取消' : 'Coding Run 执行失败',
+    title: completed ? `${subject} 执行完成` : cancelled ? `${subject} 已取消` : `${subject} 执行失败`,
     summary: completed ? completedRunSummary(event) : terminalFailureSummary(event),
     status: completed ? 'success' : cancelled ? 'warning' : 'failed',
   })
@@ -470,7 +473,8 @@ function toolSummary(toolName: string | null, input: JsonRecord) {
 /** 优先使用工具返回内容生成完成摘要。 */
 function toolResultSummary(payload: JsonRecord, fallback: string) {
   const result = text(payload.content)
-  return result && result !== 'updated' ? result : fallback.replace('正在', '已完成：')
+  const concise = result && result !== 'updated' && result.length <= 160 && !result.includes('\n')
+  return concise ? result : fallback.replace('正在', '已完成：')
 }
 
 /** 从不同工具输入中提取文件、命令或搜索目标。 */

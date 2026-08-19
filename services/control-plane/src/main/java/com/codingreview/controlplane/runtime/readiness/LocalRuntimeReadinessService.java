@@ -43,11 +43,12 @@ public final class LocalRuntimeReadinessService implements RuntimeReadinessServi
             "--verbose",
             "--permission-mode",
             "--session-id",
+            "--resume",
             "--max-budget-usd",
             "--safe-mode",
             "--no-session-persistence",
             "--tools",
-            "--allowed-tools"
+            "--allowedTools"
     );
 
     private final CodeWeaveProperties properties;

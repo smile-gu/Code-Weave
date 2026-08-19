@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.core.annotation.Order;
 
 import java.nio.file.Files;
 import java.time.Instant;
@@ -15,6 +16,7 @@ import java.util.Objects;
 
 /** 服务启动时修正未完成初始化和 Worktree 丢失的持久 Session。 */
 @Component
+@Order(0)
 public class CodingSessionRecoveryService implements ApplicationRunner {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CodingSessionRecoveryService.class);

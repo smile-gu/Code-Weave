@@ -7,6 +7,7 @@ describe('sessionStatusLabels', () => {
       INITIALIZING: '正在初始化',
       ACTIVE: '可继续开发',
       CLOSED: '已关闭',
+      MERGED: '已合并',
       FAILED: '初始化失败',
     })
   })

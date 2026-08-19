@@ -10,6 +10,8 @@ export type StageView = {
   status: StageStatus
   startedAt: string | null
   endedAt: string | null
+  /** 当前阶段最新的用户可读进展；没有时回退到固定描述。 */
+  summary?: string
 }
 
 const stageDefinitions: Omit<StageView, 'status' | 'startedAt' | 'endedAt'>[] = [

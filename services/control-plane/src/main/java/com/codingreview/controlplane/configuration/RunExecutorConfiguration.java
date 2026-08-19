@@ -16,13 +16,28 @@ public class RunExecutorConfiguration {
     @Bean
     @Qualifier("m0RunExecutor")
     TaskExecutor m0RunExecutor(CodeWeaveProperties properties) {
+        return createExecutor(properties, "m0-run-");
+    }
+
+    /** 创建与一次性 Run 隔离的持续 Coding Turn 执行器。 */
+    @Bean
+    @Qualifier("codingTurnExecutor")
+    TaskExecutor codingTurnExecutor(CodeWeaveProperties properties) {
+        return createExecutor(properties, "coding-turn-");
+    }
+
+    /** 使用统一容量规则创建一个有界业务执行器。 */
+    private TaskExecutor createExecutor(
+            CodeWeaveProperties properties,
+            String threadNamePrefix
+    ) {
         CodeWeaveProperties.Run run = properties.getRun();
         run.validate();
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(run.getConcurrency());
         executor.setMaxPoolSize(run.getConcurrency());
         executor.setQueueCapacity(run.getQueueCapacity());
-        executor.setThreadNamePrefix("m0-run-");
+        executor.setThreadNamePrefix(threadNamePrefix);
         executor.setWaitForTasksToCompleteOnShutdown(false);
         executor.initialize();
         return executor;

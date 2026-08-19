@@ -8,16 +8,21 @@ const icons = {
   failed: <X size={16} />,
 }
 
-/** 以固定顺序展示五阶段工作流进度。 */
-export function StageRail({ stages }: { stages: StageView[] }) {
+type StageRailProps = {
+  stages: StageView[]
+  ariaLabel?: string
+}
+
+/** 以固定顺序展示五阶段工作流进度和各阶段最新摘要。 */
+export function StageRail({ stages, ariaLabel = 'Coding Run 阶段进度' }: StageRailProps) {
   return (
-    <ol className="stage-rail" aria-label="Coding Run 阶段进度">
+    <ol className="stage-rail" aria-label={ariaLabel}>
       {stages.map((stage) => (
         <li className={`stage-item stage-${stage.status}`} key={stage.key}>
           <span className="stage-icon">{icons[stage.status]}</span>
           <span>
             <strong>{stage.label}</strong>
-            <small>{stage.description}</small>
+            <small title={stage.summary ?? stage.description}>{stage.summary ?? stage.description}</small>
           </span>
         </li>
       ))}

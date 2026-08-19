@@ -12,8 +12,19 @@ public record ClaudeRunRequest(
         String taskPrompt,
         List<String> acceptanceCriteria,
         List<String> allowedPaths,
-        List<String> deniedPaths
+        List<String> deniedPaths,
+        ClaudeConversationMode conversationMode,
+        String nativeClaudeSessionId
 ) {
+    /** 创建保持 M0 兼容的独立 Claude 调用请求。 */
+    public ClaudeRunRequest(
+            UUID sessionId, Path worktree, String taskPrompt, List<String> acceptanceCriteria,
+            List<String> allowedPaths, List<String> deniedPaths
+    ) {
+        this(sessionId, worktree, taskPrompt, acceptanceCriteria, allowedPaths, deniedPaths,
+                ClaudeConversationMode.EPHEMERAL, null);
+    }
+
     public ClaudeRunRequest {
         // 在进入进程启动层前完成边界校验，避免 Claude Code 运行在错误目录。
         Objects.requireNonNull(sessionId, "sessionId");
@@ -27,5 +38,13 @@ public record ClaudeRunRequest(
         acceptanceCriteria = List.copyOf(acceptanceCriteria);
         allowedPaths = List.copyOf(allowedPaths);
         deniedPaths = List.copyOf(deniedPaths);
+        conversationMode = Objects.requireNonNull(conversationMode, "conversationMode");
+        if (conversationMode == ClaudeConversationMode.RESUME_PERSISTENT
+                && (nativeClaudeSessionId == null || nativeClaudeSessionId.isBlank())) {
+            throw new IllegalArgumentException("nativeClaudeSessionId is required when resuming Claude session");
+        }
+        if (conversationMode != ClaudeConversationMode.RESUME_PERSISTENT) {
+            nativeClaudeSessionId = null;
+        }
     }
 }

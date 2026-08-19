@@ -22,8 +22,8 @@ class LocalRuntimeReadinessServiceTest {
 
     private static final String CLAUDE_HELP = """
             --print --input-format --output-format --verbose --permission-mode
-            --session-id --max-budget-usd --safe-mode --no-session-persistence
-            --tools --allowed-tools
+            --session-id --resume --max-budget-usd --safe-mode --no-session-persistence
+            --tools --allowedTools
             """;
 
     @TempDir
@@ -64,14 +64,14 @@ class LocalRuntimeReadinessServiceTest {
     void rejectsClaudeCodeWhenRequiredProtocolOptionIsMissing() throws Exception {
         TestEnvironment environment = environment("claude.cmd");
         RuntimeReadiness readiness = environment.service(
-                successfulProbe(CLAUDE_HELP.replace("--safe-mode", ""))
+                successfulProbe(CLAUDE_HELP.replace("--resume", ""))
         ).check();
 
         assertThat(readiness.status()).isEqualTo(RuntimeReadinessStatus.NOT_READY);
         assertThat(readiness.checks())
                 .filteredOn(check -> check.component() == RuntimeComponent.CLAUDE_CODE)
                 .singleElement()
-                .satisfies(check -> assertThat(check.remediation()).contains("--safe-mode"));
+                .satisfies(check -> assertThat(check.remediation()).contains("--resume"));
     }
 
     @Test

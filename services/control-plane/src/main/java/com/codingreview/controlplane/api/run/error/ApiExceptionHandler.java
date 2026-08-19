@@ -5,6 +5,7 @@ import com.codingreview.controlplane.application.run.error.RunOutputUnavailableE
 import com.codingreview.controlplane.application.run.error.RunQueueFullException;
 import com.codingreview.controlplane.application.session.error.CodingSessionCreationException;
 import com.codingreview.controlplane.application.session.error.CodingSessionNotFoundException;
+import com.codingreview.controlplane.application.session.error.CodingSessionConflictException;
 import com.codingreview.controlplane.runtime.readiness.error.RuntimeNotReadyException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -111,6 +112,16 @@ public class ApiExceptionHandler {
                 exception.sessionId(), exception.code(), exception.diagnostic(), exception);
         return response(HttpStatus.UNPROCESSABLE_ENTITY, exception.code(),
                 exception.userMessage(), request, null, Map.of());
+    }
+
+    /** 将 Session 当前状态冲突转换为可重试或可操作的 409 响应。 */
+    @ExceptionHandler(CodingSessionConflictException.class)
+    ResponseEntity<ApiErrorResponse> handleSessionConflict(
+            CodingSessionConflictException exception,
+            HttpServletRequest request
+    ) {
+        return response(HttpStatus.CONFLICT, exception.code(),
+                exception.getMessage(), request, null, Map.of());
     }
 
     /** 将本机环境未就绪转换为不创建 Run 的 503 响应。 */

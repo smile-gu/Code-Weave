@@ -19,6 +19,7 @@ public record CodingSessionResponse(
         boolean sourceRepositoryDirty,
         List<String> allowedPaths,
         List<String> deniedPaths,
+        String claudeSessionId,
         Instant createdAt,
         Instant updatedAt,
         String failureCode,
@@ -32,6 +33,7 @@ public record CodingSessionResponse(
                 session.worktreePath() == null ? null : session.worktreePath().toString(),
                 session.baseRef(), session.resolvedCommit(), session.sourceRepositoryDirty(),
                 session.changePolicy().allowedPaths(), session.changePolicy().deniedPaths(),
+                session.claudeSessionId(),
                 session.createdAt(), session.updatedAt(),
                 session.failureCode(), session.failureMessage()
         );

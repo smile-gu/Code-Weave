@@ -99,6 +99,26 @@ describe('activityProjection', () => {
     })
   })
 
+  it('supports the multi-turn event field and correlates tools by protocol ids', () => {
+    const activities = projectActivities([
+      event(1, 'coding-turn', 'AGENT_EVENT_OBSERVED', {
+        eventType: 'TOOL_CALL_STARTED',
+        payload: { id: 'call-1', name: 'Write', input: { file_path: 'src/User.java' } },
+      }),
+      event(2, 'coding-turn', 'AGENT_EVENT_OBSERVED', {
+        eventType: 'TOOL_CALL_COMPLETED',
+        payload: { tool_use_id: 'call-1', content: 'File created' },
+      }),
+    ])
+
+    expect(activities).toHaveLength(2)
+    expect(activities[1]).toMatchObject({
+      title: '已修改 User.java',
+      status: 'success',
+      sourceSequences: [1, 2],
+    })
+  })
+
   it('collects process output without exposing chunks as activities', () => {
     const events = [
       event(1, 'maven', 'PROCESS_STDOUT', { preview: 'line one\n' }),

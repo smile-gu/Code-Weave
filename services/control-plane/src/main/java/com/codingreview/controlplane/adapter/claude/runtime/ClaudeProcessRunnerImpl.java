@@ -80,6 +80,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
                 status,
                 exitCode,
                 state.initialized,
+                state.nativeSessionId,
                 state.terminalEvent != null,
                 state.terminalEvent,
                 startedAt,
@@ -237,6 +238,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
                 for (AgentEvent event : eventMapper.mapLine(line)) {
                     if (event.type() == AgentEventType.RUNTIME_INITIALIZED) {
                         state.initialized = true;
+                        state.nativeSessionId = event.externalId();
                         state.initializedAtNanos = System.nanoTime();
                         state.initializedLatch.countDown();
                     }
@@ -319,7 +321,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
     private ClaudeRunResult result(ClaudeRunStatus status, Integer exitCode, Instant startedAt,
                                    AgentEvent terminalEvent, String diagnostic) {
         Instant endedAt = Instant.now();
-        return new ClaudeRunResult(status, exitCode, false, terminalEvent != null, terminalEvent,
+        return new ClaudeRunResult(status, exitCode, false, null, terminalEvent != null, terminalEvent,
                 startedAt, endedAt, diagnostic);
     }
 
@@ -334,6 +336,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
     private static final class RunState {
         private final CountDownLatch initializedLatch = new CountDownLatch(1);
         private volatile boolean initialized;
+        private volatile String nativeSessionId;
         private volatile long initializedAtNanos;
         private volatile AgentEvent terminalEvent;
         private volatile ClaudeRunStatus failureStatus;

@@ -19,11 +19,24 @@ public record CodingSession(
         String resolvedCommit,
         boolean sourceRepositoryDirty,
         ChangePolicy changePolicy,
+        String claudeSessionId,
         Instant createdAt,
         Instant updatedAt,
         String failureCode,
         String failureMessage
 ) {
+
+    /** 兼容 M5 快照和调用方创建的未绑定 Claude 上下文的 Session。 */
+    public CodingSession(
+            UUID sessionId, String title, CodingSessionStatus status,
+            Path sourceRepository, Path worktreePath, String baseRef, String resolvedCommit,
+            boolean sourceRepositoryDirty, ChangePolicy changePolicy,
+            Instant createdAt, Instant updatedAt, String failureCode, String failureMessage
+    ) {
+        this(sessionId, title, status, sourceRepository, worktreePath, baseRef, resolvedCommit,
+                sourceRepositoryDirty, changePolicy, null, createdAt, updatedAt,
+                failureCode, failureMessage);
+    }
 
     /** 校验并规范化 Session 的完整持久状态。 */
     public CodingSession {
@@ -64,7 +77,7 @@ public record CodingSession(
         return new CodingSession(
                 sessionId, title, CodingSessionStatus.INITIALIZING,
                 sourceRepository, null, baseRef, null, false,
-                changePolicy, now, now, null, null
+                changePolicy, null, now, now, null, null
         );
     }
 
@@ -81,19 +94,49 @@ public record CodingSession(
                 sessionId, title, CodingSessionStatus.ACTIVE,
                 handle.sourceRepository(), handle.worktreePath(), handle.baseRef(),
                 handle.resolvedCommit(), handle.sourceRepositoryDirty(), changePolicy,
-                createdAt, now, null, null
+                claudeSessionId, createdAt, now, null, null
         );
+    }
+
+    /** 记录 Claude Code 在首轮返回的原生会话标识，供后续 Turn 恢复上下文。 */
+    public CodingSession bindClaudeSession(String nativeSessionId, Instant now) {
+        if (status != CodingSessionStatus.ACTIVE) {
+            throw new IllegalStateException("only active session can bind Claude session");
+        }
+        return new CodingSession(
+                sessionId, title, status, sourceRepository, worktreePath, baseRef, resolvedCommit,
+                sourceRepositoryDirty, changePolicy, requireText(nativeSessionId, "claudeSessionId"),
+                createdAt, now, failureCode, failureMessage
+        );
+    }
+
+    /** 将已验证并写回原仓库的 Session 固化为合并终态。 */
+    public CodingSession merged(Instant now) {
+        if (status != CodingSessionStatus.ACTIVE) throw new IllegalStateException("only active session can be merged");
+        return new CodingSession(sessionId, title, CodingSessionStatus.MERGED, sourceRepository,
+                worktreePath, baseRef, resolvedCommit, sourceRepositoryDirty, changePolicy,
+                claudeSessionId, createdAt, now, null, null);
+    }
+
+    /** 在 Session 业务内容更新后刷新最近活动时间。 */
+    public CodingSession touch(Instant now) {
+        if (now.isBefore(updatedAt)) {
+            throw new IllegalArgumentException("now must not be before updatedAt");
+        }
+        return new CodingSession(sessionId, title, status, sourceRepository, worktreePath,
+                baseRef, resolvedCommit, sourceRepositoryDirty, changePolicy,
+                claudeSessionId, createdAt, now, failureCode, failureMessage);
     }
 
     /** 将未关闭的 Session 转换为带稳定原因的失败状态。 */
     public CodingSession fail(String code, String message, Instant now) {
-        if (status == CodingSessionStatus.CLOSED) {
-            throw new IllegalStateException("closed session cannot become failed");
+        if (status == CodingSessionStatus.CLOSED || status == CodingSessionStatus.MERGED) {
+            throw new IllegalStateException("terminal session cannot become failed");
         }
         return new CodingSession(
                 sessionId, title, CodingSessionStatus.FAILED,
                 sourceRepository, worktreePath, baseRef, resolvedCommit,
-                sourceRepositoryDirty, changePolicy, createdAt, now,
+                sourceRepositoryDirty, changePolicy, claudeSessionId, createdAt, now,
                 requireText(code, "failureCode"), requireText(message, "failureMessage")
         );
     }

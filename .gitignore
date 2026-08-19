@@ -10,5 +10,6 @@ output/playwright/
 runtime/worktrees/*
 runtime/runs/*
 runtime/e2e/
+runtime/dev-runtime/
 !runtime/worktrees/.gitkeep
 !runtime/runs/.gitkeep
