@@ -10,6 +10,8 @@ import com.codingreview.controlplane.observability.run.RunEventJournal;
 import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.session.model.CodingTurn;
 import com.codingreview.controlplane.session.model.TurnOutcome;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceDriftException;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
@@ -29,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,12 +40,42 @@ import static org.mockito.Mockito.when;
 class CodingTurnOrchestratorImplTest {
 
     @Test
+    void stopsBeforeClaudeWhenWorkspaceDrifted() {
+        ClaudeCodeAdapter claude = mock(ClaudeCodeAdapter.class);
+        GitChangeCollector changes = mock(GitChangeCollector.class);
+        ChangePolicyEvaluator policy = mock(ChangePolicyEvaluator.class);
+        MavenVerifier maven = mock(MavenVerifier.class);
+        RunEventJournal journal = mock(RunEventJournal.class);
+        SessionWorkspaceGuard guard = mock(SessionWorkspaceGuard.class);
+        CodingSession session = activeSession();
+        CodingTurn running = CodingTurn.queued(
+                UUID.randomUUID(), session.sessionId(), 1,
+                "继续开发", Instant.parse("2026-08-18T08:00:00Z")
+        ).running(Instant.parse("2026-08-18T08:00:01Z"));
+        doThrow(new SessionWorkspaceDriftException(
+                "SOURCE_HEAD_CHANGED", "真实仓库 HEAD 已变化。"
+        )).when(guard).assertStable(session);
+        CodingTurnOrchestratorImpl orchestrator = new CodingTurnOrchestratorImpl(
+                claude, changes, policy, maven, journal,
+                JsonMapper.builder().findAndAddModules().build(), guard
+        );
+
+        CodingTurnExecution execution = orchestrator.execute(session, running, ignored -> { });
+
+        assertThat(execution.turn().outcome()).isEqualTo(TurnOutcome.WORKSPACE_DRIFT);
+        assertThat(execution.turn().failureCode()).isEqualTo("SOURCE_HEAD_CHANGED");
+        verify(claude, never()).run(any(), any());
+        verify(changes, never()).collect(any());
+    }
+
+    @Test
     void persistsNativeClaudeSessionDuringInitEventAndSkipsMavenWithoutChanges() {
         ClaudeCodeAdapter claude = mock(ClaudeCodeAdapter.class);
         GitChangeCollector changes = mock(GitChangeCollector.class);
         ChangePolicyEvaluator policy = mock(ChangePolicyEvaluator.class);
         MavenVerifier maven = mock(MavenVerifier.class);
         RunEventJournal journal = mock(RunEventJournal.class);
+        SessionWorkspaceGuard guard = mock(SessionWorkspaceGuard.class);
         CodingSession session = activeSession();
         CodingTurn running = CodingTurn.queued(
                 UUID.randomUUID(), session.sessionId(), 1,
@@ -73,7 +106,7 @@ class CodingTurnOrchestratorImplTest {
         ));
         CodingTurnOrchestratorImpl orchestrator = new CodingTurnOrchestratorImpl(
                 claude, changes, policy, maven, journal,
-                JsonMapper.builder().findAndAddModules().build()
+                JsonMapper.builder().findAndAddModules().build(), guard
         );
 
         CodingTurnExecution execution = orchestrator.execute(

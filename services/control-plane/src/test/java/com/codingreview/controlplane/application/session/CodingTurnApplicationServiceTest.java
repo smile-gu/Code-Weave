@@ -14,6 +14,8 @@ import com.codingreview.controlplane.session.model.CodingTurn;
 import com.codingreview.controlplane.session.model.TurnStatus;
 import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
 import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceDriftException;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.workflow.m6.CodingTurnOrchestrator;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
@@ -34,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +53,19 @@ class CodingTurnApplicationServiceTest {
 
         assertThatThrownBy(() -> fixture.service.submit(fixture.session.sessionId(), "继续开发"))
                 .isInstanceOf(RuntimeNotReadyException.class);
+        verify(fixture.turns, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void refusesToCreateTurnWhenWorkspaceDrifted() {
+        Fixture fixture = fixture(RuntimeReadiness.from(Instant.now(), List.of()));
+        doThrow(new SessionWorkspaceDriftException(
+                "SOURCE_BRANCH_CHANGED", "真实仓库分支已经变化。"
+        )).when(fixture.workspaceGuard).assertStable(fixture.session);
+
+        assertThatThrownBy(() -> fixture.service.submit(fixture.session.sessionId(), "继续开发"))
+                .isInstanceOf(CodingSessionConflictException.class)
+                .hasMessageContaining("分支已经变化");
         verify(fixture.turns, org.mockito.Mockito.never()).save(any());
     }
 
@@ -92,14 +108,16 @@ class CodingTurnApplicationServiceTest {
         GitChangeCollector changes = mock(GitChangeCollector.class);
         RunEventJournal journal = mock(RunEventJournal.class);
         RuntimeReadinessService readinessService = () -> readiness;
+        SessionWorkspaceGuard workspaceGuard = mock(SessionWorkspaceGuard.class);
         CapturingExecutor executor = new CapturingExecutor();
         CodingSession session = activeSession();
         when(sessions.find(session.sessionId())).thenReturn(Optional.of(session));
         CodingTurnApplicationService service = new CodingTurnApplicationService(
                 sessions, turns, orchestrator, changes, journal,
-                JsonMapper.builder().findAndAddModules().build(), executor, readinessService
+                JsonMapper.builder().findAndAddModules().build(), executor, readinessService,
+                workspaceGuard
         );
-        return new Fixture(session, turns, executor, service);
+        return new Fixture(session, turns, executor, service, workspaceGuard);
     }
 
     /** 创建具备长期 Worktree 的测试 Session。 */
@@ -132,6 +150,7 @@ class CodingTurnApplicationServiceTest {
             CodingSession session,
             CodingTurnRepository turns,
             CapturingExecutor executor,
-            CodingTurnApplicationService service
+            CodingTurnApplicationService service,
+            SessionWorkspaceGuard workspaceGuard
     ) { }
 }

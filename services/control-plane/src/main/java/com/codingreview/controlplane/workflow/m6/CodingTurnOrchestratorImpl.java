@@ -12,6 +12,8 @@ import com.codingreview.controlplane.observability.run.RunEventType;
 import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.session.model.CodingTurn;
 import com.codingreview.controlplane.session.model.TurnOutcome;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceDriftException;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.verification.maven.model.MavenVerificationRequest;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
@@ -39,11 +41,13 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
     private final RunEventJournal journal;
     private final ObjectMapper mapper;
     private final WorkspaceFingerprintCalculator fingerprintCalculator;
+    private final SessionWorkspaceGuard workspaceGuard;
 
-    /** 装配多轮 Coding 所需的适配器和验证器。 */
+    /** 装配多轮 Coding 所需的适配器、验证器和工作区门禁。 */
     public CodingTurnOrchestratorImpl(ClaudeCodeAdapter claude, GitChangeCollector changes,
                                       ChangePolicyEvaluator policy, MavenVerifier maven,
-                                      RunEventJournal journal, ObjectMapper mapper) {
+                                      RunEventJournal journal, ObjectMapper mapper,
+                                      SessionWorkspaceGuard workspaceGuard) {
         this.claude = Objects.requireNonNull(claude, "claude");
         this.changes = Objects.requireNonNull(changes, "changes");
         this.policy = Objects.requireNonNull(policy, "policy");
@@ -51,6 +55,7 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
         this.journal = Objects.requireNonNull(journal, "journal");
         this.mapper = Objects.requireNonNull(mapper, "mapper").copy();
         this.fingerprintCalculator = new WorkspaceFingerprintCalculator();
+        this.workspaceGuard = Objects.requireNonNull(workspaceGuard, "workspaceGuard");
     }
 
     /** 执行 Claude、采集累计 Diff、检查路径并按需运行 Maven。 */
@@ -69,6 +74,7 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
                 ? ClaudeConversationMode.START_PERSISTENT : ClaudeConversationMode.RESUME_PERSISTENT;
         append(turn, RunEventType.RUN_STARTED, "Turn 开始执行。", null);
         try {
+            workspaceGuard.assertStable(session);
             ClaudeRunResult run = claude.run(new ClaudeRunRequest(
                     turn.turnId(), handle.worktreePath(), turn.userPrompt(), List.of(),
                     session.changePolicy().allowedPaths(), session.changePolicy().deniedPaths(),
@@ -88,7 +94,9 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
                 appendTerminal(turn, RunEventType.RUN_FAILED, failed.userMessage());
                 return new CodingTurnExecution(updatedSession, failed);
             }
+            workspaceGuard.assertStable(currentSession.get());
             GitChangeSet changeSet = changes.collect(handle);
+            workspaceGuard.assertStable(currentSession.get());
             if (changeSet.isEmpty()) {
                 CodingTurn completed = turn.complete(TurnOutcome.NO_CHANGES, 0,
                         null,
@@ -106,6 +114,7 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
                 return new CodingTurnExecution(updatedSession, completed);
             }
             var verification = maven.verify(new MavenVerificationRequest(turn.turnId().toString(), handle, 1));
+            workspaceGuard.assertStable(currentSession.get());
             TurnOutcome outcome = verification.passed() ? TurnOutcome.CHANGES_VERIFIED : TurnOutcome.VERIFICATION_FAILED;
             CodingTurn completed = turn.complete(outcome, changeSet.files().size(),
                     workspaceFingerprint, verification.userMessage(),
@@ -113,6 +122,12 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
             appendTerminal(turn, verification.passed() ? RunEventType.RUN_COMPLETED : RunEventType.RUN_FAILED,
                     completed.userMessage());
             return new CodingTurnExecution(updatedSession, completed);
+        } catch (SessionWorkspaceDriftException exception) {
+            CodingTurn failed = turn.failed(TurnOutcome.WORKSPACE_DRIFT, exception.code(),
+                    exception.getMessage(), String.join("\n", assistant),
+                    currentSession.get().claudeSessionId(), Instant.now());
+            appendTerminal(turn, RunEventType.RUN_FAILED, failed.userMessage());
+            return new CodingTurnExecution(currentSession.get(), failed);
         } catch (RuntimeException exception) {
             CodingTurn failed = turn.failed(TurnOutcome.AGENT_FAILED, "TURN_EXECUTION_FAILED",
                     "本轮执行发生系统错误，真实工作区修改已保留，可继续发起下一轮。", String.join("\n", assistant),

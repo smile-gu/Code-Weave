@@ -103,5 +103,6 @@ function statusLabel(turn: CodingTurn) {
   if (turn.outcome === 'NO_CHANGES') return '本轮无代码修改'
   if (turn.outcome === 'POLICY_VIOLATION') return '修改超出路径边界'
   if (turn.outcome === 'VERIFICATION_FAILED') return 'Maven 验证未通过'
+  if (turn.outcome === 'WORKSPACE_DRIFT') return '工作区分支或 HEAD 已变化'
   return turn.status === 'FAILED' ? '执行失败' : '执行完成'
 }

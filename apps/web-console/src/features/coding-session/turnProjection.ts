@@ -17,7 +17,7 @@ export function projectTurnStages(events: RunEvent[], turn?: CodingTurn | null):
       const summary = agentSummary(event)
       if (agentEventType(event) === 'RUNTIME_COMPLETED') {
         setStage(coding, 'completed', coding.startedAt ?? event.timestamp, event.timestamp, summary)
-        setStage(byKey.get('change-collection')!, 'running', event.timestamp, undefined, '正在读取 Worktree 中的 Git 变更。')
+        setStage(byKey.get('change-collection')!, 'running', event.timestamp, undefined, '正在读取真实工作区中的 Git 变更。')
       } else {
         setStage(coding, 'running', event.timestamp, undefined, summary)
       }
@@ -46,10 +46,10 @@ export function projectTurnStages(events: RunEvent[], turn?: CodingTurn | null):
   return stages
 }
 
-/** 为五阶段创建初始视图；Session Worktree 在 Session 创建时已准备好。 */
+/** 为五阶段创建初始视图；真实 Git 工作区在 Session 创建时已绑定。 */
 function createStages(): StageView[] {
   return [
-    { key: 'worktree', label: '隔离工作区', description: '复用 Session Worktree', status: 'completed', startedAt: null, endedAt: null, summary: '当前 Turn 复用已创建的 Session Worktree。' },
+    { key: 'worktree', label: '真实工作区', description: '检查 Session 仓库基线', status: 'completed', startedAt: null, endedAt: null, summary: '当前 Turn 已绑定并检查真实 Git 工作区。' },
     { key: 'coding', label: '代码执行', description: '在当前代码工作区完成任务', status: 'pending', startedAt: null, endedAt: null },
     { key: 'change-collection', label: '变更采集', description: '生成文件清单与 Unified Diff', status: 'pending', startedAt: null, endedAt: null },
     { key: 'change-policy', label: '路径门禁', description: '确认改动未越过任务边界', status: 'pending', startedAt: null, endedAt: null },
@@ -64,7 +64,7 @@ function applyTerminal(byKey: Map<StageKey, StageView>, event: RunEvent, turn?: 
     setStage(coding, 'completed', coding.startedAt ?? event.timestamp, event.timestamp, 'Coding Agent 已完成本轮任务。')
   } else {
     setStage(coding, 'failed', coding.startedAt ?? event.timestamp, event.timestamp,
-      event.type === 'RUN_CANCELLED' ? '本轮已停止，Worktree 修改仍然保留。' : '本轮 Coding Agent 未能完成。')
+      event.type === 'RUN_CANCELLED' ? '本轮已停止，真实工作区修改仍然保留。' : '本轮 Coding Agent 未能完成。')
   }
   if (turn) applyOutcome(byKey, turn)
 }
@@ -103,6 +103,14 @@ function applyOutcome(byKey: Map<StageKey, StageView>, turn: CodingTurn) {
     complete(collection, turn.endedAt, end, `已采集 ${turn.changedFiles} 个变更文件。`)
     complete(policy, turn.endedAt, end, '路径边界检查通过。')
     setStage(maven, 'failed', turn.endedAt, end, 'Maven 验证未通过，请查看 Turn 结果中的失败信息。')
+    return
+  }
+
+  if (turn.outcome === 'WORKSPACE_DRIFT') {
+    setStage(coding, 'failed', coding.startedAt ?? turn.startedAt, end, turn.userMessage)
+    collection.summary = '工作区状态已变化，未继续采集代码变更。'
+    policy.summary = '工作区门禁已阻断，本轮未执行路径检查。'
+    maven.summary = '工作区门禁已阻断，本轮未运行 Maven。'
     return
   }
   if (turn.outcome === 'CHANGES_VERIFIED') {

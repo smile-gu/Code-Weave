@@ -15,6 +15,7 @@ import com.codingreview.controlplane.session.persistence.CodingSessionRepository
 import com.codingreview.controlplane.session.persistence.FileCodingSessionRepository;
 import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
 import com.codingreview.controlplane.session.persistence.FileCodingTurnRepository;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.session.integration.persistence.CodingSessionIntegrationRepository;
 import com.codingreview.controlplane.session.integration.persistence.FileCodingSessionIntegrationRepository;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
@@ -121,6 +122,12 @@ public class ControlPlaneConfiguration {
         return new GitRepositoryInspectorImpl();
     }
 
+    /** 创建真实仓库分支与 HEAD 防漂移门禁。 */
+    @Bean
+    SessionWorkspaceGuard sessionWorkspaceGuard(GitRepositoryInspector inspector) {
+        return new SessionWorkspaceGuard(inspector);
+    }
+
     /** 创建基于运行目录锁文件的仓库级写锁管理器。 */
     @Bean(destroyMethod = "close")
     RepositoryWriteLockManager repositoryWriteLockManager(CodeWeaveProperties properties) {
@@ -188,11 +195,12 @@ public class ControlPlaneConfiguration {
     com.codingreview.controlplane.workflow.m6.CodingTurnOrchestrator codingTurnOrchestrator(
             ClaudeCodeAdapter claudeCodeAdapter, GitChangeCollector changeCollector,
             ChangePolicyEvaluator changePolicyEvaluator, MavenVerifier mavenVerifier,
-            RunEventJournal eventJournal, ObjectMapper objectMapper
+            RunEventJournal eventJournal, ObjectMapper objectMapper,
+            SessionWorkspaceGuard workspaceGuard
     ) {
         return new com.codingreview.controlplane.workflow.m6.CodingTurnOrchestratorImpl(
                 claudeCodeAdapter, changeCollector, changePolicyEvaluator, mavenVerifier,
-                eventJournal, objectMapper
+                eventJournal, objectMapper, workspaceGuard
         );
     }
 

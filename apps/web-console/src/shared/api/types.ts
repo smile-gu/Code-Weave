@@ -192,7 +192,7 @@ export type CreateCodingSessionInput = {
 }
 
 export type TurnStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED'
-export type TurnOutcome = 'NO_CHANGES' | 'CHANGES_VERIFIED' | 'VERIFICATION_FAILED' | 'POLICY_VIOLATION' | 'AGENT_FAILED'
+export type TurnOutcome = 'NO_CHANGES' | 'CHANGES_VERIFIED' | 'VERIFICATION_FAILED' | 'POLICY_VIOLATION' | 'WORKSPACE_DRIFT' | 'AGENT_FAILED'
 export type CodingTurn = {
   turnId: string
   sessionId: string

@@ -15,7 +15,7 @@ import java.nio.file.Files;
 import java.time.Instant;
 import java.util.Objects;
 
-/** 服务启动时修正未完成初始化和 Worktree 丢失的持久 Session。 */
+/** 服务启动时修正异常 Session，并恢复真实仓库写锁。 */
 @Component
 @Order(0)
 public class CodingSessionRecoveryService implements ApplicationRunner {

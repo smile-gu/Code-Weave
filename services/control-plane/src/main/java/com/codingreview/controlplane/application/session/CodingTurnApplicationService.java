@@ -12,6 +12,8 @@ import com.codingreview.controlplane.session.model.CodingTurn;
 import com.codingreview.controlplane.session.model.TurnStatus;
 import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
 import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceDriftException;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.workflow.m6.CodingTurnExecution;
 import com.codingreview.controlplane.workflow.m6.CodingTurnOrchestrator;
 import com.codingreview.controlplane.workflow.m6.CodingTurnOrchestratorImpl.CodingTurnExecutionException;
@@ -41,15 +43,17 @@ public final class CodingTurnApplicationService {
     private final ObjectMapper mapper;
     private final TaskExecutor executor;
     private final RuntimeReadinessService readinessService;
+    private final SessionWorkspaceGuard workspaceGuard;
     private final ConcurrentHashMap<UUID, ExecutionHandle> running = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, Object> sessionLocks = new ConcurrentHashMap<>();
 
-    /** 装配 Turn 应用层及复用的执行资源。 */
+    /** 装配 Turn 应用层及复用的执行资源和工作区门禁。 */
     public CodingTurnApplicationService(CodingSessionRepository sessions, CodingTurnRepository turns,
                                         CodingTurnOrchestrator orchestrator, GitChangeCollector changeCollector,
                                         RunEventJournal journal, ObjectMapper mapper,
                                         @Qualifier("codingTurnExecutor") TaskExecutor executor,
-                                        RuntimeReadinessService readinessService) {
+                                        RuntimeReadinessService readinessService,
+                                        SessionWorkspaceGuard workspaceGuard) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.turns = Objects.requireNonNull(turns, "turns");
         this.orchestrator = Objects.requireNonNull(orchestrator, "orchestrator");
@@ -60,12 +64,18 @@ public final class CodingTurnApplicationService {
         this.readinessService = Objects.requireNonNull(
                 readinessService, "readinessService"
         );
+        this.workspaceGuard = Objects.requireNonNull(workspaceGuard, "workspaceGuard");
     }
 
     /** 创建排队 Turn，并保证同一 Session 同时只有一轮运行。 */
     public CodingTurn submit(UUID sessionId, String prompt) {
         synchronized (lock(sessionId)) {
-            requireActive(sessionId);
+            CodingSession session = requireActive(sessionId);
+            try {
+                workspaceGuard.assertStable(session);
+            } catch (SessionWorkspaceDriftException exception) {
+                throw new CodingSessionConflictException(exception.code(), exception.getMessage());
+            }
             var readiness = readinessService.check();
             if (!readiness.ready()) {
                 throw new RuntimeNotReadyException(readiness);
