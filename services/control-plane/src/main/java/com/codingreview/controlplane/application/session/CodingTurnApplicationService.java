@@ -115,7 +115,7 @@ public final class CodingTurnApplicationService {
     /** 查询 Turn 的持久事件。 */
     public List<RunEvent> events(UUID sessionId, UUID turnId, long afterSequence) { get(sessionId, turnId); return journal.readAfter(turnId.toString(), afterSequence); }
 
-    /** 读取当前 Worktree 相对 Session 基线的累计 Diff。 */
+    /** 读取当前真实工作区相对 Session 基线的累计 Diff。 */
     public GitChangeSet changes(UUID sessionId, UUID turnId) {
         CodingTurn turn = get(sessionId, turnId);
         if (turn.status() == TurnStatus.QUEUED || turn.status() == TurnStatus.RUNNING) {
@@ -178,7 +178,7 @@ public final class CodingTurnApplicationService {
             CodingTurn failed = runningTurn.failed(
                     com.codingreview.controlplane.session.model.TurnOutcome.AGENT_FAILED,
                     "TURN_INFRASTRUCTURE_FAILED",
-                    "Turn 基础设施发生故障，Worktree 已保留。",
+                    "Turn 基础设施发生故障，真实工作区修改已保留。",
                     null, null, Instant.now()
             );
             synchronized (lock(sessionId)) {

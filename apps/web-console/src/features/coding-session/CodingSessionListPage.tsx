@@ -10,22 +10,13 @@ import { formatSessionTime, sessionStatusLabels } from './sessionPresentation'
 type FormState = {
   title: string
   repository: string
-  baseRef: string
-  allowedPaths: string
-  deniedPaths: string
+  includeExistingChanges: boolean
 }
 
 const initialForm: FormState = {
   title: '',
   repository: '',
-  baseRef: 'HEAD',
-  allowedPaths: 'src/**\npom.xml',
-  deniedPaths: '.git/**\ntarget/**',
-}
-
-/** 将多行路径输入整理为后端接受的规则数组。 */
-function lines(value: string) {
-  return value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
+  includeExistingChanges: false,
 }
 
 /** 展示 Coding Session 创建入口和最近持久历史。 */
@@ -47,7 +38,7 @@ export function CodingSessionListPage() {
   })
 
   /** 更新 Session 创建表单中的单个字段。 */
-  const update = (field: keyof FormState, value: string) => {
+  const update = (field: 'title' | 'repository', value: string) => {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
@@ -57,9 +48,10 @@ export function CodingSessionListPage() {
     mutation.mutate({
       title: form.title.trim() || null,
       repository: form.repository.trim(),
-      baseRef: form.baseRef.trim(),
-      allowedPaths: lines(form.allowedPaths),
-      deniedPaths: lines(form.deniedPaths),
+      baseRef: 'HEAD',
+      allowedPaths: ['src/**', 'pom.xml'],
+      deniedPaths: ['.git/**', 'target/**'],
+      includeExistingChanges: form.includeExistingChanges,
     })
   }
 
@@ -72,14 +64,14 @@ export function CodingSessionListPage() {
           <p className="eyebrow">CONTINUOUS CODING</p>
           <h1>为持续开发准备<br />一个稳定工作区</h1>
           <p>
-            Session 会长期保留独立 Git Worktree。后续每轮 Coding、Review 和整改都将在同一会话上下文中衔接。
+            Session 直接绑定真实 Git 工作区。后续每轮 Coding、Review 和整改都在同一仓库与会话上下文中衔接。
           </p>
         </div>
         <div className="boundary-note session-boundary">
           <Info size={18} />
           <div>
             <strong>当前阶段边界</strong>
-            <p>持续 Session 承载多轮 Coding、实时五阶段进度、代码变更检查和用户确认合并。</p>
+            <p>Coding Agent 会直接修改所选仓库；同一仓库同时只允许一个活跃 Session。</p>
           </div>
         </div>
       </section>
@@ -88,7 +80,7 @@ export function CodingSessionListPage() {
         <section className="form-panel session-form-panel">
           <div className="section-heading">
             <span><MessagesSquare size={16} /> 创建持续会话</span>
-            <small>一个 Session 对应一个长期 Worktree</small>
+            <small>一个 Session 对应一个真实 Git 工作区</small>
           </div>
           <form onSubmit={submit}>
             <label>
@@ -111,28 +103,21 @@ export function CodingSessionListPage() {
               />
               {apiError?.fieldErrors.repository && <em>{apiError.fieldErrors.repository}</em>}
             </label>
-            <div className="field-row">
-              <label>
-                <span>基准版本</span>
-                <input value={form.baseRef} onChange={(event) => update('baseRef', event.target.value)} />
-              </label>
-              <label>
-                <span>审查范围</span>
-                <input value="Spring Boot 3.x · Maven" disabled />
-              </label>
-            </div>
-            <div className="field-row">
-              <label>
-                <span>允许修改路径 <small>每行一条</small></span>
-                <textarea value={form.allowedPaths} onChange={(event) => update('allowedPaths', event.target.value)} />
-                {apiError?.fieldErrors.allowedPaths && <em>{apiError.fieldErrors.allowedPaths}</em>}
-              </label>
-              <label>
-                <span>禁止修改路径 <small>每行一条</small></span>
-                <textarea value={form.deniedPaths} onChange={(event) => update('deniedPaths', event.target.value)} />
-                {apiError?.fieldErrors.deniedPaths && <em>{apiError.fieldErrors.deniedPaths}</em>}
-              </label>
-            </div>
+            <label>
+              <span>审查范围</span>
+              <input value="Spring Boot 3.x · Maven" disabled />
+            </label>
+            <label>
+              <span>创建前的未提交修改</span>
+              <select value={form.includeExistingChanges ? 'include' : 'exclude'}
+                onChange={(event) => setForm((current) => ({
+                  ...current,
+                  includeExistingChanges: event.target.value === 'include',
+                }))}>
+                <option value="exclude">默认不纳入；存在修改时阻止创建</option>
+                <option value="include">明确纳入当前 Session 的累计变更</option>
+              </select>
+            </label>
             {mutation.isError && (
               <div className="form-error" role="alert">
                 <strong>{apiError?.code ?? 'SESSION_CREATE_FAILED'}</strong>
@@ -140,7 +125,7 @@ export function CodingSessionListPage() {
               </div>
             )}
             <button className="primary-button" disabled={mutation.isPending} type="submit">
-              {mutation.isPending ? '正在创建 Worktree…' : '创建 Coding Session'}
+              {mutation.isPending ? '正在检查并锁定仓库…' : '创建 Coding Session'}
               {!mutation.isPending && <ArrowRight size={17} />}
             </button>
           </form>
@@ -182,7 +167,7 @@ export function CodingSessionListPage() {
           </div>
           <div className="session-assurance">
             <ShieldCheck size={17} />
-            <span>原始仓库默认不被直接修改，所有后续工作都限定在 Session Worktree。</span>
+            <span>Coding Agent 直接修改真实仓库；仓库级写锁会阻止多个 Session 同时写入。</span>
           </div>
         </section>
       </div>

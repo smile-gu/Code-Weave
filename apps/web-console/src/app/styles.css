@@ -24,7 +24,7 @@ body {
   background: #f4f5f1;
 }
 
-button, input, textarea { font: inherit; }
+button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 a { color: inherit; }
 
@@ -230,7 +230,7 @@ label > span b { color: var(--danger); }
 label > span small { margin-left: 6px; color: #8a938d; font-weight: 450; }
 label em { color: var(--danger); font-size: 12px; font-style: normal; }
 
-input, textarea {
+input, textarea, select {
   width: 100%;
   border: 1px solid #cfd5cf;
   border-radius: 8px;
@@ -239,10 +239,10 @@ input, textarea {
   outline: none;
   transition: border-color 150ms, box-shadow 150ms, background 150ms;
 }
-input { height: 42px; padding: 0 12px; }
+input, select { height: 42px; padding: 0 12px; }
 textarea { min-height: 88px; padding: 11px 12px; line-height: 1.55; resize: vertical; }
 textarea.task-input { min-height: 132px; }
-input:focus, textarea:focus {
+input:focus, textarea:focus, select:focus {
   background: white;
   border-color: #5e9274;
   box-shadow: 0 0 0 3px rgba(34, 106, 69, 0.1);

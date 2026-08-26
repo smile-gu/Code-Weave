@@ -180,7 +180,7 @@ export type RuntimeReadiness = {
   checks: RuntimeCheck[]
 }
 
-export type CodingSessionStatus = 'INITIALIZING' | 'ACTIVE' | 'CLOSED' | 'MERGED' | 'FAILED'
+export type CodingSessionStatus = 'INITIALIZING' | 'ACTIVE' | 'LEGACY_READ_ONLY' | 'CLOSED' | 'MERGED' | 'FAILED'
 
 export type CreateCodingSessionInput = {
   title: string | null
@@ -188,6 +188,7 @@ export type CreateCodingSessionInput = {
   baseRef: string
   allowedPaths: string[]
   deniedPaths: string[]
+  includeExistingChanges?: boolean
 }
 
 export type TurnStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED'

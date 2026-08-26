@@ -4,6 +4,7 @@ package com.codingreview.controlplane.session.model;
 public enum CodingSessionStatus {
     INITIALIZING,
     ACTIVE,
+    LEGACY_READ_ONLY,
     CLOSED,
     MERGED,
     FAILED

@@ -10,7 +10,8 @@ public record CreateCodingSessionCommand(
         String title,
         Path repository,
         String baseRef,
-        ChangePolicy changePolicy
+        ChangePolicy changePolicy,
+        boolean includeExistingChanges
 ) {
     /** 校验并规范化 Session 创建参数。 */
     public CreateCodingSessionCommand {

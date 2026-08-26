@@ -4,7 +4,8 @@ import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.session.model.CodingSessionStatus;
 import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
+import com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -17,8 +18,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
-/** 验证服务重启时对中断初始化和缺失 Worktree 的修正。 */
+/** 验证服务重启时修正异常 Session 并恢复真实仓库写锁。 */
 class CodingSessionRecoveryServiceTest {
 
     @TempDir
@@ -37,24 +40,25 @@ class CodingSessionRecoveryServiceTest {
         repository.save(initializing);
         repository.save(missing);
         repository.save(existing);
+        RepositoryWriteLockManager locks = mock(RepositoryWriteLockManager.class);
 
-        new CodingSessionRecoveryService(repository).run(null);
+        new CodingSessionRecoveryService(repository, locks).run(null);
 
         assertThat(repository.find(initializing.sessionId()).orElseThrow().failureCode())
                 .isEqualTo("SESSION_INITIALIZATION_INTERRUPTED");
         assertThat(repository.find(missing.sessionId()).orElseThrow().failureCode())
-                .isEqualTo("SESSION_WORKTREE_MISSING");
+                .isEqualTo("SESSION_REPOSITORY_MISSING");
         assertThat(repository.find(existing.sessionId()).orElseThrow().status())
                 .isEqualTo(CodingSessionStatus.ACTIVE);
+        verify(locks).recover(existingPath.toAbsolutePath(), existing.sessionId());
     }
 
-    private CodingSession active(UUID id, Path worktree, Instant now) {
+    private CodingSession active(UUID id, Path repository, Instant now) {
+        Path root = repository.toAbsolutePath();
         CodingSession initializing = CodingSession.initializing(
-                id, "活动会话", tempDir.toAbsolutePath(), "HEAD", policy(), now);
-        return initializing.activate(new WorktreeHandle(
-                tempDir.toAbsolutePath(), worktree.toAbsolutePath(), id.toString(),
-                "HEAD", "resolved", false
-        ), now);
+                id, "活动会话", root, "main", policy(), now);
+        return initializing.activateRealRepository(
+                new GitRepositorySnapshot(root, "main", "resolved", false), now);
     }
 
     private ChangePolicy policy() {

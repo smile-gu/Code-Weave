@@ -29,11 +29,18 @@ public record CreateCodingSessionRequest(
         @Size(max = 100, message = "禁止路径规则不能超过 100 条")
         List<@NotBlank(message = "禁止修改路径不能包含空规则")
                 @Size(max = 512, message = "单条禁止路径不能超过 512 个字符") String>
-                deniedPaths
+                deniedPaths,
+
+        Boolean includeExistingChanges
 ) {
     /** 将路径规则复制为不可变列表。 */
     public CreateCodingSessionRequest {
         allowedPaths = allowedPaths == null ? null : List.copyOf(allowedPaths);
         deniedPaths = deniedPaths == null ? null : List.copyOf(deniedPaths);
+    }
+
+    /** 默认不把创建 Session 前的未提交修改纳入累计审查。 */
+    public boolean shouldIncludeExistingChanges() {
+        return Boolean.TRUE.equals(includeExistingChanges);
     }
 }

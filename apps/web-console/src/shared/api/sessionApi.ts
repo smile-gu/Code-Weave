@@ -10,7 +10,7 @@ import type {
   CodingSessionIntegration,
 } from './types'
 
-/** 创建一个拥有长期 Worktree 的 Coding Session。 */
+/** 创建一个直接绑定真实 Git 工作区的 Coding Session。 */
 export function createCodingSession(input: CreateCodingSessionInput) {
   return request<CodingSession>('/api/v1/coding-sessions', {
     method: 'POST',
@@ -40,7 +40,7 @@ export function submitCodingTurn(sessionId: string, prompt: string) {
 /** 停止一轮正在执行的 Coding。 */
 export function cancelCodingTurn(sessionId: string, turnId: string) { return request<CodingTurn>(`/api/v1/coding-sessions/${sessionId}/turns/${turnId}/cancel`, { method: 'POST' }) }
 
-/** 读取 Session Worktree 相对创建基线的累计代码变更。 */
+/** 读取真实工作区相对 Session 创建基线的累计代码变更。 */
 export function getCodingTurnChanges(sessionId: string, turnId: string) {
   return request<RunChanges>(`/api/v1/coding-sessions/${sessionId}/turns/${turnId}/changes`)
 }

@@ -46,14 +46,15 @@ public class CodingSessionController {
         this.integrationService = integrationService;
     }
 
-    /** 创建一个拥有独立 Worktree 的持久 Coding Session。 */
+    /** 创建一个直接绑定真实 Git 工作区的持久 Coding Session。 */
     @PostMapping
     public ResponseEntity<CodingSessionResponse> create(
             @Valid @RequestBody CreateCodingSessionRequest request
     ) {
         CodingSession session = applicationService.create(new CreateCodingSessionCommand(
                 request.title(), Path.of(request.repository()), request.baseRef(),
-                new ChangePolicy(request.allowedPaths(), request.deniedPaths())
+                new ChangePolicy(request.allowedPaths(), request.deniedPaths()),
+                request.shouldIncludeExistingChanges()
         ));
         URI location = URI.create("/api/v1/coding-sessions/" + session.sessionId());
         return ResponseEntity.created(location).body(CodingSessionResponse.from(session));

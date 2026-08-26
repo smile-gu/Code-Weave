@@ -3,7 +3,7 @@ package com.codingreview.controlplane.session.persistence;
 import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.session.model.CodingSessionStatus;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -65,7 +65,7 @@ class FileCodingSessionRepositoryTest {
         CodingSession active = activeSession(
                 UUID.randomUUID(), "待更新会话", Instant.parse("2026-08-18T06:00:00Z"));
         CodingSession failed = active.fail(
-                "SESSION_WORKTREE_MISSING", "Worktree 已不存在。", active.updatedAt().plusSeconds(5));
+                "SESSION_REPOSITORY_MISSING", "真实工作区已不存在。", active.updatedAt().plusSeconds(5));
 
         repository.save(active);
         repository.save(failed);
@@ -79,6 +79,43 @@ class FileCodingSessionRepositoryTest {
         }
     }
 
+    @Test
+    void restoresLegacyActiveWorktreeSessionAsReadOnly() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        Path directory = tempDir.resolve("runtime/sessions").resolve(sessionId.toString());
+        Files.createDirectories(directory);
+        String json = """
+                {
+                  "schemaVersion": 2,
+                  "sessionId": "%s",
+                  "title": "历史会话",
+                  "status": "ACTIVE",
+                  "sourceRepository": "%s",
+                  "worktreePath": "%s",
+                  "baseRef": "HEAD",
+                  "resolvedCommit": "abc123",
+                  "sourceRepositoryDirty": false,
+                  "allowedPaths": ["src/**"],
+                  "deniedPaths": ["target/**"],
+                  "claudeSessionId": null,
+                  "createdAt": "2026-08-18T06:00:00Z",
+                  "updatedAt": "2026-08-18T06:00:00Z",
+                  "failureCode": null,
+                  "failureMessage": null
+                }
+                """.formatted(
+                sessionId,
+                tempDir.resolve("legacy-repository").toAbsolutePath().toString().replace("\\", "\\\\"),
+                tempDir.resolve("runtime/worktrees/legacy").toAbsolutePath().toString().replace("\\", "\\\\")
+        );
+        Files.writeString(directory.resolve("session.json"), json, StandardCharsets.UTF_8);
+
+        CodingSession restored = repository().find(sessionId).orElseThrow();
+
+        assertThat(restored.status()).isEqualTo(CodingSessionStatus.LEGACY_READ_ONLY);
+        assertThat(restored.usesRealRepository()).isFalse();
+    }
+
     private FileCodingSessionRepository repository() {
         return new FileCodingSessionRepository(
                 tempDir.resolve("runtime").toAbsolutePath(),
@@ -88,16 +125,13 @@ class FileCodingSessionRepositoryTest {
 
     private CodingSession activeSession(UUID sessionId, String title, Instant time) throws Exception {
         Path repository = tempDir.resolve("repository-" + sessionId).toAbsolutePath();
-        Path worktree = tempDir.resolve("runtime/worktrees").resolve(sessionId.toString()).toAbsolutePath();
         Files.createDirectories(repository);
-        Files.createDirectories(worktree);
         CodingSession initializing = CodingSession.initializing(
-                sessionId, title, repository, "HEAD",
+                sessionId, title, repository, "main",
                 new ChangePolicy(List.of("src/**"), List.of("target/**")),
                 time.minusSeconds(10)
         );
-        return initializing.activate(new WorktreeHandle(
-                repository, worktree, sessionId.toString(), "HEAD", "abc123", false
-        ), time);
+        return initializing.activateRealRepository(
+                new GitRepositorySnapshot(repository, "main", "abc123", false), time);
     }
 }

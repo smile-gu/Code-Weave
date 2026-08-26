@@ -25,6 +25,10 @@ import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.GitChangeCollectorImpl;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluator;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluatorImpl;
+import com.codingreview.controlplane.workspace.git.GitRepositoryInspector;
+import com.codingreview.controlplane.workspace.git.GitRepositoryInspectorImpl;
+import com.codingreview.controlplane.workspace.lock.FileRepositoryWriteLockManager;
+import com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager;
 import com.codingreview.controlplane.workspace.worktree.GitWorktreeManager;
 import com.codingreview.controlplane.workspace.worktree.GitWorktreeManagerImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -109,6 +113,18 @@ public class ControlPlaneConfiguration {
     @Bean
     GitWorktreeManager gitWorktreeManager(CodeWeaveProperties properties) {
         return new GitWorktreeManagerImpl(runtimeRoot(properties));
+    }
+
+    /** 创建只读检查用户真实 Git 工作区的基础设施。 */
+    @Bean
+    GitRepositoryInspector gitRepositoryInspector() {
+        return new GitRepositoryInspectorImpl();
+    }
+
+    /** 创建基于运行目录锁文件的仓库级写锁管理器。 */
+    @Bean(destroyMethod = "close")
+    RepositoryWriteLockManager repositoryWriteLockManager(CodeWeaveProperties properties) {
+        return new FileRepositoryWriteLockManager(runtimeRoot(properties));
     }
 
     /** 使用固定能力配置创建 Claude Code Adapter。 */

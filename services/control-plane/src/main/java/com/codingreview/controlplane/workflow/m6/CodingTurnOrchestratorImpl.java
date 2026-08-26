@@ -79,7 +79,7 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
                     ? run.nativeSessionId() : updatedSession.claudeSessionId();
             if (run.status() != ClaudeRunStatus.COMPLETED) {
                 if (run.status() == ClaudeRunStatus.CANCELLED) {
-                    CodingTurn cancelled = turn.cancelled("本轮 Coding 已停止，Worktree 修改已保留。", Instant.now());
+                    CodingTurn cancelled = turn.cancelled("本轮 Coding 已停止，真实工作区修改已保留。", Instant.now());
                     appendTerminal(turn, RunEventType.RUN_CANCELLED, cancelled.userMessage());
                     return new CodingTurnExecution(updatedSession, cancelled);
                 }
@@ -115,7 +115,7 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
             return new CodingTurnExecution(updatedSession, completed);
         } catch (RuntimeException exception) {
             CodingTurn failed = turn.failed(TurnOutcome.AGENT_FAILED, "TURN_EXECUTION_FAILED",
-                    "本轮执行发生系统错误，Worktree 已保留，可继续发起下一轮。", String.join("\n", assistant),
+                    "本轮执行发生系统错误，真实工作区修改已保留，可继续发起下一轮。", String.join("\n", assistant),
                     currentSession.get().claudeSessionId(), Instant.now());
             appendTerminal(turn, RunEventType.RUN_FAILED, failed.userMessage());
             throw new CodingTurnExecutionException(failed, exception);

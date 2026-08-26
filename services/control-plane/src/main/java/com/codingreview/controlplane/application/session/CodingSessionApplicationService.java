@@ -4,10 +4,11 @@ import com.codingreview.controlplane.application.session.error.CodingSessionCrea
 import com.codingreview.controlplane.application.session.error.CodingSessionNotFoundException;
 import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
-import com.codingreview.controlplane.workspace.worktree.GitWorktreeManager;
-import com.codingreview.controlplane.workspace.worktree.error.WorktreeException;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeCreateRequest;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeCreateResult;
+import com.codingreview.controlplane.workspace.git.GitRepositoryInspector;
+import com.codingreview.controlplane.workspace.git.GitRepositoryException;
+import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
+import com.codingreview.controlplane.workspace.lock.RepositoryWriteLockException;
+import com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,58 +26,73 @@ public class CodingSessionApplicationService {
     private static final Logger LOGGER = LoggerFactory.getLogger(CodingSessionApplicationService.class);
 
     private final CodingSessionRepository repository;
-    private final GitWorktreeManager worktreeManager;
+    private final GitRepositoryInspector repositoryInspector;
+    private final RepositoryWriteLockManager lockManager;
 
-    /** 装配 Session 仓储和 Worktree 管理器。 */
+    /** 装配 Session 仓储、真实仓库检查器和仓库写锁。 */
     public CodingSessionApplicationService(
             CodingSessionRepository repository,
-            GitWorktreeManager worktreeManager
+            GitRepositoryInspector repositoryInspector,
+            RepositoryWriteLockManager lockManager
     ) {
         this.repository = Objects.requireNonNull(repository, "repository");
-        this.worktreeManager = Objects.requireNonNull(worktreeManager, "worktreeManager");
+        this.repositoryInspector = Objects.requireNonNull(repositoryInspector, "repositoryInspector");
+        this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
     }
 
-    /** 持久化初始化状态、创建 Worktree 并激活 Session。 */
+    /** 检查并锁定真实 Git 工作区，然后持久化可运行 Session。 */
     public CodingSession create(CreateCodingSessionCommand command) {
         Objects.requireNonNull(command, "command");
         UUID sessionId = UUID.randomUUID();
         Instant createdAt = Instant.now();
+        GitRepositorySnapshot snapshot;
+        try {
+            snapshot = repositoryInspector.inspect(command.repository());
+        } catch (GitRepositoryException exception) {
+            throw creationFailure(sessionId, exception.code(), exception.getMessage(),
+                    exception.diagnostic(), exception);
+        }
+        if (snapshot.dirty() && !command.includeExistingChanges()) {
+            throw creationFailure(
+                    sessionId,
+                    "PRE_EXISTING_CHANGES_REQUIRE_CONFIRMATION",
+                    "仓库存在创建 Session 前的未提交修改；请先处理这些修改，或明确选择将其纳入本 Session。",
+                    snapshot.repositoryRoot().toString(),
+                    new IllegalStateException("pre-existing workspace changes were not accepted")
+            );
+        }
         CodingSession initializing = CodingSession.initializing(
                 sessionId,
-                title(command.title(), command.repository()),
-                command.repository(),
-                command.baseRef(),
+                title(command.title(), snapshot.repositoryRoot()),
+                snapshot.repositoryRoot(),
+                snapshot.branch(),
                 command.changePolicy(),
                 createdAt
         );
-        repository.save(initializing);
 
         try {
-            WorktreeCreateResult created = worktreeManager.create(new WorktreeCreateRequest(
-                    command.repository(), sessionId.toString(), command.baseRef()
-            ));
-            CodingSession active = initializing.activate(created.handle(), Instant.now());
+            lockManager.acquire(snapshot.repositoryRoot(), sessionId);
             try {
+                repository.save(initializing);
+                CodingSession active = initializing.activateRealRepository(snapshot, Instant.now());
                 repository.save(active);
+                LOGGER.info("Coding Session 创建完成，sessionId={}，repository={}",
+                        sessionId, active.sourceRepository());
+                return active;
             } catch (RuntimeException exception) {
-                cleanupAfterPersistenceFailure(created, exception);
+                releaseAfterFailure(snapshot, sessionId, exception);
                 throw creationFailure(sessionId, "SESSION_PERSISTENCE_FAILED",
-                        "Session 工作区已创建，但状态无法可靠保存，已停止初始化。",
+                        "Session 状态无法可靠保存，已释放仓库写锁。",
                         exception.getMessage(), exception);
             }
-            LOGGER.info("Coding Session 创建完成，sessionId={}，repository={}",
-                    sessionId, active.sourceRepository());
-            return active;
         } catch (CodingSessionCreationException exception) {
             throw exception;
-        } catch (WorktreeException exception) {
-            persistFailure(initializing, exception.failureType().name(),
-                    exception.userMessage(), exception);
-            throw creationFailure(sessionId, exception.failureType().name(),
-                    exception.userMessage(), exception.diagnostic(), exception);
+        } catch (RepositoryWriteLockException exception) {
+            throw creationFailure(sessionId, exception.code(), exception.getMessage(),
+                    exception.diagnostic(), exception);
         } catch (RuntimeException exception) {
             String message = "Coding Session 初始化失败，请查看服务日志后重试。";
-            persistFailure(initializing, "SESSION_INITIALIZATION_FAILED", message, exception);
+            releaseAfterFailure(snapshot, sessionId, exception);
             throw creationFailure(sessionId, "SESSION_INITIALIZATION_FAILED",
                     message, exception.getMessage(), exception);
         }
@@ -96,29 +112,16 @@ public class CodingSessionApplicationService {
         return repository.findRecent(limit);
     }
 
-    /** 保存初始化失败状态，并避免持久化失败覆盖原始原因。 */
-    private void persistFailure(
-            CodingSession initializing,
-            String code,
-            String message,
+    /** 初始化失败时释放尚未投入使用的仓库写锁。 */
+    private void releaseAfterFailure(
+            GitRepositorySnapshot snapshot,
+            UUID sessionId,
             RuntimeException original
     ) {
         try {
-            repository.save(initializing.fail(code, message, Instant.now()));
-        } catch (RuntimeException persistenceFailure) {
-            original.addSuppressed(persistenceFailure);
-        }
-    }
-
-    /** 状态落盘失败时清理尚未投入使用的 Worktree。 */
-    private void cleanupAfterPersistenceFailure(
-            WorktreeCreateResult created,
-            RuntimeException original
-    ) {
-        try {
-            worktreeManager.forceCleanup(created.handle());
-        } catch (RuntimeException cleanupFailure) {
-            original.addSuppressed(cleanupFailure);
+            lockManager.release(snapshot.repositoryRoot(), sessionId);
+        } catch (RuntimeException releaseFailure) {
+            original.addSuppressed(releaseFailure);
         }
     }
 

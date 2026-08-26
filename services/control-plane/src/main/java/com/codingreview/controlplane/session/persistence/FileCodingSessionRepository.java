@@ -26,7 +26,7 @@ import java.util.UUID;
 public final class FileCodingSessionRepository implements CodingSessionRepository {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileCodingSessionRepository.class);
-    private static final int SCHEMA_VERSION = 2;
+    private static final int SCHEMA_VERSION = 3;
     private static final String SNAPSHOT_FILE = "session.json";
 
     private final Path sessionsRoot;
@@ -154,7 +154,8 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
             Instant createdAt,
             Instant updatedAt,
             String failureCode,
-            String failureMessage
+            String failureMessage,
+            String workspaceMode
     ) {
         /** 将领域对象转换为持久化文档。 */
         private static SessionDocument from(CodingSession session) {
@@ -166,14 +167,18 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
                     session.changePolicy().allowedPaths(), session.changePolicy().deniedPaths(),
                     session.claudeSessionId(),
                     session.createdAt(), session.updatedAt(),
-                    session.failureCode(), session.failureMessage()
+                    session.failureCode(), session.failureMessage(), "DIRECT"
             );
         }
 
         /** 将持久化文档恢复为领域对象。 */
         private CodingSession toDomain() {
+            CodingSessionStatus restoredStatus = schemaVersion <= 2
+                    && (status == CodingSessionStatus.ACTIVE
+                    || status == CodingSessionStatus.INITIALIZING)
+                    ? CodingSessionStatus.LEGACY_READ_ONLY : status;
             return new CodingSession(
-                    sessionId, title, status, Path.of(sourceRepository),
+                    sessionId, title, restoredStatus, Path.of(sourceRepository),
                     worktreePath == null ? null : Path.of(worktreePath),
                     baseRef, resolvedCommit, sourceRepositoryDirty,
                     new ChangePolicy(allowedPaths, deniedPaths),

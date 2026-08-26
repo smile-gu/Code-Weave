@@ -1,6 +1,7 @@
 package com.codingreview.controlplane.session.model;
 
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
+import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
 import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
 
 import java.nio.file.Path;
@@ -96,6 +97,30 @@ public record CodingSession(
                 handle.resolvedCommit(), handle.sourceRepositoryDirty(), changePolicy,
                 claudeSessionId, createdAt, now, null, null
         );
+    }
+
+    /** 绑定用户选择的真实 Git 工作区，不创建额外目录。 */
+    public CodingSession activateRealRepository(GitRepositorySnapshot snapshot, Instant now) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        if (status != CodingSessionStatus.INITIALIZING) {
+            throw new IllegalStateException("only initializing session can become active");
+        }
+        if (!sourceRepository.equals(snapshot.repositoryRoot())) {
+            throw new IllegalArgumentException("repository snapshot does not belong to session");
+        }
+        return new CodingSession(
+                sessionId, title, CodingSessionStatus.ACTIVE,
+                snapshot.repositoryRoot(), snapshot.repositoryRoot(), snapshot.branch(),
+                snapshot.headCommit(), snapshot.dirty(), changePolicy,
+                claudeSessionId, createdAt, now, null, null
+        );
+    }
+
+    /** 判断当前 Session 是否直接使用用户真实 Git 工作区。 */
+    public boolean usesRealRepository() {
+        return status != CodingSessionStatus.LEGACY_READ_ONLY
+                && worktreePath != null
+                && worktreePath.equals(sourceRepository);
     }
 
     /** 记录 Claude Code 在首轮返回的原生会话标识，供后续 Turn 恢复上下文。 */
