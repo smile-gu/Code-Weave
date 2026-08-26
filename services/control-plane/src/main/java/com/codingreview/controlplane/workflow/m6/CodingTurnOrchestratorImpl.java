@@ -21,7 +21,7 @@ import com.codingreview.controlplane.workspace.change.WorkspaceFingerprintCalcul
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluator;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicyResult;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -66,8 +66,9 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
             Consumer<CodingSession> sessionUpdateSink
     ) {
         Objects.requireNonNull(sessionUpdateSink, "sessionUpdateSink");
-        WorktreeHandle handle = new WorktreeHandle(session.sourceRepository(), session.worktreePath(),
-                session.sessionId().toString(), session.baseRef(), session.resolvedCommit(), session.sourceRepositoryDirty());
+        WorkspaceHandle workspace = new WorkspaceHandle(
+                session.sourceRepository(), session.resolvedCommit()
+        );
         List<String> assistant = new ArrayList<>();
         AtomicReference<CodingSession> currentSession = new AtomicReference<>(session);
         ClaudeConversationMode mode = session.claudeSessionId() == null
@@ -76,7 +77,7 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
         try {
             workspaceGuard.assertStable(session);
             ClaudeRunResult run = claude.run(new ClaudeRunRequest(
-                    turn.turnId(), handle.worktreePath(), turn.userPrompt(), List.of(),
+                    turn.turnId(), workspace.workspaceRoot(), turn.userPrompt(), List.of(),
                     session.changePolicy().allowedPaths(), session.changePolicy().deniedPaths(),
                     mode, session.claudeSessionId()),
                     event -> observe(turn, event, assistant, currentSession, sessionUpdateSink));
@@ -95,7 +96,7 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
                 return new CodingTurnExecution(updatedSession, failed);
             }
             workspaceGuard.assertStable(currentSession.get());
-            GitChangeSet changeSet = changes.collect(handle);
+            GitChangeSet changeSet = changes.collect(workspace);
             workspaceGuard.assertStable(currentSession.get());
             if (changeSet.isEmpty()) {
                 CodingTurn completed = turn.complete(TurnOutcome.NO_CHANGES, 0,
@@ -113,7 +114,9 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
                 appendTerminal(turn, RunEventType.RUN_FAILED, completed.userMessage());
                 return new CodingTurnExecution(updatedSession, completed);
             }
-            var verification = maven.verify(new MavenVerificationRequest(turn.turnId().toString(), handle, 1));
+            var verification = maven.verify(new MavenVerificationRequest(
+                    turn.turnId().toString(), workspace.workspaceRoot(), 1
+            ));
             workspaceGuard.assertStable(currentSession.get());
             TurnOutcome outcome = verification.passed() ? TurnOutcome.CHANGES_VERIFIED : TurnOutcome.VERIFICATION_FAILED;
             CodingTurn completed = turn.complete(outcome, changeSet.files().size(),

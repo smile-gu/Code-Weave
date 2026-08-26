@@ -191,6 +191,10 @@ class M0RunControllerTest {
         mockMvc.perform(get("/api/v1/m0/runs/{runId}/changes", runId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.baseCommit").value("abc123"))
+                .andExpect(jsonPath("$.workspaceRoot").value(
+                        Path.of("D:/runtime/worktrees/" + runId).toString()
+                ))
+                .andExpect(jsonPath("$.worktree").doesNotExist())
                 .andExpect(jsonPath("$.totalFiles").value(1))
                 .andExpect(jsonPath("$.files[0].path")
                         .value("src/main/java/demo/UserService.java"))

@@ -56,7 +56,7 @@ describe('CodingSessionDetailPage', () => {
     vi.mocked(getCodingTurns).mockResolvedValue({ turns: [] })
     vi.mocked(getCodingSessionIntegration).mockResolvedValue(null)
     vi.mocked(getCodingTurnChanges).mockResolvedValue({
-      runId: 'turn-1', baseCommit: 'abc123', worktree: activeSession.worktreePath!,
+      runId: 'turn-1', baseCommit: 'abc123', workspaceRoot: activeSession.sourceRepository,
       totalFiles: 1, unifiedDiffBytes: 0, files: [], unifiedDiff: '',
     })
     vi.mocked(getMergeReadiness).mockResolvedValue({

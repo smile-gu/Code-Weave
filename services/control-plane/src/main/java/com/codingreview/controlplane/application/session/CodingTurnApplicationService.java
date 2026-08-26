@@ -19,7 +19,7 @@ import com.codingreview.controlplane.workflow.m6.CodingTurnOrchestrator;
 import com.codingreview.controlplane.workflow.m6.CodingTurnOrchestratorImpl.CodingTurnExecutionException;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -134,7 +134,7 @@ public final class CodingTurnApplicationService {
             );
         }
         CodingSession session = requireSession(sessionId);
-        return changeCollector.collect(new WorktreeHandle(session.sourceRepository(), session.worktreePath(), session.sessionId().toString(), session.baseRef(), session.resolvedCommit(), session.sourceRepositoryDirty()));
+        return changeCollector.collect(workspace(session));
     }
 
     /** 请求停止当前 Turn；底层会中断 Claude 进程树。 */
@@ -202,6 +202,14 @@ public final class CodingTurnApplicationService {
 
     /** 获取必须存在的 Session。 */
     private CodingSession requireSession(UUID id) { return sessions.find(id).orElseThrow(() -> new IllegalArgumentException("Coding Session 不存在。")); }
+    /** 当前 Session 使用真实仓库，历史只读 Session 保留原 Worktree 路径。 */
+    private WorkspaceHandle workspace(CodingSession session) {
+        return new WorkspaceHandle(
+                session.usesRealRepository()
+                        ? session.sourceRepository() : session.worktreePath(),
+                session.resolvedCommit()
+        );
+    }
     /** 获取可继续 Coding 的 Session。 */
     private CodingSession requireActive(UUID id) {
         CodingSession session = requireSession(id);

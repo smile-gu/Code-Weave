@@ -1,6 +1,6 @@
 import type { RunEvent, RunEventType } from '../../shared/api/types'
 
-export type StageKey = 'worktree' | 'coding' | 'change-collection' | 'change-policy' | 'maven'
+export type StageKey = 'worktree' | 'workspace' | 'coding' | 'change-collection' | 'change-policy' | 'maven'
 export type StageStatus = 'pending' | 'running' | 'completed' | 'failed'
 
 export type StageView = {

@@ -14,7 +14,7 @@ import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.WorkspaceFingerprintCalculator;
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -307,13 +307,9 @@ public final class CodingSessionIntegrationService {
         }
     }
 
-    /** 从 Session 构造变更采集所需的 Worktree 句柄。 */
-    private WorktreeHandle handle(CodingSession session) {
-        return new WorktreeHandle(
-                session.sourceRepository(), session.worktreePath(),
-                session.sessionId().toString(), session.baseRef(),
-                session.resolvedCommit(), session.sourceRepositoryDirty()
-        );
+    /** 从 Session 构造变更采集所需的通用工作区句柄。 */
+    private WorkspaceHandle handle(CodingSession session) {
+        return new WorkspaceHandle(session.worktreePath(), session.resolvedCommit());
     }
 
     /** 读取必须存在的 Session。 */

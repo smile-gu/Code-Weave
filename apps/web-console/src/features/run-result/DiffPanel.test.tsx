@@ -6,7 +6,7 @@ import { DiffPanel, normalizeUnifiedDiff } from './DiffPanel'
 const changes = (unifiedDiff: string): RunChanges => ({
   runId: 'run-1',
   baseCommit: '41906e2',
-  worktree: 'D:/runtime/worktrees/run-1',
+  workspaceRoot: 'D:/runtime/worktrees/run-1',
   totalFiles: 1,
   unifiedDiffBytes: unifiedDiff.length,
   files: [{

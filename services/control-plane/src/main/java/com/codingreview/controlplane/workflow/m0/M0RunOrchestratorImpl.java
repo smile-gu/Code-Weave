@@ -19,6 +19,7 @@ import com.codingreview.controlplane.workflow.m0.model.M0RunStatus;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.error.GitChangeException;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluator;
+import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 import com.codingreview.controlplane.workspace.worktree.GitWorktreeManager;
 import com.codingreview.controlplane.workspace.worktree.error.WorktreeException;
 import com.codingreview.controlplane.workspace.worktree.model.WorktreeCreateRequest;
@@ -201,7 +202,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         M0RunStage stage = M0RunStage.CHANGE_COLLECTION;
         stageLifecycle.started(request.runIdValue(), stage, objectMapper.createObjectNode());
         try {
-            progress.changes = changeCollector.collect(progress.worktree.handle());
+            progress.changes = changeCollector.collect(workspace(progress));
             stageLifecycle.completed(request.runIdValue(), stage,
                     objectMapper.createObjectNode()
                             .put("changedFiles", progress.changes.files().size())
@@ -269,7 +270,7 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
         stageLifecycle.started(request.runIdValue(), stage, objectMapper.createObjectNode());
         try {
             progress.maven = mavenVerifier.verify(new MavenVerificationRequest(
-                    request.runIdValue(), progress.worktree.handle(), FIRST_ATTEMPT
+                    request.runIdValue(), progress.worktree.handle().worktreePath(), FIRST_ATTEMPT
             ));
             if (!progress.maven.passed()) {
                 boolean cancelled = progress.maven.status() == MavenVerificationStatus.CANCELLED;
@@ -311,6 +312,14 @@ public final class M0RunOrchestratorImpl implements M0RunOrchestrator {
                 "系统在 " + stage.eventName() + " 阶段发生内部错误，任务已停止，Worktree 将被保留。",
                 exception.getClass().getSimpleName() + ": " + exception.getMessage(),
                 null
+        );
+    }
+
+    /** 将旧单轮链路的 Worktree 转换为通用工作区句柄。 */
+    private WorkspaceHandle workspace(RunProgress progress) {
+        return new WorkspaceHandle(
+                progress.worktree.handle().worktreePath(),
+                progress.worktree.handle().resolvedCommit()
         );
     }
 

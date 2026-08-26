@@ -129,9 +129,8 @@ class CodingSessionIntegrationServiceTest {
 
         GitChangeCollectorImpl collector = new GitChangeCollectorImpl();
         var changeSet = collector.collect(
-                new com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle(
-                        session.sourceRepository(), session.worktreePath(), sessionId.toString(),
-                        session.baseRef(), session.resolvedCommit(), session.sourceRepositoryDirty()
+                new com.codingreview.controlplane.workspace.model.WorkspaceHandle(
+                        session.worktreePath(), session.resolvedCommit()
                 )
         );
         String fingerprint = new WorkspaceFingerprintCalculator().calculate(changeSet);

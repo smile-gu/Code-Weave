@@ -17,7 +17,8 @@ import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluator;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
+import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.jupiter.api.Test;
@@ -102,7 +103,7 @@ class CodingTurnOrchestratorImplTest {
             );
         });
         when(changes.collect(any())).thenReturn(new GitChangeSet(
-                session.resolvedCommit(), session.worktreePath(), List.of(), "", 0
+                session.resolvedCommit(), session.sourceRepository(), List.of(), "", 0
         ));
         CodingTurnOrchestratorImpl orchestrator = new CodingTurnOrchestratorImpl(
                 claude, changes, policy, maven, journal,
@@ -116,22 +117,24 @@ class CodingTurnOrchestratorImplTest {
         assertThat(execution.session().claudeSessionId())
                 .isEqualTo("native-claude-session");
         assertThat(execution.turn().outcome()).isEqualTo(TurnOutcome.NO_CHANGES);
+        verify(changes).collect(new WorkspaceHandle(
+                session.sourceRepository(), session.resolvedCommit()
+        ));
         verify(policy, never()).evaluate(any(), any());
         verify(maven, never()).verify(any());
     }
 
-    /** 创建具备长期 Worktree 的测试 Session。 */
+    /** 创建直接绑定真实 Git 工作区的测试 Session。 */
     private CodingSession activeSession() {
         UUID sessionId = UUID.randomUUID();
         Path repository = Path.of("D:/test/repository").toAbsolutePath();
-        Path worktree = Path.of("D:/test/worktrees/" + sessionId).toAbsolutePath();
         Instant now = Instant.parse("2026-08-18T07:59:00Z");
         return CodingSession.initializing(
                 sessionId, "测试会话", repository, "HEAD",
                 new ChangePolicy(List.of("src/**"), List.of(".git/**")), now
-        ).activate(new WorktreeHandle(
-                repository, worktree, sessionId.toString(), "HEAD",
-                "abc123", false
-        ), now.plusSeconds(1));
+        ).activateRealRepository(
+                new GitRepositorySnapshot(repository, "main", "abc123", false),
+                now.plusSeconds(1)
+        );
     }
 }

@@ -5,7 +5,7 @@ import com.codingreview.controlplane.workspace.change.error.GitChangeFailureType
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.codingreview.controlplane.workspace.change.model.GitChangeType;
 import com.codingreview.controlplane.workspace.change.model.GitChangedFile;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -60,29 +60,29 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
 
     /** 采集并合并已跟踪文件与未跟踪文件的完整 Diff。 */
     @Override
-    public GitChangeSet collect(WorktreeHandle handle) {
-        Path worktree = validateWorktree(handle);
-        validateBaseCommit(worktree, handle.resolvedCommit());
+    public GitChangeSet collect(WorkspaceHandle handle) {
+        Path workspaceRoot = validateWorkspace(handle);
+        validateBaseCommit(workspaceRoot, handle.baselineCommit());
 
         List<String> nameStatusArguments = List.of(
-                "diff", "--name-status", "-z", "--find-renames", handle.resolvedCommit(), "--");
-        CommandResult nameStatus = requireSuccess(runGit(worktree, nameStatusArguments, METADATA_OUTPUT_LIMIT),
+                "diff", "--name-status", "-z", "--find-renames", handle.baselineCommit(), "--");
+        CommandResult nameStatus = requireSuccess(runGit(workspaceRoot, nameStatusArguments, METADATA_OUTPUT_LIMIT),
                 "无法读取任务产生的文件列表。", GitChangeFailureType.COLLECT_FAILED);
 
-        CommandResult numstat = requireSuccess(runGit(worktree, List.of(
-                        "diff", "--numstat", "-z", "--find-renames", handle.resolvedCommit(), "--"),
+        CommandResult numstat = requireSuccess(runGit(workspaceRoot, List.of(
+                        "diff", "--numstat", "-z", "--find-renames", handle.baselineCommit(), "--"),
                 METADATA_OUTPUT_LIMIT), "无法识别变更中的二进制文件。", GitChangeFailureType.COLLECT_FAILED);
         Set<String> binaryPaths = parser.parseBinaryPaths(numstat.output());
         List<GitChangedFile> changedFiles = parser.parseTrackedFiles(nameStatus.output(), binaryPaths);
 
-        CommandResult untracked = requireSuccess(runGit(worktree,
+        CommandResult untracked = requireSuccess(runGit(workspaceRoot,
                         List.of("ls-files", "--others", "--exclude-standard", "-z"), METADATA_OUTPUT_LIMIT),
                 "无法读取任务新建的文件。", GitChangeFailureType.COLLECT_FAILED);
         List<String> untrackedPaths = parser.splitNullTerminated(untracked.output());
 
         ByteArrayOutputStream combinedDiff = new ByteArrayOutputStream();
-        CommandResult trackedPatch = runGit(worktree, List.of(
-                "diff", "--no-ext-diff", "--find-renames", handle.resolvedCommit(), "--"),
+        CommandResult trackedPatch = runGit(workspaceRoot, List.of(
+                "diff", "--no-ext-diff", "--find-renames", handle.baselineCommit(), "--"),
                 maxDiffBytes + 1);
         requirePatchWithinLimit(trackedPatch);
         requireSuccess(trackedPatch, "无法生成已跟踪文件的 Diff。", GitChangeFailureType.COLLECT_FAILED);
@@ -94,7 +94,7 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
             if (remaining <= 0) {
                 throw diffTooLarge();
             }
-            CommandResult newFilePatch = runGit(worktree,
+            CommandResult newFilePatch = runGit(workspaceRoot,
                     List.of("diff", "--no-index", "--", nullDevice, path), remaining + 1);
             if (newFilePatch.exitCode() != 0 && newFilePatch.exitCode() != 1) {
                 throw failure(GitChangeFailureType.COLLECT_FAILED,
@@ -108,40 +108,40 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
 
         changedFiles.sort(Comparator.comparing(GitChangedFile::path));
         byte[] diffBytes = combinedDiff.toByteArray();
-        return new GitChangeSet(handle.resolvedCommit(), worktree, changedFiles,
+        return new GitChangeSet(handle.baselineCommit(), workspaceRoot, changedFiles,
                 new String(diffBytes, StandardCharsets.UTF_8), diffBytes.length);
     }
 
-    /** 校验 Worktree 路径和 Git 顶层目录是否一致。 */
-    private Path validateWorktree(WorktreeHandle handle) {
+    /** 校验工作区路径和 Git 顶层目录是否一致。 */
+    private Path validateWorkspace(WorkspaceHandle handle) {
         Objects.requireNonNull(handle, "handle");
-        Path worktree = handle.worktreePath();
-        if (!worktree.isAbsolute() || !Files.isDirectory(worktree)) {
-            throw failure(GitChangeFailureType.INVALID_WORKTREE,
-                    "任务隔离目录不存在，无法读取代码变更。", worktree.toString());
+        Path workspaceRoot = handle.workspaceRoot();
+        if (!Files.isDirectory(workspaceRoot)) {
+            throw failure(GitChangeFailureType.INVALID_WORKSPACE,
+                    "任务工作区不存在，无法读取代码变更。", workspaceRoot.toString());
         }
-        CommandResult topLevel = runGit(worktree, List.of("rev-parse", "--show-toplevel"), METADATA_OUTPUT_LIMIT);
+        CommandResult topLevel = runGit(workspaceRoot, List.of("rev-parse", "--show-toplevel"), METADATA_OUTPUT_LIMIT);
         if (!topLevel.success()) {
-            throw failure(GitChangeFailureType.INVALID_WORKTREE,
-                    "任务隔离目录不是有效的 Git Worktree。", topLevel.outputAsText());
+            throw failure(GitChangeFailureType.INVALID_WORKSPACE,
+                    "任务工作区不是有效的 Git 工作目录。", topLevel.outputAsText());
         }
         try {
             Path actualTopLevel = Path.of(topLevel.outputAsText().trim()).toRealPath();
-            Path expectedTopLevel = worktree.toRealPath();
+            Path expectedTopLevel = workspaceRoot.toRealPath();
             if (!actualTopLevel.equals(expectedTopLevel)) {
-                throw failure(GitChangeFailureType.INVALID_WORKTREE,
-                        "任务隔离目录与 Git 工作目录不一致，已停止采集。", actualTopLevel.toString());
+                throw failure(GitChangeFailureType.INVALID_WORKSPACE,
+                        "任务工作区与 Git 顶层目录不一致，已停止采集。", actualTopLevel.toString());
             }
             return expectedTopLevel;
         } catch (IOException exception) {
-            throw failure(GitChangeFailureType.INVALID_WORKTREE,
-                    "无法解析任务隔离目录的真实路径。", exception.getMessage());
+            throw failure(GitChangeFailureType.INVALID_WORKSPACE,
+                    "无法解析任务工作区的真实路径。", exception.getMessage());
         }
     }
 
-    /** 确认用于比较的基准提交在 Worktree 中仍然可用。 */
-    private void validateBaseCommit(Path worktree, String baseCommit) {
-        CommandResult result = runGit(worktree,
+    /** 确认用于比较的基准提交在工作区中仍然可用。 */
+    private void validateBaseCommit(Path workspaceRoot, String baseCommit) {
+        CommandResult result = runGit(workspaceRoot,
                 List.of("cat-file", "-e", baseCommit + "^{commit}"), METADATA_OUTPUT_LIMIT);
         if (!result.success()) {
             throw failure(GitChangeFailureType.BASE_COMMIT_UNAVAILABLE,

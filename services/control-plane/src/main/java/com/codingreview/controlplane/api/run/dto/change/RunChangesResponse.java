@@ -10,7 +10,7 @@ import java.util.UUID;
 public record RunChangesResponse(
         UUID runId,
         String baseCommit,
-        String worktree,
+        String workspaceRoot,
         int totalFiles,
         int unifiedDiffBytes,
         List<ChangedFileResponse> files,
@@ -25,7 +25,7 @@ public record RunChangesResponse(
         return new RunChangesResponse(
                 runId,
                 changes.baseCommit(),
-                changes.worktreePath().toString(),
+                changes.workspaceRoot().toString(),
                 changes.files().size(),
                 changes.unifiedDiffBytes(),
                 changes.files().stream().map(ChangedFileResponse::from).toList(),

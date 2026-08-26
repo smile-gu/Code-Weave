@@ -27,9 +27,9 @@ public final class SurefireReportParser {
     private static final int MAX_FAILURE_DETAILS = 100;
     private static final int MAX_FAILURE_MESSAGE_CHARS = 4_000;
 
-    /** 扫描并汇总 Worktree 中的全部 Surefire 测试报告。 */
-    public MavenTestSummary parse(Path worktreePath) {
-        List<Path> reports = findReports(worktreePath);
+    /** 扫描并汇总工作区中的全部 Surefire 测试报告。 */
+    public MavenTestSummary parse(Path workspaceRoot) {
+        List<Path> reports = findReports(workspaceRoot);
         long tests = 0;
         long failures = 0;
         long errors = 0;
@@ -39,7 +39,7 @@ public final class SurefireReportParser {
         boolean detailsTruncated = false;
 
         for (Path report : reports) {
-            Element suite = parseSuite(worktreePath, report);
+            Element suite = parseSuite(workspaceRoot, report);
             tests += readLong(suite, "tests", true, report);
             failures += readLong(suite, "failures", false, report);
             errors += readLong(suite, "errors", false, report);
@@ -65,12 +65,12 @@ public final class SurefireReportParser {
         }
     }
 
-    /** 查找 Worktree 内符合命名约定的 Surefire XML 报告。 */
-    private List<Path> findReports(Path worktreePath) {
-        try (var paths = Files.walk(worktreePath)) {
+    /** 查找工作区内符合命名约定的 Surefire XML 报告。 */
+    private List<Path> findReports(Path workspaceRoot) {
+        try (var paths = Files.walk(workspaceRoot)) {
             return paths.filter(Files::isRegularFile)
                     .filter(this::isSurefireReport)
-                    .sorted(Comparator.comparing(path -> worktreePath.relativize(path).toString()))
+                    .sorted(Comparator.comparing(path -> workspaceRoot.relativize(path).toString()))
                     .toList();
         } catch (IOException | UncheckedIOException exception) {
             throw new MavenReportException("Unable to scan Surefire reports: " + exception.getMessage(), exception);
@@ -91,7 +91,7 @@ public final class SurefireReportParser {
     }
 
     /** 安全解析单个报告并返回 testsuite 根节点。 */
-    private Element parseSuite(Path worktreePath, Path report) {
+    private Element parseSuite(Path workspaceRoot, Path report) {
         try {
             DocumentBuilder builder = secureDocumentBuilder();
             builder.setErrorHandler(new DefaultHandler());
@@ -99,13 +99,13 @@ public final class SurefireReportParser {
             Element root = document.getDocumentElement();
             if (root == null || !"testsuite".equals(root.getTagName())) {
                 throw new MavenReportException(
-                        "Unsupported Surefire report root: " + worktreePath.relativize(report), null
+                        "Unsupported Surefire report root: " + workspaceRoot.relativize(report), null
                 );
             }
             return root;
         } catch (ParserConfigurationException | SAXException | IOException exception) {
             throw new MavenReportException(
-                    "Invalid Surefire report " + worktreePath.relativize(report) + ": " + exception.getMessage(),
+                    "Invalid Surefire report " + workspaceRoot.relativize(report) + ": " + exception.getMessage(),
                     exception
             );
         }

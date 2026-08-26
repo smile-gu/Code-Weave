@@ -27,6 +27,7 @@ import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicyResult;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicyViolation;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicyViolationType;
+import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 import com.codingreview.controlplane.workspace.worktree.GitWorktreeManager;
 import com.codingreview.controlplane.workspace.worktree.error.WorktreeException;
 import com.codingreview.controlplane.workspace.worktree.error.WorktreeFailureType;
@@ -133,7 +134,7 @@ class M0RunOrchestratorImplTest {
         );
         order.verify(worktreeManager).create(any());
         order.verify(claudeCodeAdapter).run(any(), any());
-        order.verify(changeCollector).collect(worktree.handle());
+        order.verify(changeCollector).collect(any(WorkspaceHandle.class));
         order.verify(changePolicyEvaluator).evaluate(changes, request.changePolicy());
         order.verify(mavenVerifier).verify(any());
         verify(worktreeManager, never()).cleanup(any());
@@ -174,7 +175,7 @@ class M0RunOrchestratorImplTest {
         );
         when(worktreeManager.create(any())).thenReturn(worktree);
         when(claudeCodeAdapter.run(any(), any())).thenReturn(completedClaude());
-        when(changeCollector.collect(worktree.handle())).thenReturn(emptyChanges);
+        when(changeCollector.collect(any(WorkspaceHandle.class))).thenReturn(emptyChanges);
 
         M0RunResult result = orchestrator(eventJournal).execute(request);
 
@@ -201,7 +202,7 @@ class M0RunOrchestratorImplTest {
         ));
         when(worktreeManager.create(any())).thenReturn(worktree);
         when(claudeCodeAdapter.run(any(), any())).thenReturn(completedClaude());
-        when(changeCollector.collect(worktree.handle())).thenReturn(changes);
+        when(changeCollector.collect(any(WorkspaceHandle.class))).thenReturn(changes);
         when(changePolicyEvaluator.evaluate(changes, request.changePolicy())).thenReturn(rejected);
 
         M0RunResult result = orchestrator(eventJournal).execute(request);
@@ -330,7 +331,7 @@ class M0RunOrchestratorImplTest {
     private void stubSuccessfulDependencies() {
         when(worktreeManager.create(any())).thenReturn(worktree);
         when(claudeCodeAdapter.run(any(), any())).thenReturn(completedClaude());
-        when(changeCollector.collect(worktree.handle())).thenReturn(changes);
+        when(changeCollector.collect(any(WorkspaceHandle.class))).thenReturn(changes);
         when(changePolicyEvaluator.evaluate(changes, request.changePolicy()))
                 .thenReturn(compliantPolicy);
         when(mavenVerifier.verify(any())).thenReturn(passedMaven);

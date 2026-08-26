@@ -103,11 +103,11 @@ public final class MavenVerifierImpl implements MavenVerifier {
         Objects.requireNonNull(request, "request");
         String runId = request.runId();
         validateRunId(runId);
-        Path worktree = request.worktree().worktreePath().normalize();
+        Path workspaceRoot = request.workspaceRoot();
         List<String> command = command();
         Instant validationStartedAt = Instant.now();
 
-        String invalidWorkspace = validateWorkspace(worktree);
+        String invalidWorkspace = validateWorkspace(workspaceRoot);
         if (invalidWorkspace != null) {
             return new MavenVerificationResult(
                     MavenVerificationStatus.START_FAILED,
@@ -118,7 +118,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
                     null,
                     null,
                     null,
-                    "无法开始 Maven 验证，请确认任务目录是包含 pom.xml 的有效 Worktree。",
+                    "无法开始 Maven 验证，请确认任务工作区包含 pom.xml。",
                     invalidWorkspace
             );
         }
@@ -126,7 +126,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         Path artifactDirectory = artifactDirectory(runId, request.attempt());
         MavenProcessSpec spec = new MavenProcessSpec(
                 command,
-                worktree,
+                workspaceRoot,
                 artifactDirectory,
                 runtimeRoot,
                 timeout,
@@ -142,7 +142,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
 
         MavenTestSummary summary;
         try {
-            summary = reportParser.parse(worktree);
+            summary = reportParser.parse(workspaceRoot);
         } catch (MavenReportException exception) {
             appendNotice(request, "MAVEN_REPORT_INVALID",
                     "测试报告无法可靠解析，本次验证不能判定为通过。", exception.getMessage());
@@ -203,16 +203,16 @@ public final class MavenVerifierImpl implements MavenVerifier {
         return List.copyOf(command);
     }
 
-    /** 校验 Worktree 是否具备 Maven 项目的基本运行条件。 */
-    private String validateWorkspace(Path worktree) {
-        if (!worktree.isAbsolute()) {
-            return "Worktree path is not absolute: " + worktree;
+    /** 校验工作区是否具备 Maven 项目的基本运行条件。 */
+    private String validateWorkspace(Path workspaceRoot) {
+        if (!workspaceRoot.isAbsolute()) {
+            return "Workspace path is not absolute: " + workspaceRoot;
         }
-        if (!Files.isDirectory(worktree)) {
-            return "Worktree directory does not exist: " + worktree;
+        if (!Files.isDirectory(workspaceRoot)) {
+            return "Workspace directory does not exist: " + workspaceRoot;
         }
-        if (!Files.isRegularFile(worktree.resolve("pom.xml"))) {
-            return "pom.xml does not exist at Worktree root: " + worktree;
+        if (!Files.isRegularFile(workspaceRoot.resolve("pom.xml"))) {
+            return "pom.xml does not exist at Workspace root: " + workspaceRoot;
         }
         return null;
     }

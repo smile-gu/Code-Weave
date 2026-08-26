@@ -9,7 +9,6 @@ import com.codingreview.controlplane.verification.maven.model.MavenVerificationR
 import com.codingreview.controlplane.verification.maven.model.MavenVerificationResult;
 import com.codingreview.controlplane.verification.maven.model.MavenVerificationStatus;
 import com.codingreview.controlplane.verification.maven.report.SurefireReportParser;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -214,11 +213,7 @@ class MavenVerifierImplTest {
     }
 
     private MavenVerificationRequest request(String runId, Path worktree) {
-        return new MavenVerificationRequest(
-                runId,
-                new WorktreeHandle(worktree, worktree, runId, "HEAD", "fixture-commit", false),
-                1
-        );
+        return new MavenVerificationRequest(runId, worktree, 1);
     }
 
     private Path createWorktree(String runId) throws Exception {

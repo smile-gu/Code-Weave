@@ -143,7 +143,7 @@ export type ChangedFile = {
 export type RunChanges = {
   runId: string
   baseCommit: string
-  worktree: string
+  workspaceRoot: string
   totalFiles: number
   unifiedDiffBytes: number
   files: ChangedFile[]

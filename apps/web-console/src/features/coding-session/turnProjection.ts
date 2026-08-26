@@ -49,7 +49,7 @@ export function projectTurnStages(events: RunEvent[], turn?: CodingTurn | null):
 /** 为五阶段创建初始视图；真实 Git 工作区在 Session 创建时已绑定。 */
 function createStages(): StageView[] {
   return [
-    { key: 'worktree', label: '真实工作区', description: '检查 Session 仓库基线', status: 'completed', startedAt: null, endedAt: null, summary: '当前 Turn 已绑定并检查真实 Git 工作区。' },
+    { key: 'workspace', label: '真实工作区', description: '检查 Session 仓库基线', status: 'completed', startedAt: null, endedAt: null, summary: '当前 Turn 已绑定并检查真实 Git 工作区。' },
     { key: 'coding', label: '代码执行', description: '在当前代码工作区完成任务', status: 'pending', startedAt: null, endedAt: null },
     { key: 'change-collection', label: '变更采集', description: '生成文件清单与 Unified Diff', status: 'pending', startedAt: null, endedAt: null },
     { key: 'change-policy', label: '路径门禁', description: '确认改动未越过任务边界', status: 'pending', startedAt: null, endedAt: null },
