@@ -16,8 +16,6 @@ import com.codingreview.controlplane.session.persistence.FileCodingSessionReposi
 import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
 import com.codingreview.controlplane.session.persistence.FileCodingTurnRepository;
 import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
-import com.codingreview.controlplane.session.integration.persistence.CodingSessionIntegrationRepository;
-import com.codingreview.controlplane.session.integration.persistence.FileCodingSessionIntegrationRepository;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.verification.maven.MavenVerifierImpl;
 import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
@@ -57,17 +55,6 @@ public class ControlPlaneConfiguration {
     @Bean
     CodingTurnRepository codingTurnRepository(CodeWeaveProperties properties, ObjectMapper objectMapper) {
         return new FileCodingTurnRepository(runtimeRoot(properties), objectMapper);
-    }
-
-    /** 创建记录 Session 写回原仓库全过程的文件仓储。 */
-    @Bean
-    CodingSessionIntegrationRepository codingSessionIntegrationRepository(
-            CodeWeaveProperties properties,
-            ObjectMapper objectMapper
-    ) {
-        return new FileCodingSessionIntegrationRepository(
-                runtimeRoot(properties), objectMapper
-        );
     }
 
     /** 创建带超时和输出上限的本机只读命令探测器。 */

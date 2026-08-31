@@ -2,7 +2,6 @@ package com.codingreview.controlplane.api.session;
 
 import com.codingreview.controlplane.api.run.error.ApiExceptionHandler;
 import com.codingreview.controlplane.application.session.CodingSessionApplicationService;
-import com.codingreview.controlplane.application.session.CodingSessionIntegrationService;
 import com.codingreview.controlplane.application.session.ReviewBaselineApplicationService;
 import com.codingreview.controlplane.application.session.ReviewBaselineReadiness;
 import com.codingreview.controlplane.application.session.error.CodingSessionCreationException;
@@ -10,7 +9,6 @@ import com.codingreview.controlplane.application.session.error.CodingSessionNotF
 import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
 import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -35,20 +33,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CodingSessionControllerTest {
 
     private CodingSessionApplicationService applicationService;
-    private CodingSessionIntegrationService integrationService;
     private ReviewBaselineApplicationService baselineService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         applicationService = mock(CodingSessionApplicationService.class);
-        integrationService = mock(CodingSessionIntegrationService.class);
         baselineService = mock(ReviewBaselineApplicationService.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new CodingSessionController(
-                        applicationService, integrationService, baselineService
+                        applicationService, baselineService
                 ))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator)
@@ -69,8 +65,7 @@ class CodingSessionControllerTest {
                 .andExpect(jsonPath("$.sessionId").value(session.sessionId().toString()))
                 .andExpect(jsonPath("$.title").value("用户模块开发"))
                 .andExpect(jsonPath("$.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.worktreePath").value(
-                        "D:\\runtime\\worktrees\\" + session.sessionId()))
+                .andExpect(jsonPath("$.worktreePath").value("D:\\repository"))
                 .andExpect(jsonPath("$.resolvedCommit").value("abc123"))
                 .andExpect(jsonPath("$.activeReviewBaselineCommit").value("abc123"))
                 .andExpect(jsonPath("$.allowedPaths[0]").value("src/**"));
@@ -217,29 +212,8 @@ class CodingSessionControllerTest {
                 .andExpect(jsonPath("$.diagnostic").doesNotExist());
     }
 
-    /** 创建可供 API 映射测试使用的活跃 Session。 */
-    private CodingSession activeSession(UUID sessionId, Instant createdAt) {
-        Path repository = Path.of("D:/repository");
-        CodingSession initializing = CodingSession.initializing(
-                sessionId,
-                "用户模块开发",
-                repository,
-                "HEAD",
-                new ChangePolicy(List.of("src/**"), List.of(".git/**")),
-                createdAt
-        );
-        return initializing.activate(new WorktreeHandle(
-                repository,
-                Path.of("D:/runtime/worktrees/" + sessionId),
-                sessionId.toString(),
-                "HEAD",
-                "abc123",
-                false
-        ), createdAt.plusSeconds(1));
-    }
-
     /** 创建直接绑定真实仓库的 API 测试 Session。 */
-    private CodingSession directSession(UUID sessionId, Instant createdAt) {
+    private CodingSession activeSession(UUID sessionId, Instant createdAt) {
         Path repository = Path.of("D:/repository");
         return CodingSession.initializing(
                 sessionId, "用户模块开发", repository, "main",
@@ -248,6 +222,11 @@ class CodingSessionControllerTest {
                 new GitRepositorySnapshot(repository, "main", "abc123", false),
                 createdAt.plusSeconds(1)
         );
+    }
+
+    /** 复用直接工作区夹具创建可推进基线的 Session。 */
+    private CodingSession directSession(UUID sessionId, Instant createdAt) {
+        return activeSession(sessionId, createdAt);
     }
 
     /** 返回一份合法的 Session 创建请求。 */

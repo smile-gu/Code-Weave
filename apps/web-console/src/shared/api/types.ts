@@ -220,30 +220,6 @@ export type ReviewBaselineReadiness = {
   workspaceFingerprint: string
   blockers: string[]
 }
-export type MergeReadiness = {
-  sessionId: string
-  ready: boolean
-  workspaceFingerprint: string
-  sourceHead: string
-  targetBranch: string
-  changedFiles: number
-  blockers: string[]
-}
-
-export type IntegrationStatus = 'MERGING' | 'MERGED' | 'INTERRUPTED' | 'NEEDS_ATTENTION'
-export type CodingSessionIntegration = {
-  sessionId: string
-  status: IntegrationStatus
-  sourceHeadBefore: string
-  targetBranch: string
-  workspaceFingerprint: string
-  sessionCommit: string | null
-  mergedHead: string | null
-  startedAt: string
-  updatedAt: string
-  failureCode: string | null
-  failureMessage: string | null
-}
 
 export type CodingSession = {
   sessionId: string

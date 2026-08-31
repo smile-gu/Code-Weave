@@ -1,7 +1,9 @@
-# ADR-0007：Coding Session 持久化与长期 Worktree
+# ADR-0007：Coding Session 持久化与长期 Worktree（已被替代）
 
-- 状态：M5 已采纳
+- 状态：已被 [ADR-0008](0008-direct-workspace-and-review-baseline.md) 替代
 - 日期：2026-08-18
+
+> 本文保留 M5 阶段的历史设计。正式 Coding Session 已改为直接绑定真实 Git 工作区；长期 Worktree、自动 Commit 与 Fast-forward 合并不再是当前产品方案。文件快照、Session/Turn 持久化和启动恢复思想仍然保留。
 
 ## 背景
 

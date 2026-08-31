@@ -6,7 +6,7 @@ export const sessionStatusLabels: Record<CodingSessionStatus, string> = {
   LEGACY_READ_ONLY: '历史只读',
   CLOSED: '已关闭',
   FAILED: '初始化失败',
-  MERGED: '已合并',
+  MERGED: '历史已合并',
 }
 
 /** 将后端时间转换为适合本地用户阅读的时间。 */

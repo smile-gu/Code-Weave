@@ -151,15 +151,6 @@ public record CodingSession(
         );
     }
 
-    /** 将已验证并写回原仓库的 Session 固化为合并终态。 */
-    public CodingSession merged(Instant now) {
-        if (status != CodingSessionStatus.ACTIVE) throw new IllegalStateException("only active session can be merged");
-        return new CodingSession(sessionId, title, CodingSessionStatus.MERGED, sourceRepository,
-                worktreePath, baseRef, resolvedCommit, activeReviewBaselineCommit,
-                sourceRepositoryDirty, changePolicy,
-                claudeSessionId, createdAt, now, null, null);
-    }
-
     /** 将用户已确认的新提交设为下一审查周期的活动基线。 */
     public CodingSession advanceReviewBaseline(String commit, Instant now) {
         if (status != CodingSessionStatus.ACTIVE || !usesRealRepository()) {

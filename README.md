@@ -1,84 +1,81 @@
-# Coding Review Platform
+# Code Weave
 
-一个 Coding-Review 一体化 Agent 平台。Coding Runtime 复用 Claude Code，Review Harness、工作流控制、可观测能力和评测系统由本项目独立开发。
+Code Weave 是一个面向本地 Git 项目的 Coding–Review 一体化 Agent 平台。Coding 侧复用 Claude Code，平台负责长期会话、真实工作区保护、过程可观测、独立验证和模块级 Git 基线；Review Harness 将由 Python、LangGraph 与 LangChain 独立实现。
 
-## M0 范围
+## 当前状态
 
-M0 用于验证以下技术链路是否可行：
+| 能力 | 状态 | 当前边界 |
+|---|---|---|
+| 多轮 Coding Session | 已实现 | 同一 Session 串行执行 Turn，并复用 Claude 原生上下文 |
+| 真实 Git 工作区 | 已实现 | Agent 直接修改用户仓库，不再为正式 Session 创建 Worktree |
+| Git Diff 与路径门禁 | 已实现 | 每轮相对活动审查基线采集并检查变更 |
+| Maven 验证 | 已实现 | 当前只支持 Spring Boot 3.x + Maven 项目 |
+| SSE 可观测 | 已实现 | 支持历史补发、实时事件和游标恢复 |
+| 模块级基线推进 | 已实现 | 用户完成 Review、自测和正式 Commit 后确认推进 |
+| Review Harness | 待开发 | 当前尚未接入 Review Agent 与报告交互 |
+| 桌面端 | 待开发 | 当前先提供本机 Web 工作台 |
 
-```text
-Git repository -> isolated Worktree -> Claude Code -> Git Diff -> Maven verification
+当前正式业务流程：
+
+```mermaid
+flowchart LR
+    A[创建 Coding Session] --> B[多轮 Coding]
+    B --> C[Review Agent 审查]
+    C --> D[根据报告修复]
+    D --> E{是否需要复审}
+    E -->|是| C
+    E -->|否| F[用户最终自测]
+    F --> G[一次模块级 Git Commit]
+    G --> H[平台校验并推进活动基线]
+    H --> B
 ```
 
-当前已经完成 M0 主链路、异步 Run API、SSE 实时事件通道和首版 Web 工作台：Control Plane 可以创建隔离 Worktree，调用受限 Claude Code，采集 Git Diff，执行路径门禁与 Maven 验证；用户可以通过浏览器提交任务并实时查看五阶段进度、业务结果和代码变更。
+> 当前代码已经实现 Coding、验证与基线推进；图中的 Review Agent 是下一阶段目标。Review Harness 接入前，Review 和最终自测是否完成由用户确认。
 
-M5 新增了持续 Coding 的持久化底座。一个 `CodingSession` 长期拥有一个独立 Worktree，服务重启后仍可查询和恢复。当前尚未实现 Session 内的多轮 Coding Turn、Claude Code 上下文续接和 Review。
+## 架构概览
 
-## 仓库结构
-
-```text
-apps/web-console/             React + TypeScript Web 工作台
-services/control-plane/       Java Spring Boot 工作流控制平面
-services/review-harness/      Python Review Harness（预留）
-workers/                      语言分析 Worker（预留）
-contracts/schemas/            跨语言共享的 JSON Schema
-fixtures/spring-boot-demo/    M0 使用的隔离目标项目
-benchmarks/spring-boot/       Review 评测用例（预留）
-runtime/                      本地运行数据，Git 默认忽略
-docs/decisions/               已冻结的技术决策
+```mermaid
+flowchart LR
+    U[用户] --> W[React Web 工作台]
+    W -->|HTTP 与 SSE| J[Java Control Plane]
+    J -->|启动或恢复| C[Claude Code]
+    J --> G[(真实 Git 工作区)]
+    J --> M[Maven Verifier]
+    J --> R[(JSON 与 NDJSON 运行事实)]
+    P[Python Review Harness<br/>下一阶段] -. HTTP 与 SSE .-> J
 ```
+
+| 模块 | 技术 | 职责 |
+|---|---|---|
+| `apps/web-console` | React、TypeScript、Vite | 多轮对话、阶段投影、Diff 和模块完成入口 |
+| `services/control-plane` | Java 21、Spring Boot | Session、Turn、Claude 调用、Git 门禁、Maven 验证和 SSE |
+| `services/review-harness` | Python，待搭建 | Review Agent Loop、上下文、记忆、Skills、Tools 和报告 |
+| `fixtures/spring-boot-demo` | Spring Boot、Maven | 本地链路与自动化验证目标项目 |
+| `runtime` | 本地文件，Git 忽略 | Session/Turn 快照、事件和 Maven 产物 |
+
+完整设计见 [当前系统架构](docs/architecture/current-architecture.md)，文档入口见 [项目文档索引](docs/README.md)。
 
 ## 环境要求
 
-- Java 21
+- JDK 21
 - Maven 3.9+
 - Git 2.40+
+- Node.js 20.19+ 或 22.12+
 - Claude Code CLI 2.1+
 
-## 验证项目
+Windows 应将 Claude 可执行文件配置为 Java 可以直接启动的 `claude.cmd`、`.bat` 或 `.exe`，不要使用 PowerShell 优先解析到的 `claude.ps1`。
 
-```powershell
-.\mvnw.cmd test
-```
+## 本地启动
 
-## 启动 Control Plane
-
-服务只监听本机 `127.0.0.1`。运行目录与 Claude Code 可执行文件属于部署配置，不能由单次 HTTP 请求指定：
+启动 Control Plane：
 
 ```powershell
 $env:CODE_WEAVE_RUNTIME_ROOT = "D:/code-weave-runtime"
-$env:CODE_WEAVE_CLAUDE_EXECUTABLE = "C:/path/to/claude.cmd"
+$env:CODE_WEAVE_CLAUDE_EXECUTABLE = "D:/develop/nodejs/claude.cmd"
 .\mvnw.cmd -pl services/control-plane spring-boot:run
 ```
 
-当前提供以下接口：
-
-```text
-POST /api/v1/m0/runs
-GET  /api/v1/m0/runs/{runId}
-GET  /api/v1/m0/runs/{runId}/events?afterSequence=0
-GET  /api/v1/m0/runs/{runId}/stream?afterSequence=0
-GET  /api/v1/m0/runs/{runId}/result
-GET  /api/v1/m0/runs/{runId}/changes
-GET  /api/v1/system/readiness
-POST /api/v1/coding-sessions
-GET  /api/v1/coding-sessions?limit=20
-GET  /api/v1/coding-sessions/{sessionId}
-```
-
-`stream` 使用 SSE 实时发送 Run 事件，并支持通过 `Last-Event-ID` 或 `afterSequence` 断点恢复。`events` REST 接口继续用于排障和手动重放。
-
-`readiness` 使用只读命令检查 Runtime Root、Git、Java、Maven 和 Claude Code。创建 Run 前会重新检查，必要项失败时返回 `503 RUNTIME_NOT_READY`，不会创建 Run 或 Worktree。
-
-Windows 环境应将 `CODE_WEAVE_CLAUDE_EXECUTABLE` 指向 `claude.cmd`，不要配置 PowerShell 默认解析到的 `claude.ps1`：
-
-```powershell
-$env:CODE_WEAVE_CLAUDE_EXECUTABLE = "D:/develop/nodejs/claude.cmd"
-```
-
-## 启动 Web 工作台
-
-前端开发服务器会将 `/api` 代理到本机 `127.0.0.1:8080`，因此不需要开放跨域访问：
+启动 Web 工作台：
 
 ```powershell
 cd apps/web-console
@@ -86,15 +83,33 @@ npm install
 npm run dev
 ```
 
-浏览器访问 `http://127.0.0.1:5173`。一次性 Run 位于 `/`，持续会话入口位于 `/sessions`。Web 首版需要手动输入本地 Git 仓库的绝对路径，原生文件夹选择将在桌面端实现。
+浏览器访问 `http://127.0.0.1:5173`。前端会将 `/api` 代理到 `http://127.0.0.1:8080`，两个服务都只监听本机。
 
-默认只允许 1 个 Run 同时执行，最多排队 10 个。一次性 Run 状态保存在当前服务进程内，服务重启后状态查询会丢失；NDJSON 事件和任务产物仍保留在运行目录中。
+详细步骤、常见故障和验证命令见 [本地开发指南](docs/guides/local-development.md)。
 
-Coding Session 使用版本化 JSON 快照持久化：
+## 验证项目
 
-```text
-runtime/sessions/{sessionId}/session.json
-runtime/worktrees/{sessionId}/
+```powershell
+.\mvnw.cmd -pl services/control-plane -am clean test
+
+cd apps/web-console
+npm test -- --run
+npm run build
 ```
 
-启动时会将中断在 `INITIALIZING` 的 Session 标记为失败，并检查 `ACTIVE` Session 的 Worktree 是否仍然存在。完整设计见 [ADR-0007](docs/decisions/0007-coding-session-persistence.md)。
+## 当前边界
+
+- 正式 Session 直接修改真实仓库，平台不会自动 Commit、Push 或 Merge。
+- 同一真实仓库同一时间只允许绑定一个活动 Session。
+- 同一 Session 同一时间只运行一个 Coding Turn。
+- 旧 `/api/v1/m0/runs` 单轮 Worktree 链路暂时保留用于回归验证，但不属于正式前端入口。
+- 旧 Session Worktree 自动合并接口已经删除；历史 `MERGED` 快照仅作为兼容数据读取。
+- 当前持久化面向本机单进程，不支持多实例并发或远程多用户。
+
+## 文档导航
+
+- [当前系统架构](docs/architecture/current-architecture.md)
+- [HTTP API](docs/api/http-api.md)
+- [本地开发指南](docs/guides/local-development.md)
+- [开发路线图](docs/roadmap.md)
+- [架构决策记录](docs/decisions/README.md)

@@ -3,11 +3,7 @@ package com.codingreview.controlplane.api.session;
 import com.codingreview.controlplane.api.session.dto.CodingSessionListResponse;
 import com.codingreview.controlplane.api.session.dto.CodingSessionResponse;
 import com.codingreview.controlplane.api.session.dto.CreateCodingSessionRequest;
-import com.codingreview.controlplane.api.session.dto.MergeReadinessResponse;
-import com.codingreview.controlplane.api.session.dto.CodingSessionIntegrationResponse;
 import com.codingreview.controlplane.api.session.dto.ReviewBaselineReadinessResponse;
-import com.codingreview.controlplane.application.session.CodingSessionIntegrationService;
-import com.codingreview.controlplane.application.session.MergeCodingSessionRequest;
 import com.codingreview.controlplane.application.session.CodingSessionApplicationService;
 import com.codingreview.controlplane.application.session.CreateCodingSessionCommand;
 import com.codingreview.controlplane.application.session.ReviewBaselineApplicationService;
@@ -37,17 +33,14 @@ import java.util.UUID;
 public class CodingSessionController {
 
     private final CodingSessionApplicationService applicationService;
-    private final CodingSessionIntegrationService integrationService;
     private final ReviewBaselineApplicationService baselineService;
 
-    /** 装配 Session 生命周期、旧合并能力与活动基线服务。 */
+    /** 装配 Session 生命周期与活动基线服务。 */
     public CodingSessionController(
             CodingSessionApplicationService applicationService,
-            CodingSessionIntegrationService integrationService,
             ReviewBaselineApplicationService baselineService
     ) {
         this.applicationService = applicationService;
-        this.integrationService = integrationService;
         this.baselineService = baselineService;
     }
 
@@ -106,31 +99,5 @@ public class CodingSessionController {
                 )
         );
         return CodingSessionResponse.from(advanced);
-    }
-
-    /** 获取当前 Worktree 是否仍可安全合并到原始源码仓库。 */
-    @GetMapping("/{sessionId}/merge-readiness")
-    public MergeReadinessResponse mergeReadiness(@PathVariable UUID sessionId) {
-        return MergeReadinessResponse.from(integrationService.readiness(sessionId));
-    }
-
-    /** 二次确认后创建正式提交并通过 fast-forward 写回源码仓库。 */
-    @PostMapping("/{sessionId}/merge")
-    public CodingSessionResponse merge(@PathVariable UUID sessionId,
-                                       @Valid @RequestBody com.codingreview.controlplane.api.session.dto.MergeCodingSessionRequest request) {
-        CodingSession merged = integrationService.merge(sessionId, new MergeCodingSessionRequest(
-                request.commitMessage(), request.expectedSourceHead(), request.expectedTargetBranch(), request.workspaceFingerprint()));
-        return CodingSessionResponse.from(merged);
-    }
-
-    /** 查询 Session 最近一次写回原仓库的持久状态。 */
-    @GetMapping("/{sessionId}/integration")
-    public ResponseEntity<CodingSessionIntegrationResponse> integration(
-            @PathVariable UUID sessionId
-    ) {
-        return integrationService.integration(sessionId)
-                .map(CodingSessionIntegrationResponse::from)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 }
