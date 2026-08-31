@@ -48,7 +48,9 @@ class CodingTurnOrchestratorImplTest {
         MavenVerifier maven = mock(MavenVerifier.class);
         RunEventJournal journal = mock(RunEventJournal.class);
         SessionWorkspaceGuard guard = mock(SessionWorkspaceGuard.class);
-        CodingSession session = activeSession();
+        CodingSession session = activeSession().advanceReviewBaseline(
+                "def456", Instant.parse("2026-08-18T07:59:02Z")
+        );
         CodingTurn running = CodingTurn.queued(
                 UUID.randomUUID(), session.sessionId(), 1,
                 "继续开发", Instant.parse("2026-08-18T08:00:00Z")
@@ -77,7 +79,9 @@ class CodingTurnOrchestratorImplTest {
         MavenVerifier maven = mock(MavenVerifier.class);
         RunEventJournal journal = mock(RunEventJournal.class);
         SessionWorkspaceGuard guard = mock(SessionWorkspaceGuard.class);
-        CodingSession session = activeSession();
+        CodingSession session = activeSession().advanceReviewBaseline(
+                "def456", Instant.parse("2026-08-18T07:59:02Z")
+        );
         CodingTurn running = CodingTurn.queued(
                 UUID.randomUUID(), session.sessionId(), 1,
                 "分析当前代码", Instant.parse("2026-08-18T08:00:00Z")
@@ -103,7 +107,8 @@ class CodingTurnOrchestratorImplTest {
             );
         });
         when(changes.collect(any())).thenReturn(new GitChangeSet(
-                session.resolvedCommit(), session.sourceRepository(), List.of(), "", 0
+                session.activeReviewBaselineCommit(), session.sourceRepository(),
+                List.of(), "", 0
         ));
         CodingTurnOrchestratorImpl orchestrator = new CodingTurnOrchestratorImpl(
                 claude, changes, policy, maven, journal,
@@ -118,7 +123,7 @@ class CodingTurnOrchestratorImplTest {
                 .isEqualTo("native-claude-session");
         assertThat(execution.turn().outcome()).isEqualTo(TurnOutcome.NO_CHANGES);
         verify(changes).collect(new WorkspaceHandle(
-                session.sourceRepository(), session.resolvedCommit()
+                session.sourceRepository(), session.activeReviewBaselineCommit()
         ));
         verify(policy, never()).evaluate(any(), any());
         verify(maven, never()).verify(any());

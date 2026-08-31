@@ -115,7 +115,7 @@ class CodingTurnApplicationServiceTest {
         CodingTurnApplicationService service = new CodingTurnApplicationService(
                 sessions, turns, orchestrator, changes, journal,
                 JsonMapper.builder().findAndAddModules().build(), executor, readinessService,
-                workspaceGuard
+                workspaceGuard, new SessionOperationLockManager()
         );
         return new Fixture(session, turns, executor, service, workspaceGuard);
     }

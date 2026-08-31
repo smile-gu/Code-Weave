@@ -3,10 +3,13 @@ package com.codingreview.controlplane.api.session;
 import com.codingreview.controlplane.api.run.error.ApiExceptionHandler;
 import com.codingreview.controlplane.application.session.CodingSessionApplicationService;
 import com.codingreview.controlplane.application.session.CodingSessionIntegrationService;
+import com.codingreview.controlplane.application.session.ReviewBaselineApplicationService;
+import com.codingreview.controlplane.application.session.ReviewBaselineReadiness;
 import com.codingreview.controlplane.application.session.error.CodingSessionCreationException;
 import com.codingreview.controlplane.application.session.error.CodingSessionNotFoundException;
 import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
+import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
 import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,17 +36,19 @@ class CodingSessionControllerTest {
 
     private CodingSessionApplicationService applicationService;
     private CodingSessionIntegrationService integrationService;
+    private ReviewBaselineApplicationService baselineService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         applicationService = mock(CodingSessionApplicationService.class);
         integrationService = mock(CodingSessionIntegrationService.class);
+        baselineService = mock(ReviewBaselineApplicationService.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new CodingSessionController(
-                        applicationService, integrationService
+                        applicationService, integrationService, baselineService
                 ))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator)
@@ -67,7 +72,53 @@ class CodingSessionControllerTest {
                 .andExpect(jsonPath("$.worktreePath").value(
                         "D:\\runtime\\worktrees\\" + session.sessionId()))
                 .andExpect(jsonPath("$.resolvedCommit").value("abc123"))
+                .andExpect(jsonPath("$.activeReviewBaselineCommit").value("abc123"))
                 .andExpect(jsonPath("$.allowedPaths[0]").value("src/**"));
+    }
+
+    @Test
+    void returnsReviewBaselineReadiness() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        when(baselineService.readiness(sessionId)).thenReturn(new ReviewBaselineReadiness(
+                sessionId, true, "abc123", "def456", "main", 2,
+                "workspace-fingerprint", List.of()
+        ));
+
+        mockMvc.perform(get(
+                        "/api/v1/coding-sessions/{sessionId}/review-baseline-readiness",
+                        sessionId
+                ))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ready").value(true))
+                .andExpect(jsonPath("$.activeBaselineCommit").value("abc123"))
+                .andExpect(jsonPath("$.currentHead").value("def456"))
+                .andExpect(jsonPath("$.changedFiles").value(2));
+    }
+
+    @Test
+    void advancesReviewBaselineFromConfirmedPreview() throws Exception {
+        CodingSession session = directSession(
+                UUID.randomUUID(), Instant.parse("2026-08-18T06:00:00Z")
+        ).advanceReviewBaseline("def456", Instant.parse("2026-08-18T06:10:00Z"));
+        when(baselineService.advance(
+                org.mockito.ArgumentMatchers.eq(session.sessionId()), any()
+        )).thenReturn(session);
+
+        mockMvc.perform(post(
+                        "/api/v1/coding-sessions/{sessionId}/review-baseline/advance",
+                        session.sessionId()
+                )
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "expectedActiveBaselineCommit": "abc123",
+                                  "expectedHead": "def456",
+                                  "workspaceFingerprint": "workspace-fingerprint"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resolvedCommit").value("abc123"))
+                .andExpect(jsonPath("$.activeReviewBaselineCommit").value("def456"));
     }
 
     @Test
@@ -185,6 +236,18 @@ class CodingSessionControllerTest {
                 "abc123",
                 false
         ), createdAt.plusSeconds(1));
+    }
+
+    /** 创建直接绑定真实仓库的 API 测试 Session。 */
+    private CodingSession directSession(UUID sessionId, Instant createdAt) {
+        Path repository = Path.of("D:/repository");
+        return CodingSession.initializing(
+                sessionId, "用户模块开发", repository, "main",
+                new ChangePolicy(List.of("src/**"), List.of(".git/**")), createdAt
+        ).activateRealRepository(
+                new GitRepositorySnapshot(repository, "main", "abc123", false),
+                createdAt.plusSeconds(1)
+        );
     }
 
     /** 返回一份合法的 Session 创建请求。 */

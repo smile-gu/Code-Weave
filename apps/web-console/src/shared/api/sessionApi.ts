@@ -8,6 +8,7 @@ import type {
   MergeReadiness,
   RunChanges,
   CodingSessionIntegration,
+  ReviewBaselineReadiness,
 } from './types'
 
 /** 创建一个直接绑定真实 Git 工作区的 Coding Session。 */
@@ -43,6 +44,24 @@ export function cancelCodingTurn(sessionId: string, turnId: string) { return req
 /** 读取真实工作区相对 Session 创建基线的累计代码变更。 */
 export function getCodingTurnChanges(sessionId: string, turnId: string) {
   return request<RunChanges>(`/api/v1/coding-sessions/${sessionId}/turns/${turnId}/changes`)
+}
+
+/** 检查当前模块的正式 Git 提交是否可成为下一模块的活动审查基线。 */
+export function getReviewBaselineReadiness(sessionId: string) {
+  return request<ReviewBaselineReadiness>(`/api/v1/coding-sessions/${sessionId}/review-baseline-readiness`)
+}
+
+/** 用户确认模块已完成 Review 与自测后推进活动审查基线。 */
+export function advanceReviewBaseline(sessionId: string, input: {
+  expectedActiveBaselineCommit: string
+  expectedHead: string
+  workspaceFingerprint: string
+}) {
+  return request<CodingSession>(`/api/v1/coding-sessions/${sessionId}/review-baseline/advance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
 }
 
 /** 读取当前 Worktree 的合并门禁。 */

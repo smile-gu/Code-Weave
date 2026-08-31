@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -51,9 +52,23 @@ class SessionWorkspaceGuardTest {
 
         assertThatThrownBy(() -> new SessionWorkspaceGuard(inspector).assertStable(session))
                 .isInstanceOf(SessionWorkspaceDriftException.class)
-                .hasMessageContaining("HEAD 已从 abc123 变为 def456");
+                .hasMessageContaining("当前活动基线 abc123 变为 def456");
     }
 
+    @Test
+    void comparesHeadWithAdvancedReviewBaselineInsteadOfInitialCommit() {
+        GitRepositoryInspector inspector = mock(GitRepositoryInspector.class);
+        Path repository = Path.of("D:/test/repository").toAbsolutePath();
+        CodingSession session = session(repository, "main", "abc123")
+                .advanceReviewBaseline("def456", Instant.parse("2026-08-18T06:01:00Z"));
+        when(inspector.inspect(repository)).thenReturn(
+                new GitRepositorySnapshot(repository, "main", "def456", false));
+
+        assertThatCode(() -> new SessionWorkspaceGuard(inspector).assertStable(session))
+                .doesNotThrowAnyException();
+    }
+
+    /** 创建绑定真实仓库的测试 Session。 */
     private CodingSession session(Path repository, String branch, String head) {
         Instant now = Instant.parse("2026-08-18T06:00:00Z");
         return CodingSession.initializing(

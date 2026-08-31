@@ -18,6 +18,7 @@ public record CodingSession(
         Path worktreePath,
         String baseRef,
         String resolvedCommit,
+        String activeReviewBaselineCommit,
         boolean sourceRepositoryDirty,
         ChangePolicy changePolicy,
         String claudeSessionId,
@@ -27,6 +28,18 @@ public record CodingSession(
         String failureMessage
 ) {
 
+    /** 兼容尚未包含活动审查基线字段、但已绑定 Claude 上下文的旧调用方。 */
+    public CodingSession(
+            UUID sessionId, String title, CodingSessionStatus status,
+            Path sourceRepository, Path worktreePath, String baseRef, String resolvedCommit,
+            boolean sourceRepositoryDirty, ChangePolicy changePolicy, String claudeSessionId,
+            Instant createdAt, Instant updatedAt, String failureCode, String failureMessage
+    ) {
+        this(sessionId, title, status, sourceRepository, worktreePath, baseRef, resolvedCommit,
+                resolvedCommit, sourceRepositoryDirty, changePolicy, claudeSessionId,
+                createdAt, updatedAt, failureCode, failureMessage);
+    }
+
     /** 兼容 M5 快照和调用方创建的未绑定 Claude 上下文的 Session。 */
     public CodingSession(
             UUID sessionId, String title, CodingSessionStatus status,
@@ -35,7 +48,7 @@ public record CodingSession(
             Instant createdAt, Instant updatedAt, String failureCode, String failureMessage
     ) {
         this(sessionId, title, status, sourceRepository, worktreePath, baseRef, resolvedCommit,
-                sourceRepositoryDirty, changePolicy, null, createdAt, updatedAt,
+                resolvedCommit, sourceRepositoryDirty, changePolicy, null, createdAt, updatedAt,
                 failureCode, failureMessage);
     }
 
@@ -56,8 +69,9 @@ public record CodingSession(
             throw new IllegalArgumentException("updatedAt must not be before createdAt");
         }
         if (status == CodingSessionStatus.ACTIVE
-                && (worktreePath == null || resolvedCommit == null || resolvedCommit.isBlank())) {
-            throw new IllegalArgumentException("active session requires worktree and resolved commit");
+                && (worktreePath == null || resolvedCommit == null || resolvedCommit.isBlank()
+                || activeReviewBaselineCommit == null || activeReviewBaselineCommit.isBlank())) {
+            throw new IllegalArgumentException("active session requires workspace and baseline commits");
         }
         if (status == CodingSessionStatus.FAILED
                 && (failureCode == null || failureCode.isBlank()
@@ -77,7 +91,7 @@ public record CodingSession(
     ) {
         return new CodingSession(
                 sessionId, title, CodingSessionStatus.INITIALIZING,
-                sourceRepository, null, baseRef, null, false,
+                sourceRepository, null, baseRef, null, null, false,
                 changePolicy, null, now, now, null, null
         );
     }
@@ -94,7 +108,8 @@ public record CodingSession(
         return new CodingSession(
                 sessionId, title, CodingSessionStatus.ACTIVE,
                 handle.sourceRepository(), handle.worktreePath(), handle.baseRef(),
-                handle.resolvedCommit(), handle.sourceRepositoryDirty(), changePolicy,
+                handle.resolvedCommit(), handle.resolvedCommit(),
+                handle.sourceRepositoryDirty(), changePolicy,
                 claudeSessionId, createdAt, now, null, null
         );
     }
@@ -111,7 +126,7 @@ public record CodingSession(
         return new CodingSession(
                 sessionId, title, CodingSessionStatus.ACTIVE,
                 snapshot.repositoryRoot(), snapshot.repositoryRoot(), snapshot.branch(),
-                snapshot.headCommit(), snapshot.dirty(), changePolicy,
+                snapshot.headCommit(), snapshot.headCommit(), snapshot.dirty(), changePolicy,
                 claudeSessionId, createdAt, now, null, null
         );
     }
@@ -130,6 +145,7 @@ public record CodingSession(
         }
         return new CodingSession(
                 sessionId, title, status, sourceRepository, worktreePath, baseRef, resolvedCommit,
+                activeReviewBaselineCommit,
                 sourceRepositoryDirty, changePolicy, requireText(nativeSessionId, "claudeSessionId"),
                 createdAt, now, failureCode, failureMessage
         );
@@ -139,8 +155,22 @@ public record CodingSession(
     public CodingSession merged(Instant now) {
         if (status != CodingSessionStatus.ACTIVE) throw new IllegalStateException("only active session can be merged");
         return new CodingSession(sessionId, title, CodingSessionStatus.MERGED, sourceRepository,
-                worktreePath, baseRef, resolvedCommit, sourceRepositoryDirty, changePolicy,
+                worktreePath, baseRef, resolvedCommit, activeReviewBaselineCommit,
+                sourceRepositoryDirty, changePolicy,
                 claudeSessionId, createdAt, now, null, null);
+    }
+
+    /** 将用户已确认的新提交设为下一审查周期的活动基线。 */
+    public CodingSession advanceReviewBaseline(String commit, Instant now) {
+        if (status != CodingSessionStatus.ACTIVE || !usesRealRepository()) {
+            throw new IllegalStateException("only active direct-workspace session can advance baseline");
+        }
+        return new CodingSession(
+                sessionId, title, status, sourceRepository, worktreePath, baseRef,
+                resolvedCommit, requireText(commit, "activeReviewBaselineCommit"),
+                sourceRepositoryDirty, changePolicy, claudeSessionId,
+                createdAt, now, failureCode, failureMessage
+        );
     }
 
     /** 在 Session 业务内容更新后刷新最近活动时间。 */
@@ -149,7 +179,8 @@ public record CodingSession(
             throw new IllegalArgumentException("now must not be before updatedAt");
         }
         return new CodingSession(sessionId, title, status, sourceRepository, worktreePath,
-                baseRef, resolvedCommit, sourceRepositoryDirty, changePolicy,
+                baseRef, resolvedCommit, activeReviewBaselineCommit,
+                sourceRepositoryDirty, changePolicy,
                 claudeSessionId, createdAt, now, failureCode, failureMessage);
     }
 
@@ -161,6 +192,7 @@ public record CodingSession(
         return new CodingSession(
                 sessionId, title, CodingSessionStatus.FAILED,
                 sourceRepository, worktreePath, baseRef, resolvedCommit,
+                activeReviewBaselineCommit,
                 sourceRepositoryDirty, changePolicy, claudeSessionId, createdAt, now,
                 requireText(code, "failureCode"), requireText(message, "failureMessage")
         );

@@ -44,8 +44,8 @@ public final class CodingTurnApplicationService {
     private final TaskExecutor executor;
     private final RuntimeReadinessService readinessService;
     private final SessionWorkspaceGuard workspaceGuard;
+    private final SessionOperationLockManager operationLocks;
     private final ConcurrentHashMap<UUID, ExecutionHandle> running = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<UUID, Object> sessionLocks = new ConcurrentHashMap<>();
 
     /** 装配 Turn 应用层及复用的执行资源和工作区门禁。 */
     public CodingTurnApplicationService(CodingSessionRepository sessions, CodingTurnRepository turns,
@@ -53,7 +53,8 @@ public final class CodingTurnApplicationService {
                                         RunEventJournal journal, ObjectMapper mapper,
                                         @Qualifier("codingTurnExecutor") TaskExecutor executor,
                                         RuntimeReadinessService readinessService,
-                                        SessionWorkspaceGuard workspaceGuard) {
+                                        SessionWorkspaceGuard workspaceGuard,
+                                        SessionOperationLockManager operationLocks) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.turns = Objects.requireNonNull(turns, "turns");
         this.orchestrator = Objects.requireNonNull(orchestrator, "orchestrator");
@@ -65,6 +66,7 @@ public final class CodingTurnApplicationService {
                 readinessService, "readinessService"
         );
         this.workspaceGuard = Objects.requireNonNull(workspaceGuard, "workspaceGuard");
+        this.operationLocks = Objects.requireNonNull(operationLocks, "operationLocks");
     }
 
     /** 创建排队 Turn，并保证同一 Session 同时只有一轮运行。 */
@@ -224,7 +226,7 @@ public final class CodingTurnApplicationService {
     /** 判断 Turn 是否正在占用 Session 的串行执行权。 */
     private boolean active(CodingTurn turn) { return turn.status() == TurnStatus.QUEUED || turn.status() == TurnStatus.RUNNING; }
     /** 返回指定 Session 的进程内互斥锁。 */
-    private Object lock(UUID sessionId) { return sessionLocks.computeIfAbsent(sessionId, ignored -> new Object()); }
+    private Object lock(UUID sessionId) { return operationLocks.lock(sessionId); }
     /** 仅移除属于当前 Turn 的执行句柄，避免覆盖刚提交的下一轮。 */
     private void removeExecution(UUID sessionId, UUID turnId) {
         running.computeIfPresent(sessionId,

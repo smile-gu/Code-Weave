@@ -32,6 +32,7 @@ class FileCodingSessionRepositoryTest {
         repository.save(session);
 
         assertThat(repository.find(session.sessionId())).contains(session);
+        assertThat(session.activeReviewBaselineCommit()).isEqualTo("abc123");
         Path sessionDirectory = tempDir.resolve("runtime/sessions").resolve(session.sessionId().toString());
         assertThat(sessionDirectory.resolve("session.json")).isRegularFile();
         try (var files = Files.list(sessionDirectory)) {
@@ -114,6 +115,7 @@ class FileCodingSessionRepositoryTest {
 
         assertThat(restored.status()).isEqualTo(CodingSessionStatus.LEGACY_READ_ONLY);
         assertThat(restored.usesRealRepository()).isFalse();
+        assertThat(restored.activeReviewBaselineCommit()).isEqualTo("abc123");
     }
 
     private FileCodingSessionRepository repository() {

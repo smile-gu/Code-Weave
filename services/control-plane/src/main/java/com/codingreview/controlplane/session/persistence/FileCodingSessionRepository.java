@@ -26,7 +26,7 @@ import java.util.UUID;
 public final class FileCodingSessionRepository implements CodingSessionRepository {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileCodingSessionRepository.class);
-    private static final int SCHEMA_VERSION = 3;
+    private static final int SCHEMA_VERSION = 4;
     private static final String SNAPSHOT_FILE = "session.json";
 
     private final Path sessionsRoot;
@@ -147,6 +147,7 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
             String worktreePath,
             String baseRef,
             String resolvedCommit,
+            String activeReviewBaselineCommit,
             boolean sourceRepositoryDirty,
             List<String> allowedPaths,
             List<String> deniedPaths,
@@ -163,7 +164,8 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
                     SCHEMA_VERSION, session.sessionId(), session.title(), session.status(),
                     session.sourceRepository().toString(),
                     session.worktreePath() == null ? null : session.worktreePath().toString(),
-                    session.baseRef(), session.resolvedCommit(), session.sourceRepositoryDirty(),
+                    session.baseRef(), session.resolvedCommit(),
+                    session.activeReviewBaselineCommit(), session.sourceRepositoryDirty(),
                     session.changePolicy().allowedPaths(), session.changePolicy().deniedPaths(),
                     session.claudeSessionId(),
                     session.createdAt(), session.updatedAt(),
@@ -180,7 +182,10 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
             return new CodingSession(
                     sessionId, title, restoredStatus, Path.of(sourceRepository),
                     worktreePath == null ? null : Path.of(worktreePath),
-                    baseRef, resolvedCommit, sourceRepositoryDirty,
+                    baseRef, resolvedCommit,
+                    activeReviewBaselineCommit == null
+                            ? resolvedCommit : activeReviewBaselineCommit,
+                    sourceRepositoryDirty,
                     new ChangePolicy(allowedPaths, deniedPaths),
                     claudeSessionId,
                     createdAt, updatedAt, failureCode, failureMessage

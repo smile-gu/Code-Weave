@@ -5,10 +5,12 @@ import com.codingreview.controlplane.api.session.dto.CodingSessionResponse;
 import com.codingreview.controlplane.api.session.dto.CreateCodingSessionRequest;
 import com.codingreview.controlplane.api.session.dto.MergeReadinessResponse;
 import com.codingreview.controlplane.api.session.dto.CodingSessionIntegrationResponse;
+import com.codingreview.controlplane.api.session.dto.ReviewBaselineReadinessResponse;
 import com.codingreview.controlplane.application.session.CodingSessionIntegrationService;
 import com.codingreview.controlplane.application.session.MergeCodingSessionRequest;
 import com.codingreview.controlplane.application.session.CodingSessionApplicationService;
 import com.codingreview.controlplane.application.session.CreateCodingSessionCommand;
+import com.codingreview.controlplane.application.session.ReviewBaselineApplicationService;
 import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
 import jakarta.validation.Valid;
@@ -36,14 +38,17 @@ public class CodingSessionController {
 
     private final CodingSessionApplicationService applicationService;
     private final CodingSessionIntegrationService integrationService;
+    private final ReviewBaselineApplicationService baselineService;
 
-    /** 装配 Coding Session 应用服务和合并服务。 */
+    /** 装配 Session 生命周期、旧合并能力与活动基线服务。 */
     public CodingSessionController(
             CodingSessionApplicationService applicationService,
-            CodingSessionIntegrationService integrationService
+            CodingSessionIntegrationService integrationService,
+            ReviewBaselineApplicationService baselineService
     ) {
         this.applicationService = applicationService;
         this.integrationService = integrationService;
+        this.baselineService = baselineService;
     }
 
     /** 创建一个直接绑定真实 Git 工作区的持久 Coding Session。 */
@@ -77,6 +82,30 @@ public class CodingSessionController {
     @GetMapping("/{sessionId}")
     public CodingSessionResponse get(@PathVariable UUID sessionId) {
         return CodingSessionResponse.from(applicationService.get(sessionId));
+    }
+
+    /** 检查当前 Git 提交是否可作为下一审查周期的活动基线。 */
+    @GetMapping("/{sessionId}/review-baseline-readiness")
+    public ReviewBaselineReadinessResponse reviewBaselineReadiness(
+            @PathVariable UUID sessionId
+    ) {
+        return ReviewBaselineReadinessResponse.from(baselineService.readiness(sessionId));
+    }
+
+    /** 二次确认 Git 事实后推进活动审查基线。 */
+    @PostMapping("/{sessionId}/review-baseline/advance")
+    public CodingSessionResponse advanceReviewBaseline(
+            @PathVariable UUID sessionId,
+            @Valid @RequestBody com.codingreview.controlplane.api.session.dto.AdvanceReviewBaselineRequest request
+    ) {
+        CodingSession advanced = baselineService.advance(
+                sessionId,
+                new com.codingreview.controlplane.application.session.AdvanceReviewBaselineRequest(
+                        request.expectedActiveBaselineCommit(), request.expectedHead(),
+                        request.workspaceFingerprint()
+                )
+        );
+        return CodingSessionResponse.from(advanced);
     }
 
     /** 获取当前 Worktree 是否仍可安全合并到原始源码仓库。 */

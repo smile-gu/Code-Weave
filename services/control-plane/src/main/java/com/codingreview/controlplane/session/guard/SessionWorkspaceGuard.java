@@ -7,10 +7,11 @@ import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
 
 import java.util.Objects;
 
-/** 确认真实仓库仍处于 Coding Session 记录的分支和 HEAD。 */
+/** 确认真实仓库仍处于 Coding Session 记录的分支和活动基线。 */
 public final class SessionWorkspaceGuard {
     private final GitRepositoryInspector inspector;
 
+    /** 注入用于读取真实仓库状态的检查器。 */
     public SessionWorkspaceGuard(GitRepositoryInspector inspector) {
         this.inspector = Objects.requireNonNull(inspector, "inspector");
     }
@@ -32,12 +33,13 @@ public final class SessionWorkspaceGuard {
                             + " 变为 " + current.branch() + "，已停止启动 Coding Agent。"
             );
         }
-        if (!current.headCommit().equals(session.resolvedCommit())) {
+        if (!current.headCommit().equals(session.activeReviewBaselineCommit())) {
             throw new SessionWorkspaceDriftException(
                     "SOURCE_HEAD_CHANGED",
-                    "Session 创建后，真实仓库 HEAD 已从 " + shortCommit(session.resolvedCommit())
+                    "真实仓库 HEAD 已从当前活动基线 "
+                            + shortCommit(session.activeReviewBaselineCommit())
                             + " 变为 " + shortCommit(current.headCommit())
-                            + "，已停止启动 Coding Agent。"
+                            + "；如果这是用户已确认的提交，请先推进活动审查基线。"
             );
         }
     }

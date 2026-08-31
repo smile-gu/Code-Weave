@@ -40,6 +40,20 @@ class GitRepositoryInspectorImplTest {
                         .isEqualTo("REPOSITORY_NOT_ROOT"));
     }
 
+    @Test
+    void distinguishesDescendantCommitFromDivergedHistory() throws Exception {
+        Path repository = createRepository();
+        String first = git(repository, "rev-parse", "HEAD").trim();
+        Files.writeString(repository.resolve("README.md"), "second", StandardCharsets.UTF_8);
+        git(repository, "add", "README.md");
+        git(repository, "commit", "-m", "second");
+        String second = git(repository, "rev-parse", "HEAD").trim();
+        GitRepositoryInspector inspector = new GitRepositoryInspectorImpl();
+
+        assertThat(inspector.isAncestor(repository, first, second)).isTrue();
+        assertThat(inspector.isAncestor(repository, second, first)).isFalse();
+    }
+
     private Path createRepository() throws Exception {
         Path repository = tempDir.resolve("repository").toAbsolutePath();
         Files.createDirectories(repository);
@@ -52,12 +66,13 @@ class GitRepositoryInspectorImplTest {
         return repository;
     }
 
-    private void git(Path repository, String... arguments) throws Exception {
+    private String git(Path repository, String... arguments) throws Exception {
         java.util.List<String> command = new java.util.ArrayList<>();
         command.add("git"); command.add("-C"); command.add(repository.toString());
         command.addAll(java.util.List.of(arguments));
         Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertThat(process.waitFor()).as(output).isZero();
+        return output;
     }
 }

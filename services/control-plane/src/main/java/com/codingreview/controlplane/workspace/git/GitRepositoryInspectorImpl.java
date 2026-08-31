@@ -41,6 +41,16 @@ public final class GitRepositoryInspectorImpl implements GitRepositoryInspector 
         return new GitRepositorySnapshot(root, branch, head, dirty);
     }
 
+    /** 通过 Git merge-base 确认新 HEAD 是否沿当前基线向前演进。 */
+    @Override
+    public boolean isAncestor(Path repository, String ancestorCommit, String descendantCommit) {
+        Path root = normalize(repository);
+        requireCommit(ancestorCommit, "ancestorCommit");
+        requireCommit(descendantCommit, "descendantCommit");
+        return gitExitCode(root, "merge-base", "--is-ancestor",
+                ancestorCommit, descendantCommit) == 0;
+    }
+
     /** 规范化用户传入的目录并校验其存在性。 */
     private Path normalize(Path repository) {
         Objects.requireNonNull(repository, "repository");
@@ -56,6 +66,26 @@ public final class GitRepositoryInspectorImpl implements GitRepositoryInspector 
 
     /** 执行只读 Git 命令并统一转换失败信息。 */
     private String git(Path directory, String... arguments) {
+        GitCommandResult result = runGit(directory, arguments);
+        if (result.exitCode() != 0) {
+            throw new GitRepositoryException("INVALID_GIT_REPOSITORY",
+                    "指定目录不是可用的 Git 仓库。", result.output());
+        }
+        return result.output();
+    }
+
+    /** 执行仅需读取退出码的 Git 命令。 */
+    private int gitExitCode(Path directory, String... arguments) {
+        GitCommandResult result = runGit(directory, arguments);
+        if (result.exitCode() != 0 && result.exitCode() != 1) {
+            throw new GitRepositoryException("GIT_ANCESTRY_CHECK_FAILED",
+                    "无法确认 Git 提交演进关系。", result.output());
+        }
+        return result.exitCode();
+    }
+
+    /** 启动 Git 子进程并返回退出码与受限输出。 */
+    private GitCommandResult runGit(Path directory, String... arguments) {
         List<String> command = new ArrayList<>(List.of("git", "-C", directory.toString()));
         command.addAll(List.of(arguments));
         try {
@@ -68,21 +98,30 @@ public final class GitRepositoryInspectorImpl implements GitRepositoryInspector 
                         () -> readLimited(process.getInputStream()));
                 if (!process.waitFor(COMMAND_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
                     process.destroyForcibly();
-                    throw new GitRepositoryException("GIT_COMMAND_TIMEOUT", "Git 检查超时，已停止本次操作。", String.join(" ", command));
+                    throw new GitRepositoryException("GIT_COMMAND_TIMEOUT",
+                            "Git 检查超时，已停止本次操作。", String.join(" ", command));
                 }
                 String output = new String(outputFuture.get(), StandardCharsets.UTF_8).trim();
-                if (process.exitValue() != 0) {
-                    throw new GitRepositoryException("INVALID_GIT_REPOSITORY", "指定目录不是可用的 Git 仓库。", output);
-                }
-                return output;
+                return new GitCommandResult(process.exitValue(), output);
             }
         } catch (IOException exception) {
-            throw new GitRepositoryException("GIT_UNAVAILABLE", "无法执行 Git，请确认 Git 已安装并加入 PATH。", exception.getMessage(), exception);
+            throw new GitRepositoryException("GIT_UNAVAILABLE",
+                    "无法执行 Git，请确认 Git 已安装并加入 PATH。",
+                    exception.getMessage(), exception);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new GitRepositoryException("GIT_INTERRUPTED", "Git 检查被中断。", exception.getMessage(), exception);
+            throw new GitRepositoryException("GIT_INTERRUPTED",
+                    "Git 检查被中断。", exception.getMessage(), exception);
         } catch (java.util.concurrent.ExecutionException exception) {
-            throw new GitRepositoryException("GIT_OUTPUT_FAILED", "无法读取 Git 检查结果。", exception.getMessage(), exception);
+            throw new GitRepositoryException("GIT_OUTPUT_FAILED",
+                    "无法读取 Git 检查结果。", exception.getMessage(), exception);
+        }
+    }
+
+    /** 校验用于 Git 参数的提交标识不为空。 */
+    private void requireCommit(String commit, String field) {
+        if (commit == null || commit.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
         }
     }
 
@@ -97,6 +136,10 @@ public final class GitRepositoryInspectorImpl implements GitRepositoryInspector 
             }
             return output.toByteArray();
         }
+    }
+
+    /** 保留 Git 子进程的退出事实和诊断输出。 */
+    private record GitCommandResult(int exitCode, String output) {
     }
 
 }

@@ -67,7 +67,7 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
     ) {
         Objects.requireNonNull(sessionUpdateSink, "sessionUpdateSink");
         WorkspaceHandle workspace = new WorkspaceHandle(
-                session.sourceRepository(), session.resolvedCommit()
+                session.sourceRepository(), session.activeReviewBaselineCommit()
         );
         List<String> assistant = new ArrayList<>();
         AtomicReference<CodingSession> currentSession = new AtomicReference<>(session);

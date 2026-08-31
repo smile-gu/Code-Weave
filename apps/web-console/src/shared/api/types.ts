@@ -210,6 +210,16 @@ export type CodingTurn = {
   endedAt: string | null
 }
 export type CodingTurnList = { turns: CodingTurn[] }
+export type ReviewBaselineReadiness = {
+  sessionId: string
+  ready: boolean
+  activeBaselineCommit: string
+  currentHead: string
+  branch: string
+  changedFiles: number
+  workspaceFingerprint: string
+  blockers: string[]
+}
 export type MergeReadiness = {
   sessionId: string
   ready: boolean
@@ -243,6 +253,7 @@ export type CodingSession = {
   worktreePath: string | null
   baseRef: string
   resolvedCommit: string | null
+  activeReviewBaselineCommit: string | null
   sourceRepositoryDirty: boolean
   allowedPaths: string[]
   deniedPaths: string[]

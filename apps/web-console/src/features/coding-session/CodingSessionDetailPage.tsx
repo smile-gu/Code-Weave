@@ -1,15 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle2, CircleAlert, FolderGit2, GitCommitHorizontal, Send, Square } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, CircleAlert, FolderGit2, GitCommitHorizontal, RefreshCw, Send, Square } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   cancelCodingTurn,
+  advanceReviewBaseline,
   getCodingSession,
-  getCodingSessionIntegration,
   getCodingTurnChanges,
   getCodingTurns,
-  getMergeReadiness,
-  mergeCodingSession,
+  getReviewBaselineReadiness,
   submitCodingTurn,
 } from '../../shared/api/sessionApi'
 import { DiffPanel } from '../run-result/DiffPanel'
@@ -17,29 +16,20 @@ import { formatSessionTime, sessionStatusLabels } from './sessionPresentation'
 import { TurnExecutionPanel } from './TurnExecutionPanel'
 import { TurnMarkdown } from './TurnMarkdown'
 
-const mergeBlockerLabels: Record<string, string> = {
+const baselineBlockerLabels: Record<string, string> = {
   SESSION_NOT_ACTIVE: '会话当前不是可开发状态',
-  INTEGRATION_IN_PROGRESS: '源码合并正在进行',
-  INTEGRATION_NEEDS_ATTENTION: '上次合并需要人工检查',
-  SESSION_ALREADY_MERGED: '会话已经写回源码',
+  DIRECT_WORKSPACE_REQUIRED: '历史隔离工作区不支持推进基线',
   TURN_IN_PROGRESS: 'Coding Agent 仍在执行',
-  NO_VERIFIED_TURN: '最新一轮代码尚未通过 Maven 验证',
+  NO_VERIFIED_TURN: '当前模块尚无通过基础验证的 Coding 结果',
+  NO_NEW_COMMIT: '尚未检测到新的 Git Commit',
   NO_CHANGES: '当前没有代码修改',
-  WORKSPACE_CHANGED_AFTER_VERIFICATION: '验证后的代码又发生了变化',
-  SOURCE_REPOSITORY_DIVERGED: '原仓库已经出现新提交',
-  SOURCE_BRANCH_DETACHED: '原仓库当前不在分支上',
-  SOURCE_REPOSITORY_DIRTY: '原仓库存在未提交修改',
-  GIT_IDENTITY_MISSING: 'Git user.name 或 user.email 未配置',
+  UNCOMMITTED_CHANGES: '仓库仍有未提交修改',
+  SOURCE_BRANCH_CHANGED: '仓库分支已经变化',
+  HEAD_NOT_DESCENDANT: '当前 HEAD 不是活动基线的后继提交',
+  CHANGES_NOT_VERIFIED: '当前提交内容与最近一次 Coding 验证结果不一致',
 }
 
-const integrationStatusLabels = {
-  MERGING: '正在写回源码',
-  MERGED: '已写回源码',
-  INTERRUPTED: '写回被中断，可重试',
-  NEEDS_ATTENTION: '写回需要人工检查',
-} as const
-
-/** 展示持久 Coding Session 的状态、工作区和路径边界。 */
+/** 展示多轮 Coding 对话、执行过程、累计 Diff 和活动基线门禁。 */
 export function CodingSessionDetailPage() {
   const { sessionId = '' } = useParams()
   const sessionQuery = useQuery({
@@ -72,7 +62,7 @@ export function CodingSessionDetailPage() {
   const refreshAfterTerminal = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: ['coding-turns', sessionId] })
     void queryClient.invalidateQueries({ queryKey: ['coding-session', sessionId] })
-    void queryClient.invalidateQueries({ queryKey: ['merge-readiness', sessionId] })
+    void queryClient.invalidateQueries({ queryKey: ['review-baseline-readiness', sessionId] })
   }, [queryClient, sessionId])
   const latestChangedTurn = [...(turnsQuery.data?.turns ?? [])]
     .reverse()
@@ -82,23 +72,25 @@ export function CodingSessionDetailPage() {
     queryFn: () => getCodingTurnChanges(sessionId, latestChangedTurn!.turnId),
     enabled: Boolean(latestChangedTurn),
   })
-  const mergeReadinessQuery = useQuery({
-    queryKey: ['merge-readiness', sessionId],
-    queryFn: () => getMergeReadiness(sessionId),
+  const baselineReadinessQuery = useQuery({
+    queryKey: ['review-baseline-readiness', sessionId],
+    queryFn: () => getReviewBaselineReadiness(sessionId),
     enabled: sessionQuery.data?.status === 'ACTIVE' && !activeTurn,
   })
-  const integrationQuery = useQuery({
-    queryKey: ['coding-session-integration', sessionId],
-    queryFn: () => getCodingSessionIntegration(sessionId),
-    enabled: Boolean(sessionId),
-  })
-  const mergeMutation = useMutation({
+  const advanceBaselineMutation = useMutation({
     mutationFn: () => {
-      const readiness = mergeReadinessQuery.data
-      if (!readiness) throw new Error('正在读取合并检查结果')
-      return mergeCodingSession(sessionId, { commitMessage: `feat: 合并 ${sessionQuery.data?.title ?? 'Coding Session'} 的已验证修改`, expectedSourceHead: readiness.sourceHead, expectedTargetBranch: readiness.targetBranch, workspaceFingerprint: readiness.workspaceFingerprint })
+      const readiness = baselineReadinessQuery.data
+      if (!readiness) throw new Error('正在读取 Git 提交检查结果')
+      return advanceReviewBaseline(sessionId, {
+        expectedActiveBaselineCommit: readiness.activeBaselineCommit,
+        expectedHead: readiness.currentHead,
+        workspaceFingerprint: readiness.workspaceFingerprint,
+      })
     },
-    onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['coding-session', sessionId] }); void queryClient.invalidateQueries({ queryKey: ['merge-readiness', sessionId] }) },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['coding-session', sessionId] })
+      void queryClient.invalidateQueries({ queryKey: ['review-baseline-readiness', sessionId] })
+    },
   })
   if (sessionQuery.isLoading) {
     return <div className="page-message">正在读取 Coding Session…</div>
@@ -222,31 +214,27 @@ export function CodingSessionDetailPage() {
       {session.status === 'ACTIVE' && <section className="merge-panel">
         <GitCommitHorizontal size={21} />
         <div>
-          <strong>写回原始仓库</strong>
-          <p>{mergeReadinessQuery.data?.ready
-            ? `已验证 ${mergeReadinessQuery.data.changedFiles} 个文件，可以 Fast-forward 到 ${mergeReadinessQuery.data.targetBranch}。`
-            : `当前不可合并：${mergeReadinessQuery.data?.blockers.map((code) => mergeBlockerLabels[code] ?? code).join('、') ?? '正在检查'}。`}</p>
+          <strong>完成当前模块并推进基线</strong>
+          <p>{baselineReadinessQuery.data?.ready
+            ? `已检测到 ${baselineReadinessQuery.data.branch} 上的模块提交，其中 ${baselineReadinessQuery.data.changedFiles} 个文件与最近一次 Coding 验证结果一致。`
+            : `当前模块暂不能归档：${baselineReadinessQuery.data?.blockers.map((code) => baselineBlockerLabels[code] ?? code).join('、') ?? '正在检查'}。`}</p>
+          <p>请在 Review、问题修复和最终自测全部完成后，只为当前模块创建一次正式 Git Commit。平台不会自动提交或推送代码。</p>
+          <p>Review Harness 接入前，Review 与最终自测是否完成由你确认；平台当前负责校验提交来源和代码指纹。</p>
+          <button type="button" className="secondary-button"
+            disabled={baselineReadinessQuery.isFetching}
+            onClick={() => void baselineReadinessQuery.refetch()}>
+            <RefreshCw size={15} /> 重新检查提交状态
+          </button>
           <button type="button"
-            disabled={!mergeReadinessQuery.data?.ready || mergeMutation.isPending}
+            disabled={!baselineReadinessQuery.data?.ready || advanceBaselineMutation.isPending}
             onClick={() => {
-              if (window.confirm('系统将创建正式 Git Commit，并写回原始仓库。确认继续？')) {
-                mergeMutation.mutate()
+              if (window.confirm('请确认当前模块已经完成 Review、问题修复和最终自测。是否将这次正式提交设为新活动基线？')) {
+                advanceBaselineMutation.mutate()
               }
             }}>
-            确认合并到源码
+            确认模块提交并开始下一模块
           </button>
-          {mergeMutation.isError && <p className="error-text">{mergeMutation.error.message}</p>}
-        </div>
-      </section>}
-
-      {integrationQuery.data && <section className="merge-panel integration-state">
-        <GitCommitHorizontal size={21} />
-        <div>
-          <strong>源码写回记录：{integrationStatusLabels[integrationQuery.data.status]}</strong>
-          <p>{integrationQuery.data.failureMessage
-            ?? (integrationQuery.data.status === 'MERGED'
-              ? `原仓库已前进到 ${integrationQuery.data.mergedHead}`
-              : '系统已保存本次写回的关键事实，可据此继续处理。')}</p>
+          {advanceBaselineMutation.isError && <p className="error-text">{advanceBaselineMutation.error.message}</p>}
         </div>
       </section>}
     </div>
