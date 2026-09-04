@@ -1,6 +1,6 @@
 # Code Weave HTTP API
 
-Control Plane 默认监听 `127.0.0.1:8080`。正式 Web 工作台只使用 Coding Session API；`/api/v1/m0/runs` 是保留的旧单轮回归接口。
+Control Plane 默认监听 `127.0.0.1:8080`。正式 Web 工作台只使用 Coding Session API；默认服务不暴露旧版 Worktree Run 接口。
 
 ## 1. 接口总览
 
@@ -153,15 +153,15 @@ Content-Type: application/json
 | 503 | 本机运行依赖不可用 | Claude、Git、Java 或 Maven 未就绪 |
 | 500 | 未分类系统错误 | 诊断写服务日志，响应不泄露内部命令 |
 
-## 7. 旧 M0 Run API
+## 7. 旧版 Worktree Run API
 
-以下接口暂时保留用于早期链路回归，不应成为新页面或 Review Harness 的依赖：
+以下接口只在显式启用 Spring Profile `legacy-worktree-run` 时存在，用于早期链路回归，不应成为新页面或 Review Harness 的依赖：
 
 | 方法 | 路径 |
 |---|---|
-| POST | `/api/v1/m0/runs` |
-| GET | `/api/v1/m0/runs/{runId}` |
-| GET | `/api/v1/m0/runs/{runId}/events` |
-| GET | `/api/v1/m0/runs/{runId}/stream` |
-| GET | `/api/v1/m0/runs/{runId}/result` |
-| GET | `/api/v1/m0/runs/{runId}/changes` |
+| POST | `/api/v1/legacy/worktree-runs` |
+| GET | `/api/v1/legacy/worktree-runs/{runId}` |
+| GET | `/api/v1/legacy/worktree-runs/{runId}/events` |
+| GET | `/api/v1/legacy/worktree-runs/{runId}/stream` |
+| GET | `/api/v1/legacy/worktree-runs/{runId}/result` |
+| GET | `/api/v1/legacy/worktree-runs/{runId}/changes` |

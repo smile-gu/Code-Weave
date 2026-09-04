@@ -2,7 +2,6 @@ package com.codingreview.controlplane.session.model;
 
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
 import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
 
 import java.nio.file.Path;
 import java.time.Instant;
@@ -93,24 +92,6 @@ public record CodingSession(
                 sessionId, title, CodingSessionStatus.INITIALIZING,
                 sourceRepository, null, baseRef, null, null, false,
                 changePolicy, null, now, now, null, null
-        );
-    }
-
-    /** 使用创建完成的 Worktree 激活 Session。 */
-    public CodingSession activate(WorktreeHandle handle, Instant now) {
-        Objects.requireNonNull(handle, "handle");
-        if (status != CodingSessionStatus.INITIALIZING) {
-            throw new IllegalStateException("only initializing session can become active");
-        }
-        if (!handle.workspaceId().equals(sessionId.toString())) {
-            throw new IllegalArgumentException("worktree does not belong to session");
-        }
-        return new CodingSession(
-                sessionId, title, CodingSessionStatus.ACTIVE,
-                handle.sourceRepository(), handle.worktreePath(), handle.baseRef(),
-                handle.resolvedCommit(), handle.resolvedCommit(),
-                handle.sourceRepositoryDirty(), changePolicy,
-                claudeSessionId, createdAt, now, null, null
         );
     }
 

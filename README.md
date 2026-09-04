@@ -102,7 +102,7 @@ npm run build
 - 正式 Session 直接修改真实仓库，平台不会自动 Commit、Push 或 Merge。
 - 同一真实仓库同一时间只允许绑定一个活动 Session。
 - 同一 Session 同一时间只运行一个 Coding Turn。
-- 旧 `/api/v1/m0/runs` 单轮 Worktree 链路暂时保留用于回归验证，但不属于正式前端入口。
+- 旧 `/api/v1/legacy/worktree-runs` 单轮 Worktree 链路仅在 `legacy-worktree-run` Profile 下保留用于回归验证，不属于正式前端入口。
 - 旧 Session Worktree 自动合并接口已经删除；历史 `MERGED` 快照仅作为兼容数据读取。
 - 当前持久化面向本机单进程，不支持多实例并发或远程多用户。
 

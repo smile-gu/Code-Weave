@@ -1,8 +1,8 @@
 package com.codingreview.controlplane;
 
-import com.codingreview.controlplane.application.run.M0RunApplicationService;
 import com.codingreview.controlplane.configuration.CodeWeaveProperties;
-import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
+import com.codingreview.controlplane.workflow.coding.CodingTurnOrchestrator;
+import org.springframework.context.ApplicationContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,7 +10,7 @@ import org.springframework.core.task.TaskExecutor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** 验证 M1 的 Spring Bean 能够按部署配置完整装配。 */
+/** 验证默认 Spring 上下文只装配正式 Session/Turn 链路。 */
 @SpringBootTest(properties = {
         "code-weave.runtime-root=D:/code-weave-context-test",
         "code-weave.claude.executable=C:/code-weave-test/claude.cmd",
@@ -20,22 +20,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ControlPlaneApplicationTest {
 
     @Autowired
-    private M0RunApplicationService applicationService;
+    private ApplicationContext context;
 
     @Autowired
-    private M0RunOrchestrator orchestrator;
+    private CodingTurnOrchestrator codingTurnOrchestrator;
 
     @Autowired
     private CodeWeaveProperties properties;
 
     @Autowired
-    private TaskExecutor m0RunExecutor;
+    private TaskExecutor codingTurnExecutor;
 
     @Test
-    void loadsConfiguredM1ApplicationContext() {
-        assertThat(applicationService).isNotNull();
-        assertThat(orchestrator).isNotNull();
-        assertThat(m0RunExecutor).isNotNull();
+    void loadsDefaultContextWithoutLegacyWorktreeRun() {
+        assertThat(codingTurnOrchestrator).isNotNull();
+        assertThat(codingTurnExecutor).isNotNull();
+        assertThat(context.getBeansOfType(com.codingreview.controlplane.legacy.worktreerun.application.WorktreeRunApplicationService.class))
+                .isEmpty();
+        assertThat(context.getBeansOfType(com.codingreview.controlplane.legacy.worktreerun.workflow.WorktreeRunOrchestrator.class))
+                .isEmpty();
+        assertThat(context.getBeansOfType(com.codingreview.controlplane.legacy.worktreerun.api.WorktreeRunController.class))
+                .isEmpty();
+        assertThat(context.getBeansOfType(com.codingreview.controlplane.legacy.worktreerun.api.RunEventStreamController.class))
+                .isEmpty();
+        assertThat(context.containsBean("legacyWorktreeRunExecutor")).isFalse();
         assertThat(properties.requireRuntimeRoot().isAbsolute()).isTrue();
         assertThat(properties.requireClaudeExecutable().isAbsolute()).isTrue();
     }

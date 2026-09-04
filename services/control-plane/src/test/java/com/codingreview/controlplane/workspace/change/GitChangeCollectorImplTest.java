@@ -6,10 +6,10 @@ import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.codingreview.controlplane.workspace.change.model.GitChangeType;
 import com.codingreview.controlplane.workspace.change.model.GitChangedFile;
 import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
-import com.codingreview.controlplane.workspace.worktree.GitWorktreeManager;
-import com.codingreview.controlplane.workspace.worktree.GitWorktreeManagerImpl;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeCreateRequest;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.legacy.worktreerun.workspace.worktree.GitWorktreeManager;
+import com.codingreview.controlplane.legacy.worktreerun.workspace.worktree.GitWorktreeManagerImpl;
+import com.codingreview.controlplane.legacy.worktreerun.workspace.worktree.model.WorktreeCreateRequest;
+import com.codingreview.controlplane.legacy.worktreerun.workspace.worktree.model.WorktreeHandle;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

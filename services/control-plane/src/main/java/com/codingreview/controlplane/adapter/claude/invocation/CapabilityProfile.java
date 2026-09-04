@@ -20,12 +20,12 @@ public record CapabilityProfile(
         tools = List.copyOf(tools);
     }
 
-    /** M0 的最小权限配置，仅开放文件读取、检索和编辑能力。 */
-    public static CapabilityProfile m0Restricted() {
+    /** Coding Session 的受限能力配置，仅开放文件读取、检索和编辑能力。 */
+    public static CapabilityProfile codingSessionRestricted() {
         return new CapabilityProfile(
-                "M0_RESTRICTED",
+                "CODING_SESSION_RESTRICTED",
                 true,
-                false,
+                true,
                 "dontAsk",
                 List.of("Read", "Glob", "Grep", "Edit", "Write"),
                 Duration.ofSeconds(30),
@@ -35,12 +35,4 @@ public record CapabilityProfile(
         );
     }
 
-    /** M6 多轮 Coding 复用受限工具集，但允许 Claude 原生会话持久化。 */
-    public static CapabilityProfile m6SessionRestricted() {
-        CapabilityProfile m0 = m0Restricted();
-        return new CapabilityProfile(
-                "M6_SESSION_RESTRICTED", m0.safeMode(), true, m0.permissionMode(), m0.tools(),
-                m0.startupTimeout(), m0.taskTimeout(), m0.cancellationGracePeriod(), m0.maxBudgetUsd()
-        );
-    }
 }

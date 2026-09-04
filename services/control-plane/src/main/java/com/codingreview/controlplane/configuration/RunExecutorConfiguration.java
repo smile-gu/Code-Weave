@@ -7,19 +7,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-/** 为 Run 提供有界执行资源，防止请求无限堆积拖垮本机。 */
+/** 为正式 Coding Turn 提供有界执行资源，防止请求无限堆积拖垮本机。 */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(CodeWeaveProperties.class)
 public class RunExecutorConfiguration {
 
-    /** 创建限制并发数和排队容量的 M0 Run 执行器。 */
-    @Bean
-    @Qualifier("m0RunExecutor")
-    TaskExecutor m0RunExecutor(CodeWeaveProperties properties) {
-        return createExecutor(properties, "m0-run-");
-    }
-
-    /** 创建与一次性 Run 隔离的持续 Coding Turn 执行器。 */
+    /** 创建持续 Coding Turn 使用的有界执行器。 */
     @Bean
     @Qualifier("codingTurnExecutor")
     TaskExecutor codingTurnExecutor(CodeWeaveProperties properties) {

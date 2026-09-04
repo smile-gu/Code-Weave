@@ -1,4 +1,4 @@
-import { request } from './runApi'
+import { request } from './http'
 import type {
   CodingSession,
   CodingSessionList,

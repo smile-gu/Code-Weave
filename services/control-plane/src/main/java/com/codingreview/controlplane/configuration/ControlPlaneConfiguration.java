@@ -18,8 +18,6 @@ import com.codingreview.controlplane.session.persistence.FileCodingTurnRepositor
 import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.verification.maven.MavenVerifierImpl;
-import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
-import com.codingreview.controlplane.workflow.m0.M0RunOrchestratorImpl;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.GitChangeCollectorImpl;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluator;
@@ -28,8 +26,6 @@ import com.codingreview.controlplane.workspace.git.GitRepositoryInspector;
 import com.codingreview.controlplane.workspace.git.GitRepositoryInspectorImpl;
 import com.codingreview.controlplane.workspace.lock.FileRepositoryWriteLockManager;
 import com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager;
-import com.codingreview.controlplane.workspace.worktree.GitWorktreeManager;
-import com.codingreview.controlplane.workspace.worktree.GitWorktreeManagerImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,7 +34,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** 集中装配 M0 核心对象，业务类本身不依赖 Spring。 */
+/** 装配正式 Coding Session/Turn 链路及其共享基础设施。 */
 @Configuration(proxyBeanMethods = false)
 public class ControlPlaneConfiguration {
 
@@ -97,12 +93,6 @@ public class ControlPlaneConfiguration {
         );
     }
 
-    /** 创建负责隔离工作目录的 Git Worktree 管理器。 */
-    @Bean
-    GitWorktreeManager gitWorktreeManager(CodeWeaveProperties properties) {
-        return new GitWorktreeManagerImpl(runtimeRoot(properties));
-    }
-
     /** 创建只读检查用户真实 Git 工作区的基础设施。 */
     @Bean
     GitRepositoryInspector gitRepositoryInspector() {
@@ -129,7 +119,7 @@ public class ControlPlaneConfiguration {
     ) {
         return new ClaudeCodeAdapterImpl(
                 properties.requireClaudeExecutable(),
-                CapabilityProfile.m6SessionRestricted(),
+                CapabilityProfile.codingSessionRestricted(),
                 objectMapper
         );
     }
@@ -155,37 +145,15 @@ public class ControlPlaneConfiguration {
         return new MavenVerifierImpl(runtimeRoot(properties), eventJournal);
     }
 
-    /** 将五个核心阶段装配为 M0 主工作流。 */
+    /** 将现有 Claude、变更、Maven 基础设施组合为 Coding 多轮编排器。 */
     @Bean
-    M0RunOrchestrator m0RunOrchestrator(
-            GitWorktreeManager worktreeManager,
-            ClaudeCodeAdapter claudeCodeAdapter,
-            GitChangeCollector changeCollector,
-            ChangePolicyEvaluator changePolicyEvaluator,
-            MavenVerifier mavenVerifier,
-            RunEventJournal eventJournal,
-            ObjectMapper objectMapper
-    ) {
-        return new M0RunOrchestratorImpl(
-                worktreeManager,
-                claudeCodeAdapter,
-                changeCollector,
-                changePolicyEvaluator,
-                mavenVerifier,
-                eventJournal,
-                objectMapper
-        );
-    }
-
-    /** 将现有 Claude、变更、Maven 基础设施组合为 M6 多轮编排器。 */
-    @Bean
-    com.codingreview.controlplane.workflow.m6.CodingTurnOrchestrator codingTurnOrchestrator(
+    com.codingreview.controlplane.workflow.coding.CodingTurnOrchestrator codingTurnOrchestrator(
             ClaudeCodeAdapter claudeCodeAdapter, GitChangeCollector changeCollector,
             ChangePolicyEvaluator changePolicyEvaluator, MavenVerifier mavenVerifier,
             RunEventJournal eventJournal, ObjectMapper objectMapper,
             SessionWorkspaceGuard workspaceGuard
     ) {
-        return new com.codingreview.controlplane.workflow.m6.CodingTurnOrchestratorImpl(
+        return new com.codingreview.controlplane.workflow.coding.CodingTurnOrchestratorImpl(
                 claudeCodeAdapter, changeCollector, changePolicyEvaluator, mavenVerifier,
                 eventJournal, objectMapper, workspaceGuard
         );

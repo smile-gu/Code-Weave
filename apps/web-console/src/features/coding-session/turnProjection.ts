@@ -134,7 +134,7 @@ function complete(stage: StageView, startedAt: string | null | undefined, endedA
   setStage(stage, 'completed', startedAt, endedAt, summary)
 }
 
-/** 兼容 M6 当前的 eventType 字段，并复用已有中文 Agent 摘要。 */
+/** 兼容 Coding 当前的 eventType 字段，并复用已有中文 Agent 摘要。 */
 function agentSummary(event: RunEvent): string {
   const type = agentEventType(event)
   const normalized: RunEvent = type === event.payload.agentEventType

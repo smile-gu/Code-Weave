@@ -7,7 +7,7 @@ import com.codingreview.controlplane.session.model.TurnStatus;
 import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
 import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
+import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 
@@ -58,17 +58,16 @@ class CodingTurnRecoveryServiceTest {
                 .allMatch(turn -> turn.failureCode().equals("SERVICE_RESTARTED"));
     }
 
-    /** 创建具备长期 Worktree 的测试 Session。 */
+    /** 创建直接绑定真实仓库的测试 Session。 */
     private CodingSession activeSession() {
         UUID sessionId = UUID.randomUUID();
         Path repository = Path.of("D:/test/repository").toAbsolutePath();
-        Path worktree = Path.of("D:/test/worktrees/" + sessionId).toAbsolutePath();
         Instant now = Instant.parse("2026-08-18T07:59:00Z");
         return CodingSession.initializing(
                 sessionId, "测试会话", repository, "HEAD",
                 new ChangePolicy(List.of("src/**"), List.of(".git/**")), now
-        ).activate(new WorktreeHandle(
-                repository, worktree, sessionId.toString(), "HEAD", "abc123", false
+        ).activateRealRepository(new GitRepositorySnapshot(
+                repository, "main", "abc123", false
         ), now.plusSeconds(1));
     }
 }

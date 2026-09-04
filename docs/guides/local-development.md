@@ -32,8 +32,8 @@ $env:CODE_WEAVE_CLAUDE_EXECUTABLE = "D:/develop/nodejs/claude.cmd"
 |---|---|---|
 | `CODE_WEAVE_RUNTIME_ROOT` | Session、Turn、事件、产物和锁文件目录 | 否 |
 | `CODE_WEAVE_CLAUDE_EXECUTABLE` | Claude Code CLI 入口 | 否 |
-| `CODE_WEAVE_RUN_CONCURRENCY` | 旧 M0 Run 并发数，默认 1 | 否 |
-| `CODE_WEAVE_RUN_QUEUE_CAPACITY` | 旧 M0 Run 队列容量，默认 10 | 否 |
+| `CODE_WEAVE_RUN_CONCURRENCY` | Coding Turn 并发数；启用旧版 Worktree Run 时也作为其并发数，默认 1 | 否 |
+| `CODE_WEAVE_RUN_QUEUE_CAPACITY` | Coding Turn 队列容量；启用旧版 Worktree Run 时也作为其队列容量，默认 10 | 否 |
 
 Control Plane 只监听 `127.0.0.1`。启动后可访问：
 
@@ -94,6 +94,21 @@ flowchart TD
 cd apps/web-console
 npm test -- --run
 npm run build
+```
+
+旧版 Worktree Run 已退出默认运行和测试面。仅在维护早期单轮链路时显式执行：
+
+```powershell
+.\mvnw.cmd -pl services/control-plane -am -Plegacy-worktree-run-regression test
+cd apps/web-console
+npm run build:legacy-worktree-run
+npm run test:legacy-worktree-run
+```
+
+需要手动启动旧接口时，额外启用 Spring Profile：
+
+```powershell
+.\mvnw.cmd -pl services/control-plane spring-boot:run "-Dspring-boot.run.profiles=legacy-worktree-run"
 ```
 
 提交前：

@@ -31,7 +31,7 @@ class ClaudeCodeAdapterImplTest {
         };
         ClaudeCodeAdapter adapter = new ClaudeCodeAdapterImpl(
                 Path.of("D:/tools/claude.cmd"),
-                CapabilityProfile.m0Restricted(),
+                CapabilityProfile.codingSessionRestricted(),
                 new ClaudeCommandFactory(),
                 runner
         );
@@ -41,7 +41,7 @@ class ClaudeCodeAdapterImplTest {
         });
 
         assertThat(actual).isSameAs(expected);
-        assertThat(capturedSpec.get().workingDirectory()).isEqualTo(request.worktree().normalize());
+        assertThat(capturedSpec.get().workingDirectory()).isEqualTo(request.workspaceRoot().normalize());
         assertThat(capturedSpec.get().standardInput()).contains(request.taskPrompt());
         assertThat(capturedSpec.get().allowedTools())
                 .containsExactly("Read", "Glob", "Grep", "Edit", "Write");
@@ -51,7 +51,7 @@ class ClaudeCodeAdapterImplTest {
     void rejectsRelativeExecutableAtConfigurationBoundary() {
         assertThatThrownBy(() -> new ClaudeCodeAdapterImpl(
                 Path.of("claude.cmd"),
-                CapabilityProfile.m0Restricted(),
+                CapabilityProfile.codingSessionRestricted(),
                 new ClaudeCommandFactory(),
                 (spec, eventSink) -> completedResult()
         )).isInstanceOf(IllegalArgumentException.class);

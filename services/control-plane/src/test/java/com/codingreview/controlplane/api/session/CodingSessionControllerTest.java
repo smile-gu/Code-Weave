@@ -1,6 +1,6 @@
 package com.codingreview.controlplane.api.session;
 
-import com.codingreview.controlplane.api.run.error.ApiExceptionHandler;
+import com.codingreview.controlplane.api.common.error.ApiExceptionHandler;
 import com.codingreview.controlplane.application.session.CodingSessionApplicationService;
 import com.codingreview.controlplane.application.session.ReviewBaselineApplicationService;
 import com.codingreview.controlplane.application.session.ReviewBaselineReadiness;

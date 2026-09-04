@@ -14,9 +14,9 @@ import com.codingreview.controlplane.session.persistence.CodingSessionRepository
 import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
 import com.codingreview.controlplane.session.guard.SessionWorkspaceDriftException;
 import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
-import com.codingreview.controlplane.workflow.m6.CodingTurnExecution;
-import com.codingreview.controlplane.workflow.m6.CodingTurnOrchestrator;
-import com.codingreview.controlplane.workflow.m6.CodingTurnOrchestratorImpl.CodingTurnExecutionException;
+import com.codingreview.controlplane.workflow.coding.CodingTurnExecution;
+import com.codingreview.controlplane.workflow.coding.CodingTurnOrchestrator;
+import com.codingreview.controlplane.workflow.coding.CodingTurnOrchestratorImpl.CodingTurnExecutionException;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.codingreview.controlplane.workspace.model.WorkspaceHandle;

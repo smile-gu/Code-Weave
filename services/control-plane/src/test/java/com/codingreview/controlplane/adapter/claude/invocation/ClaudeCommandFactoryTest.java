@@ -8,11 +8,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** 验证 M0 命令参数、能力限制以及 Prompt 的传递方式。 */
+/** 验证 Claude 命令参数、能力限制以及 Prompt 的传递方式。 */
 class ClaudeCommandFactoryTest {
 
     @Test
-    void createsRestrictedM0CommandAndKeepsPromptOnStdin() {
+    void createsRestrictedEphemeralCommandAndKeepsPromptOnStdin() {
         UUID sessionId = UUID.randomUUID();
         ClaudeRunRequest request = new ClaudeRunRequest(
                 sessionId,
@@ -26,7 +26,7 @@ class ClaudeCommandFactoryTest {
         ClaudeLaunchSpec spec = new ClaudeCommandFactory().create(
                 Path.of("D:/develop/nodejs/claude.cmd"),
                 request,
-                CapabilityProfile.m0Restricted()
+                CapabilityProfile.codingSessionRestricted()
         );
 
         assertThat(spec.command())
@@ -37,7 +37,7 @@ class ClaudeCommandFactoryTest {
                 .contains("--allowedTools");
         assertThat(spec.command()).doesNotContain(request.taskPrompt(), "Bash");
         assertThat(spec.standardInput()).contains(request.taskPrompt());
-        assertThat(spec.workingDirectory()).isEqualTo(request.worktree().normalize());
+        assertThat(spec.workingDirectory()).isEqualTo(request.workspaceRoot().normalize());
         assertThat(spec.allowedTools()).containsExactly("Read", "Glob", "Grep", "Edit", "Write");
     }
 
@@ -75,11 +75,11 @@ class ClaudeCommandFactoryTest {
         );
     }
 
-    /** 使用 M6 能力配置创建启动规格。 */
+    /** 使用 Coding 能力配置创建启动规格。 */
     private ClaudeLaunchSpec create(ClaudeRunRequest request) {
         return new ClaudeCommandFactory().create(
                 Path.of("D:/develop/nodejs/claude.cmd"), request,
-                CapabilityProfile.m6SessionRestricted()
+                CapabilityProfile.codingSessionRestricted()
         );
     }
 }

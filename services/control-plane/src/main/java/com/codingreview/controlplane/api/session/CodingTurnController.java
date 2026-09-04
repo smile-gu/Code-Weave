@@ -1,6 +1,6 @@
 package com.codingreview.controlplane.api.session;
 
-import com.codingreview.controlplane.api.run.dto.change.RunChangesResponse;
+import com.codingreview.controlplane.api.common.dto.RunChangesResponse;
 import com.codingreview.controlplane.api.session.dto.CodingTurnListResponse;
 import com.codingreview.controlplane.api.session.dto.CodingTurnResponse;
 import com.codingreview.controlplane.api.session.dto.CreateCodingTurnRequest;

@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:legacy-worktree-run": "tsc -p tsconfig.legacy-worktree-run.json",
     "test": "vitest run",
+    "test:legacy-worktree-run": "vitest run --config vite.legacy-worktree-run.config.ts",
     "test:watch": "vitest",
     "preview": "vite preview"
   },

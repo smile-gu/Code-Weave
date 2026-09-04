@@ -84,15 +84,17 @@ flowchart TB
 | 链路 | 工作区 | 前端入口 | 定位 |
 |---|---|---|---|
 | Coding Session | 用户真实 Git 仓库 | `/sessions` | 当前正式产品链路 |
-| M0 单轮 Run | 每次创建隔离 Worktree | 无正式路由 | 早期技术验证与回归链路 |
+| 旧版 Worktree Run | 每次创建隔离 Worktree | 无正式路由 | `legacy/worktreerun` 中的显式回归链路，默认不装配 |
 
 ```mermaid
 flowchart LR
     P[产品入口] --> S[Coding Session<br/>真实工作区]
-    T[回归入口] --> M[M0 Run<br/>隔离 Worktree]
+    T[回归入口] --> M[旧版 Worktree Run<br/>隔离 Worktree]
     S --> N[后续接入 Review Harness]
     M -. 不再演进为产品入口 .-> X[保留测试价值]
 ```
+
+旧版 Worktree Run 采用物理目录与运行 Profile 双重隔离。正式代码可以复用共享基础设施，但禁止依赖 `legacy.worktreerun`；只有启用 `legacy-worktree-run` Profile 时才会创建旧版 API、编排器、Worktree 管理器和线程池。
 
 ## 3. HOW：核心数据模型
 

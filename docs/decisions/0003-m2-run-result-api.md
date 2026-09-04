@@ -12,15 +12,15 @@ M1 允许前端提交 Run、查询状态和增量读取事件，但这些接口�
 M2 增加两个只读接口：
 
 ```text
-GET /api/v1/m0/runs/{runId}/result
-GET /api/v1/m0/runs/{runId}/changes
+GET /api/v1/legacy/worktree-runs/{runId}/result
+GET /api/v1/legacy/worktree-runs/{runId}/changes
 ```
 
 `result` 返回 Coding、路径策略、Maven 验证和失败位置等结构化业务结论，但不包含完整 Diff。`changes` 返回 `GitChangeSet` 中已经采集的文件列表和 Unified Diff。
 
 ```text
 RunExecutionRegistry
-    -> M0RunResult
+    -> WorktreeRunResult
         -> RunResultResponse
         -> GitChangeSet -> RunChangesResponse
 ```
@@ -48,7 +48,7 @@ Run 输出读取遵循以下规则：
 
 ## 安全边界
 
-变更接口只接受 `runId`，不接受用户提供的文件路径、Worktree 路径或 Git 参数。它只返回平台先前产生并保存在 `M0RunResult` 中的 `GitChangeSet`，不会重新执行 Git，也不会读取任意本地文件。
+变更接口只接受 `runId`，不接受用户提供的文件路径、Worktree 路径或 Git 参数。它只返回平台先前产生并保存在 `WorktreeRunResult` 中的 `GitChangeSet`，不会重新执行 Git，也不会读取任意本地文件。
 
 Unified Diff 继续受 `GitChangeCollectorImpl` 的 2 MB 上限保护。M2 不改变原始仓库和 Worktree，也不增加新的进程执行能力。
 

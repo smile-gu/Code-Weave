@@ -46,7 +46,7 @@ public final class ClaudeCommandFactory {
 
         return new ClaudeLaunchSpec(
                 command,
-                request.worktree().normalize(),
+                request.workspaceRoot().normalize(),
                 ClaudePromptRenderer.render(request),
                 profile.tools(),
                 profile.startupTimeout(),

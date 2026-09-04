@@ -19,7 +19,7 @@ GET /api/v1/system/readiness
 
 接口在环境未就绪时仍返回 HTTP 200，通过响应体的 `READY` 或 `NOT_READY` 表达业务状态。每个检查项包含稳定组件标识、状态、版本、可执行文件、用户消息和修复建议。
 
-创建 Run 时，`M0RunApplicationService` 在生成 Run ID 和写入任何事件之前重新执行检查。必要项失败时返回：
+创建 Run 时，`WorktreeRunApplicationService` 在生成 Run ID 和写入任何事件之前重新执行检查。必要项失败时返回：
 
 ```text
 HTTP 503

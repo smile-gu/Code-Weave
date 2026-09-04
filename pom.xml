@@ -22,7 +22,7 @@
     <modules>
         <!-- 全局工作流编排与运行控制。 -->
         <module>services/control-plane</module>
-        <!-- M0 用于验证 Coding 链路的最小 Spring Boot 项目。 -->
+        <!-- 用于验证 Coding 链路的最小 Spring Boot 测试项目。 -->
         <module>fixtures/spring-boot-demo</module>
     </modules>
 
