@@ -69,6 +69,45 @@ class CodingSessionRecoveryServiceTest {
         verify(locks).recover(workspace, protectedSession.sessionId());
     }
 
+    @Test
+    void compensatesClosedAcrossTwoRestartsWithoutTouchingNewOwner() throws Exception {
+        var repository = new MemoryRepository();
+        Path workspace = Files.createDirectory(tempDir.resolve("closed"));
+        var closed = active(UUID.randomUUID(), workspace, Instant.now()).close(Instant.now());
+        repository.save(closed);
+        var first = new com.codingreview.controlplane.workspace.lock.FileRepositoryWriteLockManager(tempDir);
+        first.acquire(workspace, closed.sessionId());
+        first.close();
+        UUID next = UUID.randomUUID();
+        for (int restart = 0; restart < 2; restart++) {
+            try (var locks = new com.codingreview.controlplane.workspace.lock.FileRepositoryWriteLockManager(tempDir)) {
+                new CodingSessionRecoveryService(repository, locks).run(null);
+                locks.acquire(workspace, next);
+                new CodingSessionRecoveryService(repository, locks).run(null);
+                org.assertj.core.api.Assertions.assertThatThrownBy(() -> locks.acquire(workspace, UUID.randomUUID()))
+                        .isInstanceOf(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockException.class);
+                locks.release(workspace, next);
+            }
+        }
+        assertThat(repository.find(closed.sessionId())).contains(closed);
+    }
+
+    @Test
+    void closedReleaseFailureDoesNotStopOtherSessions() throws Exception {
+        var repository = new MemoryRepository();
+        var closed = active(UUID.randomUUID(), Files.createDirectory(tempDir.resolve("closed")), Instant.now())
+                .close(Instant.now());
+        var active = active(UUID.randomUUID(), Files.createDirectory(tempDir.resolve("active")), Instant.now());
+        repository.save(closed);
+        repository.save(active);
+        var locks = mock(RepositoryWriteLockManager.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("release")).when(locks)
+                .release(closed.sourceRepository(), closed.sessionId());
+        new CodingSessionRecoveryService(repository, locks).run(null);
+        verify(locks).recover(active.sourceRepository(), active.sessionId());
+        assertThat(repository.find(closed.sessionId())).contains(closed);
+    }
+
     private CodingSession active(UUID id, Path repository, Instant now) {
         Path root = repository.toAbsolutePath();
         CodingSession initializing = CodingSession.initializing(

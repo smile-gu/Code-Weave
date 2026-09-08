@@ -102,6 +102,16 @@ public class ApiExceptionHandler {
                 exception.getMessage(), request, null, Map.of());
     }
 
+    /** 关闭存储或释放无法确认时返回 503，保留明确的重试错误码。 */
+    @ExceptionHandler(com.codingreview.controlplane.application.session.error.CodingSessionCloseException.class)
+    ResponseEntity<ApiErrorResponse> handleSessionClose(
+            com.codingreview.controlplane.application.session.error.CodingSessionCloseException exception,
+            HttpServletRequest request) {
+        LOGGER.error("Session 关闭尚未完成，code={}", exception.code(), exception);
+        return response(HttpStatus.SERVICE_UNAVAILABLE, exception.code(),
+                exception.getMessage(), request, null, Map.of());
+    }
+
     /** 将不可读取的 Turn 历史转换为明确的会话隔离错误。 */
     @ExceptionHandler(CodingTurnHistoryException.class)
     ResponseEntity<ApiErrorResponse> handleTurnHistoryFailure(

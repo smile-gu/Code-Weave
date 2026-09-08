@@ -24,8 +24,30 @@ public record CodingSession(
         Instant createdAt,
         Instant updatedAt,
         String failureCode,
-        String failureMessage
+        String failureMessage,
+        Instant closedAt
 ) {
+
+    /** 兼容未包含关闭时间的调用方与历史状态。 */
+    public CodingSession(UUID sessionId, String title, CodingSessionStatus status,
+            Path sourceRepository, Path worktreePath, String baseRef, String resolvedCommit,
+            String activeReviewBaselineCommit, boolean sourceRepositoryDirty, ChangePolicy changePolicy,
+            String claudeSessionId, Instant createdAt, Instant updatedAt, String failureCode, String failureMessage) {
+        this(sessionId, title, status, sourceRepository, worktreePath, baseRef, resolvedCommit,
+                activeReviewBaselineCommit, sourceRepositoryDirty, changePolicy, claudeSessionId,
+                createdAt, updatedAt, failureCode, failureMessage, null);
+    }
+
+    /** 将安全空闲的真实工作区会话关闭，保留全部业务上下文。 */
+    public CodingSession close(Instant now) {
+        if (status == CodingSessionStatus.CLOSED) return this;
+        if (status != CodingSessionStatus.ACTIVE || !usesRealRepository())
+            throw new IllegalStateException("only active direct-workspace session can close");
+        return new CodingSession(sessionId, title, CodingSessionStatus.CLOSED,
+                sourceRepository, worktreePath, baseRef, resolvedCommit, activeReviewBaselineCommit,
+                sourceRepositoryDirty, changePolicy, claudeSessionId, createdAt, now,
+                failureCode, failureMessage, now);
+    }
 
     /** 兼容尚未包含活动审查基线字段、但已绑定 Claude 上下文的旧调用方。 */
     public CodingSession(
@@ -147,6 +169,7 @@ public record CodingSession(
 
     /** 在 Session 业务内容更新后刷新最近活动时间。 */
     public CodingSession touch(Instant now) {
+        if (status == CodingSessionStatus.CLOSED) throw new IllegalStateException("closed session is read-only");
         if (now.isBefore(updatedAt)) {
             throw new IllegalArgumentException("now must not be before updatedAt");
         }

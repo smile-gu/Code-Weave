@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   cancelCodingTurn,
+  closeCodingSession,
   advanceReviewBaseline,
   getCodingSession,
   getCodingSessionChanges,
@@ -11,6 +12,7 @@ import {
   getReviewBaselineReadiness,
   submitCodingTurn,
 } from '../../shared/api/sessionApi'
+import { ApiError } from '../../shared/api/http'
 import { DiffPanel } from '../run-result/DiffPanel'
 import { formatSessionTime, sessionStatusLabels } from './sessionPresentation'
 import { TurnExecutionPanel } from './TurnExecutionPanel'
@@ -44,6 +46,36 @@ export function CodingSessionDetailPage() {
     queryFn: () => getCodingTurns(sessionId),
     enabled: Boolean(sessionId),
   })
+  const [closeNotice, setCloseNotice] = useState<{ id: string; message: string; retry: boolean } | null>(null)
+  const closeMutation = useMutation({
+    mutationFn: (id: string) => closeCodingSession(id),
+    onSuccess: async (closed, id) => {
+      queryClient.setQueryData(['coding-session', id], closed)
+      await queryClient.cancelQueries({ queryKey: ['coding-session-changes', id] })
+      await queryClient.cancelQueries({ queryKey: ['review-baseline-readiness', id] })
+      queryClient.removeQueries({ queryKey: ['coding-session-changes', id] })
+      queryClient.removeQueries({ queryKey: ['review-baseline-readiness', id] })
+      setCloseNotice({ id, message: '会话已关闭，仓库所有权已释放。', retry: false })
+      void queryClient.invalidateQueries({ queryKey: ['coding-sessions'] })
+      void queryClient.invalidateQueries({ queryKey: ['coding-session', id] })
+    },
+    onError: async (error, id) => {
+      const uncertain = !(error instanceof ApiError) || error.status >= 500
+      setCloseNotice({ id, message: error instanceof ApiError && error.code === 'SESSION_CLOSE_RELEASE_PENDING'
+        ? '会话已关闭，仓库释放尚未确认。'
+        : uncertain ? '关闭结果尚未确认，请重试确认仓库释放。' : error.message, retry: uncertain })
+      // 查询只确认业务状态，不把 CLOSED 当作仓库释放证明。
+      try {
+        const current = await getCodingSession(id)
+        queryClient.setQueryData(['coding-session', id], current)
+        if (current.status === 'CLOSED') {
+          await queryClient.cancelQueries({ queryKey: ['coding-session-changes', id] })
+          await queryClient.cancelQueries({ queryKey: ['review-baseline-readiness', id] })
+          queryClient.removeQueries({ queryKey: ['coding-session-changes', id] })
+        }
+      } catch { /* 保留待确认提示，允许同一关闭请求重试。 */ }
+    },
+  })
   const [prompt, setPrompt] = useState('')
   const submitMutation = useMutation({
     mutationFn: () => submitCodingTurn(sessionId, prompt),
@@ -68,12 +100,12 @@ export function CodingSessionDetailPage() {
   const changesQuery = useQuery({
     queryKey: ['coding-session-changes', sessionId, sessionQuery.data?.activeReviewBaselineCommit],
     queryFn: () => getCodingSessionChanges(sessionId),
-    enabled: Boolean(sessionQuery.data) && !activeTurn,
+    enabled: sessionQuery.data?.status === 'ACTIVE' && !activeTurn && !closeMutation.isPending,
   })
   const baselineReadinessQuery = useQuery({
     queryKey: ['review-baseline-readiness', sessionId],
     queryFn: () => getReviewBaselineReadiness(sessionId),
-    enabled: sessionQuery.data?.status === 'ACTIVE' && !activeTurn,
+    enabled: sessionQuery.data?.status === 'ACTIVE' && !activeTurn && !closeMutation.isPending,
   })
   const advanceBaselineMutation = useMutation({
     mutationFn: () => {
@@ -123,6 +155,7 @@ export function CodingSessionDetailPage() {
           <h1>{session.title}</h1>
           <p>{session.status === 'FAILED'
             ? session.failureMessage
+            : session.status === 'CLOSED' ? '会话已关闭，当前工作区可能已发生后续修改；本会话不保存关闭时的 Diff 快照。'
             : '长期开发工作区已经就绪，可以承载后续多轮 Coding 与 Review。'}</p>
         </div>
         <dl>
@@ -139,6 +172,22 @@ export function CodingSessionDetailPage() {
           <div><strong>{session.failureCode}</strong><p>{session.failureMessage}</p></div>
         </section>
       )}
+
+      {(session.status === 'ACTIVE' || session.status === 'CLOSED') && <section className="session-close">
+        {session.status === 'ACTIVE' && <button type="button" className="secondary-button"
+          disabled={Boolean(activeTurn) || turnsQuery.isPending || turnsQuery.isError || closeMutation.isPending}
+          onClick={() => {
+            if (window.confirm('关闭后无法在本会话继续开发。代码和未提交修改会保留，不会自动提交、回滚或删除。需要继续时可创建新会话。'))
+              closeMutation.mutate(sessionId)
+          }}>关闭会话</button>}
+        {activeTurn && <p>请先停止任务并等待执行结束，再关闭会话。</p>}
+        {closeNotice?.id === sessionId && <p role="status">{closeNotice.message}</p>}
+        {(closeNotice?.id === sessionId && closeNotice.retry
+          || session.status === 'CLOSED' && !(closeNotice?.id === sessionId && !closeNotice.retry)) &&
+          <button type="button" disabled={closeMutation.isPending}
+            onClick={() => closeMutation.mutate(sessionId)}>重试释放</button>}
+        {session.closedAt && <p>关闭时间：{formatSessionTime(session.closedAt)}</p>}
+      </section>}
 
       <section className="session-repository-strip">
         <FolderGit2 size={16} />
@@ -193,7 +242,7 @@ export function CodingSessionDetailPage() {
                   <Square size={15} /> 停止当前 Turn
                 </button>
               ) : (
-                <button type="submit" disabled={!prompt.trim() || submitMutation.isPending}>
+                <button type="submit" disabled={!prompt.trim() || submitMutation.isPending || closeMutation.isPending}>
                   <Send size={15} /> 发送
                 </button>
               )}
@@ -203,8 +252,8 @@ export function CodingSessionDetailPage() {
         )}
       </section>
 
-      {changesQuery.isLoading && <section className="session-changes"><p>正在读取累计代码变更…</p></section>}
-      {changesQuery.data && <section className="session-changes">
+      {session.status === 'ACTIVE' && changesQuery.isLoading && <section className="session-changes"><p>正在读取累计代码变更…</p></section>}
+      {session.status === 'ACTIVE' && changesQuery.data && <section className="session-changes">
           <header><strong>当前累计代码变更</strong><small>相对当前活动审查基线</small></header>
         <DiffPanel changes={changesQuery.data} />
       </section>}

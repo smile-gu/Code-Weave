@@ -37,16 +37,19 @@ public class CodingSessionController {
     private final CodingSessionApplicationService applicationService;
     private final ReviewBaselineApplicationService baselineService;
     private final CodingTurnApplicationService turnService;
+    private final com.codingreview.controlplane.application.session.CodingSessionCloseApplicationService closeService;
 
     /** 装配 Session 生命周期与活动基线服务。 */
     public CodingSessionController(
             CodingSessionApplicationService applicationService,
             ReviewBaselineApplicationService baselineService,
-            CodingTurnApplicationService turnService
+            CodingTurnApplicationService turnService,
+            com.codingreview.controlplane.application.session.CodingSessionCloseApplicationService closeService
     ) {
         this.applicationService = applicationService;
         this.baselineService = baselineService;
         this.turnService = turnService;
+        this.closeService = closeService;
     }
 
     /** 创建一个直接绑定真实 Git 工作区的持久 Coding Session。 */
@@ -61,6 +64,12 @@ public class CodingSessionController {
         ));
         URI location = URI.create("/api/v1/coding-sessions/" + session.sessionId());
         return ResponseEntity.created(location).body(CodingSessionResponse.from(session));
+    }
+
+    /** 200 表示关闭已落盘且所有权释放已确认；5xx 可幂等重试，不代表状态回滚。 */
+    @PostMapping("/{sessionId}/close")
+    public CodingSessionResponse close(@PathVariable UUID sessionId) {
+        return CodingSessionResponse.from(closeService.close(sessionId));
     }
 
     /** 查询最近更新的 Coding Session。 */

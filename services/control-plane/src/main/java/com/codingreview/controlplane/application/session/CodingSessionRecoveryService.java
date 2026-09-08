@@ -41,7 +41,17 @@ public class CodingSessionRecoveryService implements ApplicationRunner {
         int recovered = 0;
         int failed = 0;
         for (CodingSession session : repository.findAll()) {
-            if (session.status() == CodingSessionStatus.INITIALIZING) {
+            if (session.status() == CodingSessionStatus.CLOSED) {
+                try {
+                    if (session.usesRealRepository())
+                        lockManager.release(session.sourceRepository(), session.sessionId());
+                    recovered++;
+                } catch (RuntimeException exception) {
+                    LOGGER.error("已关闭 Session 的仓库释放尚未确认，可重试关闭，sessionId={}",
+                            session.sessionId(), exception);
+                    failed++;
+                }
+            } else if (session.status() == CodingSessionStatus.INITIALIZING) {
                 repository.save(session.fail(
                         "SESSION_INITIALIZATION_INTERRUPTED",
                         "服务在 Session 初始化完成前重启，本次初始化已停止。",

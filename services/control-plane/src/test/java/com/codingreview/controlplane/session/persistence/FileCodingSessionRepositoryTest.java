@@ -24,6 +24,15 @@ class FileCodingSessionRepositoryTest {
     Path tempDir;
 
     @Test
+    void preservesClosedSnapshotAndNanoseconds() throws Exception {
+        var repository = repository();
+        var closed = activeSession(UUID.randomUUID(), "关闭", Instant.parse("2026-09-08T01:00:00Z"))
+                .close(Instant.parse("2026-09-08T01:00:01.123456789Z"));
+        repository.save(closed);
+        assertThat(repository.find(closed.sessionId())).contains(closed);
+    }
+
+    @Test
     void savesAndReloadsActiveSessionWithStableDocument() throws Exception {
         FileCodingSessionRepository repository = repository();
         CodingSession session = activeSession(

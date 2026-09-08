@@ -281,6 +281,50 @@ class CodingTurnReliabilityTest {
                 .isInstanceOf(CodingSessionConflictException.class);
     }
 
+    @Test
+    void closeAndSubmitShareTheSameGateInBothOrders() {
+        Fixture fixture = fixture(new CapturingExecutor(), completedOrchestrator());
+        var repositoryLocks = mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class);
+        var close = new CodingSessionCloseApplicationService(fixture.sessions, fixture.service, fixture.locks, repositoryLocks);
+        var queued = fixture.service.submit(fixture.session.sessionId(), "排队");
+        assertThatThrownBy(() -> close.close(fixture.session.sessionId()))
+                .extracting("code").isEqualTo("TURN_IN_PROGRESS");
+        fixture.service.cancel(fixture.session.sessionId(), queued.turnId());
+        close.close(fixture.session.sessionId());
+        assertThatThrownBy(() -> fixture.service.submit(fixture.session.sessionId(), "关闭后"))
+                .extracting("code").isEqualTo("SESSION_NOT_ACTIVE");
+        assertThatThrownBy(() -> fixture.service.changes(fixture.session.sessionId()))
+                .extracting("code").isEqualTo("SESSION_CLOSED");
+        assertThatThrownBy(() -> fixture.service.changes(fixture.session.sessionId(), queued.turnId()))
+                .extracting("code").isEqualTo("SESSION_CLOSED");
+        assertThat(fixture.service.list(fixture.session.sessionId())).hasSize(1);
+    }
+
+    @Test
+    void closeCannotClearUncertainPersistenceBlock() {
+        Fixture fixture = fixture(new CapturingExecutor(), completedOrchestrator());
+        var close = new CodingSessionCloseApplicationService(fixture.sessions, fixture.service, fixture.locks,
+                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class));
+        fixture.turns.failTerminalWrites = true;
+        fixture.service.submit(fixture.session.sessionId(), "持久化故障");
+        fixture.executor.tasks.getFirst().run();
+        assertThatThrownBy(() -> close.close(fixture.session.sessionId()))
+                .extracting("code").isEqualTo("SESSION_EXECUTION_BLOCKED");
+    }
+
+    @Test
+    void terminalSavedButExecutionHandleStillPresentCannotClose() {
+        Fixture fixture = fixture(new CapturingExecutor(), completedOrchestrator());
+        var close = new CodingSessionCloseApplicationService(fixture.sessions, fixture.service, fixture.locks,
+                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class));
+        fixture.journal.beforeTerminalAppend = () -> assertThatThrownBy(() -> close.close(fixture.session.sessionId()))
+                .extracting("code").isEqualTo("TURN_IN_PROGRESS");
+        fixture.service.submit(fixture.session.sessionId(), "完成");
+        fixture.executor.tasks.getFirst().run();
+        assertThat(close.close(fixture.session.sessionId()).status())
+                .isEqualTo(com.codingreview.controlplane.session.model.CodingSessionStatus.CLOSED);
+    }
+
     /** 创建正常完成的受控编排器。 */
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 1, 2, 3})
@@ -502,8 +546,11 @@ class CodingTurnReliabilityTest {
     private static final class RecordingJournal implements RunEventJournal {
         private final List<RunEventType> types = new ArrayList<>();
         private boolean failTerminal;
+        private Runnable beforeTerminalAppend;
         @Override public RunEvent append(String runId, String stage, int attempt,
                                          RunEventType type, JsonNode payload) {
+            if (beforeTerminalAppend != null && List.of(RunEventType.RUN_COMPLETED,
+                    RunEventType.RUN_FAILED, RunEventType.RUN_CANCELLED).contains(type)) beforeTerminalAppend.run();
             if (failTerminal && List.of(RunEventType.RUN_COMPLETED,
                     RunEventType.RUN_FAILED, RunEventType.RUN_CANCELLED).contains(type)) {
                 throw new IllegalStateException("terminal event failed");

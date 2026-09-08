@@ -116,6 +116,25 @@ class ReviewBaselineApplicationServiceTest {
         verify(fixture.sessions, never()).save(any());
     }
 
+    @Test
+    void closePreservesAdvancedBaselineAndBlocksLaterAdvance() {
+        Fixture fixture = fixture(false, true);
+        var stored = new java.util.concurrent.atomic.AtomicReference<>(fixture.session);
+        when(fixture.sessions.find(fixture.session.sessionId())).thenAnswer(call -> Optional.of(stored.get()));
+        org.mockito.Mockito.doAnswer(call -> { stored.set(call.getArgument(0)); return null; })
+                .when(fixture.sessions).save(any());
+        var readiness = fixture.service.readiness(fixture.session.sessionId());
+        var request = new AdvanceReviewBaselineRequest(readiness.activeBaselineCommit(),
+                readiness.currentHead(), readiness.workspaceFingerprint());
+        fixture.service.advance(fixture.session.sessionId(), request);
+        var close = new CodingSessionCloseApplicationService(fixture.sessions,
+                mock(CodingTurnApplicationService.class), fixture.locks,
+                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class));
+        assertThat(close.close(fixture.session.sessionId()).activeReviewBaselineCommit()).isEqualTo(NEW_COMMIT);
+        assertThatThrownBy(() -> fixture.service.advance(fixture.session.sessionId(), request))
+                .hasMessageContaining("SESSION_NOT_ACTIVE");
+    }
+
     /** 创建包含已验证 Turn 和可控 Git 事实的测试组件。 */
     private Fixture fixture(boolean dirty, boolean descendant) {
         CodingSessionRepository sessions = mock(CodingSessionRepository.class);
@@ -163,17 +182,19 @@ class ReviewBaselineApplicationServiceTest {
         when(inspector.isAncestor(repository, INITIAL_COMMIT, NEW_COMMIT))
                 .thenReturn(descendant);
         when(changes.collect(any())).thenReturn(changeSet);
+        SessionOperationLockManager locks = new SessionOperationLockManager();
         ReviewBaselineApplicationService service = new ReviewBaselineApplicationService(
-                sessions, turns, inspector, changes, new SessionOperationLockManager()
+                sessions, turns, inspector, changes, locks
         );
-        return new Fixture(session, sessions, service);
+        return new Fixture(session, sessions, service, locks);
     }
 
     /** 聚合基线测试所需的 Session、仓储和应用服务。 */
     private record Fixture(
             CodingSession session,
             CodingSessionRepository sessions,
-            ReviewBaselineApplicationService service
+            ReviewBaselineApplicationService service,
+            SessionOperationLockManager locks
     ) {
     }
 }

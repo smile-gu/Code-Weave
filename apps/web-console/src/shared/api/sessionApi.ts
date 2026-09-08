@@ -78,3 +78,8 @@ export function advanceReviewBaseline(sessionId: string, input: {
     body: JSON.stringify(input),
   })
 }
+
+/** 幂等关闭会话，成功响应同时确认仓库所有权已经释放。 */
+export function closeCodingSession(sessionId: string) {
+  return request<CodingSession>(`/api/v1/coding-sessions/${sessionId}/close`, { method: 'POST' })
+}

@@ -130,6 +130,7 @@ export type ReviewBaselineReadiness = {
 }
 
 export type CodingSession = {
+  closedAt?: string | null
   sessionId: string
   title: string
   status: CodingSessionStatus

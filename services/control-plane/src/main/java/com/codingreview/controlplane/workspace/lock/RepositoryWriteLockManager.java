@@ -12,7 +12,7 @@ public interface RepositoryWriteLockManager extends AutoCloseable {
     /** 服务重启时由同一 Session 重新接管其持久仓库锁。 */
     void recover(Path repository, UUID sessionId);
 
-    /** 仅由锁持有 Session 释放仓库所有权。 */
+    /** 按预期 Session 幂等释放（含无本地句柄补偿），无法确认时抛错且不触碰新所有者。 */
     void release(Path repository, UUID sessionId);
 
     /** 关闭当前进程持有的文件句柄，但保留持久 Session 所有权。 */

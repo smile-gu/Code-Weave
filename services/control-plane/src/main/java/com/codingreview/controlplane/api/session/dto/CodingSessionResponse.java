@@ -24,7 +24,8 @@ public record CodingSessionResponse(
         Instant createdAt,
         Instant updatedAt,
         String failureCode,
-        String failureMessage
+        String failureMessage,
+        Instant closedAt
 ) {
     /** 将领域 Session 映射为显式 API DTO。 */
     public static CodingSessionResponse from(CodingSession session) {
@@ -37,7 +38,7 @@ public record CodingSessionResponse(
                 session.changePolicy().allowedPaths(), session.changePolicy().deniedPaths(),
                 session.claudeSessionId(),
                 session.createdAt(), session.updatedAt(),
-                session.failureCode(), session.failureMessage()
+                session.failureCode(), session.failureMessage(), session.closedAt()
         );
     }
 }

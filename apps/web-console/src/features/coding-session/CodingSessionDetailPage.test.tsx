@@ -1,18 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   advanceReviewBaseline,
+  closeCodingSession,
   getCodingSession,
   getCodingSessionChanges,
   getCodingTurns,
   getReviewBaselineReadiness,
 } from '../../shared/api/sessionApi'
+import { ApiError } from '../../shared/api/http'
 import type { CodingSession } from '../../shared/api/types'
 import { CodingSessionDetailPage } from './CodingSessionDetailPage'
 
 vi.mock('../../shared/api/sessionApi', () => ({
+  closeCodingSession: vi.fn(),
   getCodingTurnEvents: vi.fn().mockResolvedValue([]),
   getCodingSession: vi.fn(),
   getCodingTurns: vi.fn(),
@@ -59,6 +62,7 @@ function renderPage() {
 
 describe('CodingSessionDetailPage', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(getCodingSession).mockResolvedValue(activeSession)
     vi.mocked(getCodingTurns).mockResolvedValue({ turns: [] })
     vi.mocked(getCodingSessionChanges).mockResolvedValue({
@@ -75,6 +79,72 @@ describe('CodingSessionDetailPage', () => {
       workspaceFingerprint: 'sha256:empty',
       blockers: ['NO_VERIFIED_TURN', 'NO_NEW_COMMIT', 'NO_CHANGES'],
     })
+  })
+
+  it('closed history never reads mutable Diff or offers coding input', async () => {
+    vi.mocked(getCodingSession).mockResolvedValue({ ...activeSession, status: 'CLOSED' })
+    renderPage()
+    expect(await screen.findByText(/本会话不保存关闭时的 Diff 快照/)).toBeInTheDocument()
+    expect(getCodingSessionChanges).not.toHaveBeenCalled()
+    expect(getReviewBaselineReadiness).not.toHaveBeenCalled()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+  })
+
+  it('closes explicitly and confirms release without retaining cached Diff', async () => {
+    const closed = { ...activeSession, status: 'CLOSED' as const }
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(closeCodingSession).mockImplementation(async () => {
+      vi.mocked(getCodingSession).mockResolvedValue(closed)
+      return closed
+    })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: '关闭会话' }))
+    expect(await screen.findByText('会话已关闭，仓库所有权已释放。')).toBeInTheDocument()
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前累计代码变更')).not.toBeInTheDocument()
+    expect(closeCodingSession).toHaveBeenCalledWith(activeSession.sessionId)
+  })
+
+  it('timeout confirms only business status and requires idempotent release retry', async () => {
+    const closed = { ...activeSession, status: 'CLOSED' as const }
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(closeCodingSession).mockImplementationOnce(async () => {
+      vi.mocked(getCodingSession).mockResolvedValue(closed)
+      throw new TypeError('network')
+    }).mockResolvedValue(closed)
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: '关闭会话' }))
+    expect(await screen.findByText('关闭结果尚未确认，请重试确认仓库释放。')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole('textbox')).not.toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '重试释放' }))
+    expect(await screen.findByText('会话已关闭，仓库所有权已释放。')).toBeInTheDocument()
+    expect(closeCodingSession).toHaveBeenCalledTimes(2)
+  })
+
+  it('release pending keeps closed and offers retry without claiming availability', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(closeCodingSession).mockImplementationOnce(async () => {
+      vi.mocked(getCodingSession).mockResolvedValue({ ...activeSession, status: 'CLOSED' })
+      throw new ApiError({ code: 'SESSION_CLOSE_RELEASE_PENDING', status: 503,
+        message: 'pending', timestamp: '', path: '', runId: null, fieldErrors: {} })
+    })
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: '关闭会话' }))
+    expect(await screen.findByText('会话已关闭，仓库释放尚未确认。')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重试释放' })).toBeInTheDocument()
+    expect(screen.queryByText('会话已关闭，仓库所有权已释放。')).not.toBeInTheDocument()
+  })
+
+  it('backend conflict never pretends closing succeeded', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.mocked(closeCodingSession).mockRejectedValueOnce(new ApiError({
+      code: 'TURN_IN_PROGRESS', status: 409, message: '任务仍在清理',
+      timestamp: '', path: '', runId: null, fieldErrors: {} }))
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: '关闭会话' }))
+    expect(await screen.findByText('任务仍在清理')).toBeInTheDocument()
+    expect(screen.getByRole('textbox')).toBeInTheDocument()
+    expect(screen.queryByText('会话已关闭，仓库所有权已释放。')).not.toBeInTheDocument()
   })
 
   it('keeps only the source repository visible as low-weight workspace context', async () => {

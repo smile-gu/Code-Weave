@@ -39,3 +39,7 @@ flowchart LR
 | 已演进 | 核心思想保留，部分实现已被后续 ADR 扩展 |
 | 已被替代 | 仅用于理解历史，新代码必须遵循替代 ADR |
 | 部分冻结 | 已记录的条目可以实施，文档明确列出的其他条目仍需逐项讨论 |
+
+## Session 关闭
+
+[ADR-0013：Session 正常关闭与仓库所有权释放](0013-session-close-and-repository-release.md)：当前有效；明确 CLOSED 与释放完成的区别、失败重试和历史只读边界。

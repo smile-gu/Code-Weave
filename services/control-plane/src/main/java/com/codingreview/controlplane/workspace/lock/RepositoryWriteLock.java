@@ -19,9 +19,19 @@ final class RepositoryWriteLock {
 
     Path repository() { return repository; }
 
+    /** 返回受本句柄独占锁保护的元数据通道。 */
+    FileChannel channel() { return channel; }
+
+    /** 判断持有通道是否仍需释放，以便关闭失败后安全重试。 */
+    boolean isOpen() { return channel.isOpen(); }
+
+    /** 判断句柄仍持有独占锁，避免失败重试在无锁状态下修改所有权。 */
+    boolean isLocked() { return lock.isValid(); }
+
     /** 在仍持有独占锁时清空持久 Session 所有者。 */
     void clearOwnership() {
         try {
+            if (!lock.isValid()) throw new IOException("仓库独占锁已失效");
             channel.truncate(0);
             channel.force(true);
         } catch (IOException exception) {
@@ -32,7 +42,7 @@ final class RepositoryWriteLock {
     /** 释放文件锁并关闭锁文件。 */
     void close() {
         try {
-            lock.release();
+            if (lock.isValid()) lock.release();
         } catch (IOException exception) {
             throw new IllegalStateException("释放仓库写锁失败。", exception);
         } finally {

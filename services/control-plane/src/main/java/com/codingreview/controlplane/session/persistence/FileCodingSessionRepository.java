@@ -156,7 +156,8 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
             Instant updatedAt,
             String failureCode,
             String failureMessage,
-            String workspaceMode
+            String workspaceMode,
+            Instant closedAt
     ) {
         /** 将领域对象转换为持久化文档。 */
         private static SessionDocument from(CodingSession session) {
@@ -169,7 +170,7 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
                     session.changePolicy().allowedPaths(), session.changePolicy().deniedPaths(),
                     session.claudeSessionId(),
                     session.createdAt(), session.updatedAt(),
-                    session.failureCode(), session.failureMessage(), "DIRECT"
+                    session.failureCode(), session.failureMessage(), "DIRECT", session.closedAt()
             );
         }
 
@@ -188,7 +189,7 @@ public final class FileCodingSessionRepository implements CodingSessionRepositor
                     sourceRepositoryDirty,
                     new ChangePolicy(allowedPaths, deniedPaths),
                     claudeSessionId,
-                    createdAt, updatedAt, failureCode, failureMessage
+                    createdAt, updatedAt, failureCode, failureMessage, closedAt
             );
         }
     }

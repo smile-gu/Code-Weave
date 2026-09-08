@@ -148,6 +148,19 @@ public final class CodingTurnApplicationService {
         }
     }
 
+    /** 在调用方持续持有 Session 操作锁时确认历史、句柄和执行保护均允许关闭。 */
+    public void assertIdleAndSafeForClose(UUID sessionId) {
+        if (!Thread.holdsLock(lock(sessionId))) throw new IllegalStateException("Session operation lock required");
+        List<CodingTurn> history = turns.findAll(sessionId);
+        if (executionBlocks.containsKey(sessionId) || resourceBlocks.contains(sessionId)
+                || history.stream().anyMatch(turn -> "PROCESS_CLEANUP_FAILED".equals(turn.failureCode()))) {
+            throw new CodingSessionConflictException("SESSION_EXECUTION_BLOCKED", "执行状态或资源清理尚未确认，不能关闭会话。");
+        }
+        if (running.containsKey(sessionId) || history.stream().anyMatch(this::active)) {
+            throw new CodingSessionConflictException("TURN_IN_PROGRESS", "请先停止任务并等待执行资源清理完成。");
+        }
+    }
+
     /** 查询 Session 的全部 Turn。 */
     public List<CodingTurn> list(UUID sessionId) { requireSession(sessionId); return turns.findAll(sessionId); }
 
@@ -161,6 +174,8 @@ public final class CodingTurnApplicationService {
     public GitChangeSet changes(UUID sessionId) {
         synchronized (lock(sessionId)) {
             CodingSession session = requireSession(sessionId);
+            if (session.status() == CodingSessionStatus.CLOSED) throw new CodingSessionConflictException(
+                    "SESSION_CLOSED", "已关闭会话不保存关闭时的 Diff 快照，不能查询当前工作区变更。");
             List<CodingTurn> history = turns.findAll(sessionId);
             if (running.containsKey(sessionId) || history.stream().anyMatch(this::active)) {
                 throw new CodingSessionConflictException(

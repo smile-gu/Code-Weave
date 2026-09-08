@@ -64,60 +64,109 @@ public final class FileRepositoryWriteLockManager implements RepositoryWriteLock
                 channel.close();
                 throw conflict(normalized);
             }
-            String persistedOwner = readOwner(channel);
-            boolean ownerMatches = persistedOwner.equals(sessionId.toString());
-            if ((!persistedOwner.isBlank() && !recovery) || (recovery && !persistedOwner.isBlank() && !ownerMatches)) {
-                lock.release();
-                channel.close();
-                throw conflict(normalized);
+            boolean retained = false;
+            try {
+                String persistedOwner = readOwner(channel, normalized);
+                boolean ownerMatches = persistedOwner.equals(sessionId.toString());
+                if ((!persistedOwner.isBlank() && !recovery) || (recovery && !persistedOwner.isBlank() && !ownerMatches)) {
+                    lock.release();
+                    channel.close();
+                    throw conflict(normalized);
+                }
+                byte[] owner = ("sessionId=" + sessionId + "\nrepository=" + normalized + "\n")
+                        .getBytes(StandardCharsets.UTF_8);
+                channel.truncate(0);
+                channel.position(0);
+                java.nio.ByteBuffer ownerBuffer = java.nio.ByteBuffer.wrap(owner);
+                while (ownerBuffer.hasRemaining()) channel.write(ownerBuffer);
+                channel.force(true);
+                heldLocks.put(sessionId, new RepositoryWriteLock(normalized, channel, lock));
+                retained = true;
+            } finally {
+                if (!retained) channel.close();
             }
-            byte[] owner = ("sessionId=" + sessionId + "\nrepository=" + normalized + "\n")
-                    .getBytes(StandardCharsets.UTF_8);
-            channel.truncate(0);
-            channel.position(0);
-            channel.write(java.nio.ByteBuffer.wrap(owner));
-            channel.force(true);
-            heldLocks.put(sessionId, new RepositoryWriteLock(normalized, channel, lock));
         } catch (IOException exception) {
             throw new RepositoryWriteLockException("REPOSITORY_LOCK_FAILED", "无法申请仓库写锁。", exception.getMessage(), exception);
         }
     }
 
     /** 通过当前独占通道读取持久化 Session 所有者。 */
-    private String readOwner(FileChannel channel) throws IOException {
+    private String readOwner(FileChannel channel, Path repository) throws IOException {
+        if (channel.size() == 0) return "";
+        if (channel.size() > 4096) throw new IOException("仓库锁元数据过大");
         channel.position(0);
-        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(4096);
-        channel.read(buffer);
-        buffer.flip();
-        String content = StandardCharsets.UTF_8.decode(buffer).toString();
-        for (String line : content.split("\\R")) {
-            if (line.startsWith("sessionId=")) return line.substring("sessionId=".length()).trim();
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate((int) channel.size());
+        while (buffer.hasRemaining()) {
+            if (channel.read(buffer) < 0) throw new IOException("仓库锁元数据读取不完整");
         }
-        return "";
+        buffer.flip();
+        String content = StandardCharsets.UTF_8.newDecoder().decode(buffer).toString();
+        String[] lines = content.split("\\n", -1);
+        if (lines.length != 3 || !lines[0].startsWith("sessionId=")
+                || !lines[1].equals("repository=" + repository) || !lines[2].isEmpty())
+            throw new IOException("仓库锁元数据损坏");
+        String owner = lines[0].substring("sessionId=".length());
+        try {
+            if (!UUID.fromString(owner).toString().equals(owner)) throw new IllegalArgumentException();
+        } catch (IllegalArgumentException exception) {
+            throw new IOException("仓库锁所有者损坏", exception);
+        }
+        return owner;
     }
 
-    /** 清空持久所有者信息并释放当前进程持有的文件锁。 */
+    /** 在独占保护下按预期所有者释放，保留稳定锁文件并允许重启补偿。 */
     @Override
     public synchronized void release(Path repository, UUID sessionId) {
         Path normalized = repository.toAbsolutePath().normalize();
-        RepositoryWriteLock handle = heldLocks.remove(sessionId);
-        if (handle == null) return;
-        if (!handle.repository().equals(normalized)) {
-            heldLocks.put(sessionId, handle);
+        RepositoryWriteLock handle = heldLocks.get(sessionId);
+        if (handle != null && !handle.repository().equals(normalized))
             throw new IllegalArgumentException("repository does not belong to session lock");
-        }
-        Path lockFile = locksRoot.resolve(key(normalized) + ".lock");
         try {
-            handle.clearOwnership();
-        } catch (RuntimeException exception) {
-            heldLocks.put(sessionId, handle);
-            throw new RepositoryWriteLockException("REPOSITORY_UNLOCK_FAILED", "无法释放仓库写锁。", exception.getMessage(), exception);
-        }
-        handle.close();
-        try {
-            Files.deleteIfExists(lockFile);
-        } catch (IOException ignored) {
-            // 空锁文件不会保留 Session 所有权，可在后续维护时清理。
+            if (handle != null) {
+                if (handle.isOpen()) {
+                    if (handle.isLocked()) {
+                        String owner = readOwner(handle.channel(), normalized);
+                        if (!owner.isEmpty() && !owner.equals(sessionId.toString()))
+                            throw new IOException("本地句柄与持久所有者不一致，保留保护");
+                        if (owner.equals(sessionId.toString())) handle.clearOwnership();
+                        handle.close();
+                        heldLocks.remove(sessionId, handle);
+                        return;
+                    }
+                    handle.close();
+                }
+                heldLocks.remove(sessionId, handle);
+            }
+            // 本进程已可靠持有其他 Session 的同仓库独占锁，不触碰其所有权。
+            for (var entry : heldLocks.entrySet()) {
+                RepositoryWriteLock other = entry.getValue();
+                if (other.repository().equals(normalized) && other.isLocked()) {
+                    String owner = readOwner(other.channel(), normalized);
+                    if (owner.equals(entry.getKey().toString())) return;
+                    throw new IOException("其他本地句柄与持久所有者不一致，释放无法确认");
+                }
+            }
+            Files.createDirectories(locksRoot);
+            Path file = locksRoot.resolve(key(normalized) + ".lock");
+            try (FileChannel channel = FileChannel.open(file,
+                    StandardOpenOption.CREATE, StandardOpenOption.READ, StandardOpenOption.WRITE)) {
+                FileLock lock;
+                try {
+                    lock = channel.tryLock();
+                } catch (OverlappingFileLockException exception) {
+                    throw new IOException("仓库锁仍被占用，无法确认释放", exception);
+                }
+                if (lock == null) throw new IOException("仓库锁仍被占用，无法确认释放");
+                try (lock) {
+                    if (readOwner(channel, normalized).equals(sessionId.toString())) {
+                        channel.truncate(0);
+                        channel.force(true);
+                    }
+                }
+            }
+        } catch (IOException | RuntimeException exception) {
+            throw new RepositoryWriteLockException("REPOSITORY_UNLOCK_FAILED",
+                    "仓库所有权释放尚未确认。", exception.getMessage(), exception);
         }
     }
 
@@ -125,15 +174,15 @@ public final class FileRepositoryWriteLockManager implements RepositoryWriteLock
     @Override
     public synchronized void close() {
         RuntimeException failure = null;
-        for (RepositoryWriteLock handle : heldLocks.values()) {
+        for (var entry : heldLocks.entrySet()) {
             try {
-                handle.close();
+                entry.getValue().close();
+                heldLocks.remove(entry.getKey(), entry.getValue());
             } catch (RuntimeException exception) {
                 if (failure == null) failure = exception;
                 else failure.addSuppressed(exception);
             }
         }
-        heldLocks.clear();
         if (failure != null) throw failure;
     }
 

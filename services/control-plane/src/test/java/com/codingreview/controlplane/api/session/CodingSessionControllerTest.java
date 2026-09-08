@@ -40,21 +40,41 @@ class CodingSessionControllerTest {
     private ReviewBaselineApplicationService baselineService;
     private CodingTurnApplicationService turnService;
     private MockMvc mockMvc;
+    private com.codingreview.controlplane.application.session.CodingSessionCloseApplicationService closeService;
 
     @BeforeEach
     void setUp() {
         applicationService = mock(CodingSessionApplicationService.class);
         baselineService = mock(ReviewBaselineApplicationService.class);
         turnService = mock(CodingTurnApplicationService.class);
+        closeService = mock(com.codingreview.controlplane.application.session.CodingSessionCloseApplicationService.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new CodingSessionController(
-                        applicationService, baselineService, turnService
+                        applicationService, baselineService, turnService,
+                        closeService
                 ))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator)
                 .build();
+    }
+
+    @Test
+    void closeReturnsCompleteDtoAndExplicitReleaseFailure() throws Exception {
+        var closed = activeSession(UUID.randomUUID(), Instant.now()).close(Instant.now());
+        when(closeService.close(closed.sessionId())).thenReturn(closed);
+        mockMvc.perform(post("/api/v1/coding-sessions/{sessionId}/close", closed.sessionId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.closedAt").exists())
+                .andExpect(jsonPath("$.sourceRepository").exists());
+        when(closeService.close(closed.sessionId())).thenThrow(
+                new com.codingreview.controlplane.application.session.error.CodingSessionCloseException(
+                        "SESSION_CLOSE_RELEASE_PENDING", "待释放", new IllegalStateException()));
+        mockMvc.perform(post("/api/v1/coding-sessions/{sessionId}/close", closed.sessionId()))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SESSION_CLOSE_RELEASE_PENDING"));
     }
 
     @Test

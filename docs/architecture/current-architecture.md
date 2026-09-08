@@ -280,7 +280,7 @@ stateDiagram-v2
     INITIALIZING --> ACTIVE: 仓库检查、写锁和快照成功
     INITIALIZING --> FAILED: 初始化中断或持久化失败
     ACTIVE --> FAILED: 真实仓库丢失等不可恢复问题
-    ACTIVE --> CLOSED: 预留的正常关闭状态
+    ACTIVE --> CLOSED: 安全空闲后保存关闭，幂等释放所有权
     LEGACY_READ_ONLY --> [*]
     MERGED --> [*]: 仅历史快照兼容
     CLOSED --> [*]
@@ -305,3 +305,7 @@ stateDiagram-v2
 | Review | 独立 Python Harness | 可专注上下文、记忆和代码质量 | 尚未实现，是下一阶段核心 |
 
 下一阶段不会重写 Coding 链路，而是在同一 Session、活动基线、事件基础设施和模块完成门禁上接入 Review Harness。
+
+## Session 正常关闭
+
+关闭服务使用与 Turn/基线相同的操作锁：安全门禁 → CLOSED 保存 → 所有者匹配释放。Turn 服务仅提供安全空闲断言，不暴露或清空执行保护集合。锁文件稳定保留，启动时补偿 CLOSED 残留所有权。详见 [ADR-0013](../decisions/0013-session-close-and-repository-release.md)。关闭不提供 Diff 快照，历史只读界面不再读取可变工作区 Diff。

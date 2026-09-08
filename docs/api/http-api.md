@@ -228,3 +228,11 @@ Agent 载荷使用 `agentProtocolVersion = 1`、`agentEventType`、`externalId`�
 | GET | `/api/v1/legacy/worktree-runs/{runId}/stream` |
 | GET | `/api/v1/legacy/worktree-runs/{runId}/result` |
 | GET | `/api/v1/legacy/worktree-runs/{runId}/changes` |
+
+## 正常关闭持续会话
+
+`POST /api/v1/coding-sessions/{sessionId}/close`，无请求体。200 返回完整 Session DTO，新增可选 `closedAt`，旧快照为空。
+
+200 同时确认 CLOSED 已保存及目标仓库所有权释放。409：SESSION_NOT_CLOSABLE、TURN_IN_PROGRESS、SESSION_EXECUTION_BLOCKED 或历史错误；503：SESSION_CLOSE_STATE_WRITE_FAILED、SESSION_CLOSE_RELEASE_PENDING。超时可安全重试。CLOSED 查询结果不单独证明释放完成。
+
+关闭不取消任务、不修改代码、不提交、不回滚。关闭后的 Session changes 与 Turn changes 兼容入口返回 409 SESSION_CLOSED；历史、事件和助手回复仍可读取。
