@@ -128,15 +128,28 @@ public final class CodingTurnApplicationService {
     public List<RunEvent> events(UUID sessionId, UUID turnId, long afterSequence) { get(sessionId, turnId); return journal.readAfter(turnId.toString(), afterSequence); }
 
     /** 读取当前真实工作区相对 Session 基线的累计 Diff。 */
-    public GitChangeSet changes(UUID sessionId, UUID turnId) {
-        CodingTurn turn = get(sessionId, turnId);
-        if (turn.status() == TurnStatus.QUEUED || turn.status() == TurnStatus.RUNNING) {
-            throw new CodingSessionConflictException(
-                    "TURN_NOT_FINISHED", "当前 Turn 尚未结束，代码变更尚未稳定。"
-            );
+    public GitChangeSet changes(UUID sessionId) {
+        synchronized (lock(sessionId)) {
+            CodingSession session = requireSession(sessionId);
+            List<CodingTurn> history = turns.findAll(sessionId);
+            if (running.containsKey(sessionId) || history.stream().anyMatch(this::active)) {
+                throw new CodingSessionConflictException(
+                        "TURN_NOT_FINISHED", "当前 Turn 尚未结束，代码变更尚未稳定。"
+                );
+            }
+            try {
+                workspaceGuard.assertReadable(session);
+            } catch (SessionWorkspaceDriftException exception) {
+                throw new CodingSessionConflictException(exception.code(), exception.getMessage());
+            }
+            return changeCollector.collect(workspace(session));
         }
-        CodingSession session = requireSession(sessionId);
-        return changeCollector.collect(workspace(session));
+    }
+
+    /** 兼容旧版按 Turn 查询累计 Diff 的入口。 */
+    public GitChangeSet changes(UUID sessionId, UUID turnId) {
+        get(sessionId, turnId);
+        return changes(sessionId);
     }
 
     /** 请求停止当前 Turn；底层会中断 Claude 进程树。 */
@@ -209,7 +222,7 @@ public final class CodingTurnApplicationService {
         return new WorkspaceHandle(
                 session.usesRealRepository()
                         ? session.sourceRepository() : session.worktreePath(),
-                session.resolvedCommit()
+                session.activeReviewBaselineCommit()
         );
     }
     /** 获取可继续 Coding 的 Session。 */

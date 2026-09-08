@@ -1,10 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import type { RunChanges } from '../../shared/api/types'
+import type { WorkspaceChanges } from '../../shared/api/types'
 import { DiffPanel, normalizeUnifiedDiff } from './DiffPanel'
 
-const changes = (unifiedDiff: string): RunChanges => ({
-  runId: 'run-1',
+const changes = (unifiedDiff: string): WorkspaceChanges => ({
   baseCommit: '41906e2',
   workspaceRoot: 'D:/runtime/worktrees/run-1',
   totalFiles: 1,

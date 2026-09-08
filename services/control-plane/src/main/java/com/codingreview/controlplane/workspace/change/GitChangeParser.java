@@ -7,15 +7,21 @@ import com.codingreview.controlplane.workspace.change.model.GitChangedFile;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** 解析 Git 使用 NUL 分隔的 name-status 和 numstat 输出。 */
 final class GitChangeParser {
 
     /** 解析已跟踪文件的 name-status 元数据。 */
-    List<GitChangedFile> parseTrackedFiles(byte[] output, Set<String> binaryPaths) {
+    List<GitChangedFile> parseTrackedFiles(
+            byte[] output,
+            Set<String> binaryPaths,
+            Map<String, String> finalModes
+    ) {
         List<String> fields = splitNullTerminated(output);
         List<GitChangedFile> files = new ArrayList<>();
         for (int index = 0; index < fields.size();) {
@@ -31,7 +37,7 @@ final class GitChangeParser {
                 String oldPath = normalizePath(fields.get(index++));
                 String newPath = normalizePath(fields.get(index++));
                 files.add(new GitChangedFile(newPath, oldPath, GitChangeType.RENAMED,
-                        binaryPaths.contains(newPath)));
+                        binaryPaths.contains(newPath), requireFinalMode(finalModes, newPath)));
                 continue;
             }
             String path = normalizePath(fields.get(index++));
@@ -40,9 +46,38 @@ final class GitChangeParser {
                 case 'D' -> GitChangeType.DELETED;
                 default -> GitChangeType.MODIFIED;
             };
-            files.add(new GitChangedFile(path, null, changeType, binaryPaths.contains(path)));
+            files.add(new GitChangedFile(path, null, changeType, binaryPaths.contains(path),
+                    changeType == GitChangeType.DELETED
+                            ? "000000" : requireFinalMode(finalModes, path)));
         }
         return files;
+    }
+
+    /** 解析 raw diff 中每个最终路径对应的 Git mode。 */
+    Map<String, String> parseFinalModes(byte[] output) {
+        List<String> fields = splitNullTerminated(output);
+        Map<String, String> modes = new HashMap<>();
+        for (int index = 0; index < fields.size();) {
+            String header = fields.get(index++);
+            String[] parts = header.split(" +");
+            if (parts.length != 5 || !parts[0].startsWith(":")) {
+                throw malformedMetadata("raw diff", fields);
+            }
+            String finalMode = parts[1];
+            String status = parts[4];
+            if (index >= fields.size()) {
+                throw malformedMetadata("raw diff path", fields);
+            }
+            String finalPath = normalizePath(fields.get(index++));
+            if (status.startsWith("R") || status.startsWith("C")) {
+                if (index >= fields.size()) {
+                    throw malformedMetadata("raw diff destination", fields);
+                }
+                finalPath = normalizePath(fields.get(index++));
+            }
+            modes.put(finalPath, finalMode);
+        }
+        return modes;
     }
 
     /** 解析 numstat 输出中的二进制文件路径。 */
@@ -93,6 +128,15 @@ final class GitChangeParser {
     boolean containsBinaryMarker(byte[] patch) {
         String text = new String(patch, StandardCharsets.ISO_8859_1);
         return text.contains("Binary files ");
+    }
+
+    /** 返回指定非删除路径的最终 Git mode，缺失时拒绝生成不可信快照。 */
+    private String requireFinalMode(Map<String, String> finalModes, String path) {
+        String mode = finalModes.get(path);
+        if (mode == null || "000000".equals(mode)) {
+            throw malformedMetadata("final mode for " + path, List.copyOf(finalModes.keySet()));
+        }
+        return mode;
     }
 
     /** 将 Git 路径统一转换为正斜杠形式。 */

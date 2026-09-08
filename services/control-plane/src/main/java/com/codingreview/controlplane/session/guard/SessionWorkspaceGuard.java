@@ -44,6 +44,42 @@ public final class SessionWorkspaceGuard {
         }
     }
 
+    /** 允许读取当前累计变更，但拒绝分支切换和非线性基线变化。 */
+    public void assertReadable(CodingSession session) {
+        Objects.requireNonNull(session, "session");
+        if (!session.usesRealRepository()) return;
+        GitRepositorySnapshot current;
+        try {
+            current = inspector.inspect(session.sourceRepository());
+        } catch (GitRepositoryException exception) {
+            throw new SessionWorkspaceDriftException(exception.code(), exception.getMessage());
+        }
+        if (!current.branch().equals(session.baseRef())) {
+            throw new SessionWorkspaceDriftException(
+                    "SOURCE_BRANCH_CHANGED",
+                    "Session 创建后，真实仓库分支已从 " + session.baseRef()
+                            + " 变为 " + current.branch() + "，暂时无法读取累计变更。"
+            );
+        }
+        if (current.headCommit().equals(session.activeReviewBaselineCommit())) {
+            return;
+        }
+        try {
+            if (!inspector.isAncestor(
+                    session.sourceRepository(),
+                    session.activeReviewBaselineCommit(),
+                    current.headCommit()
+            )) {
+                throw new SessionWorkspaceDriftException(
+                        "HEAD_NOT_DESCENDANT",
+                        "当前 HEAD 不是活动审查基线的后继提交，无法可靠读取累计变更。"
+                );
+            }
+        } catch (GitRepositoryException exception) {
+            throw new SessionWorkspaceDriftException(exception.code(), exception.getMessage());
+        }
+    }
+
     /** 将提交标识缩短为便于用户核对的长度。 */
     private String shortCommit(String commit) {
         return commit.length() <= 8 ? commit : commit.substring(0, 8);

@@ -13,10 +13,12 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -73,12 +75,20 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
                         "diff", "--numstat", "-z", "--find-renames", handle.baselineCommit(), "--"),
                 METADATA_OUTPUT_LIMIT), "无法识别变更中的二进制文件。", GitChangeFailureType.COLLECT_FAILED);
         Set<String> binaryPaths = parser.parseBinaryPaths(numstat.output());
-        List<GitChangedFile> changedFiles = parser.parseTrackedFiles(nameStatus.output(), binaryPaths);
+        CommandResult rawDiff = requireSuccess(runGit(workspaceRoot, List.of(
+                        "diff", "--raw", "--no-abbrev", "-z", "--find-renames",
+                        handle.baselineCommit(), "--"), METADATA_OUTPUT_LIMIT),
+                "无法读取变更文件的 Git mode。", GitChangeFailureType.COLLECT_FAILED);
+        Map<String, String> finalModes = parser.parseFinalModes(rawDiff.output());
+        List<GitChangedFile> changedFiles = parser.parseTrackedFiles(
+                nameStatus.output(), binaryPaths, finalModes
+        );
 
         CommandResult untracked = requireSuccess(runGit(workspaceRoot,
                         List.of("ls-files", "--others", "--exclude-standard", "-z"), METADATA_OUTPUT_LIMIT),
                 "无法读取任务新建的文件。", GitChangeFailureType.COLLECT_FAILED);
         List<String> untrackedPaths = parser.splitNullTerminated(untracked.output());
+        boolean coreFileMode = readCoreFileMode(workspaceRoot);
 
         ByteArrayOutputStream combinedDiff = new ByteArrayOutputStream();
         CommandResult trackedPatch = runGit(workspaceRoot, List.of(
@@ -102,7 +112,10 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
             }
             requirePatchWithinLimit(newFilePatch);
             boolean binary = parser.containsBinaryMarker(newFilePatch.output());
-            changedFiles.add(new GitChangedFile(path, null, GitChangeType.ADDED, binary));
+            changedFiles.add(new GitChangedFile(
+                    path, null, GitChangeType.ADDED, binary,
+                    untrackedGitMode(workspaceRoot, path, coreFileMode)
+            ));
             appendPatch(combinedDiff, newFilePatch.output());
         }
 
@@ -136,6 +149,48 @@ public final class GitChangeCollectorImpl implements GitChangeCollector {
         } catch (IOException exception) {
             throw failure(GitChangeFailureType.INVALID_WORKSPACE,
                     "无法解析任务工作区的真实路径。", exception.getMessage());
+        }
+    }
+
+    /** 读取 Git 对工作区可执行位的跟踪策略，未配置时使用 Git 默认值。 */
+    private boolean readCoreFileMode(Path workspaceRoot) {
+        CommandResult result = runGit(workspaceRoot,
+                List.of("config", "--type=bool", "--get", "core.filemode"), METADATA_OUTPUT_LIMIT);
+        if (result.exitCode() == 1 && result.output().length == 0) {
+            return true;
+        }
+        requireSuccess(result, "无法读取 Git 文件模式配置。", GitChangeFailureType.COLLECT_FAILED);
+        String value = result.outputAsText().trim();
+        if ("true".equals(value)) {
+            return true;
+        }
+        if ("false".equals(value)) {
+            return false;
+        }
+        throw failure(GitChangeFailureType.COLLECT_FAILED,
+                "Git 文件模式配置无法识别。", value);
+    }
+
+    /** 推导未跟踪文件加入 Git 后会使用的最终 mode。 */
+    private String untrackedGitMode(Path workspaceRoot, String relativePath, boolean coreFileMode) {
+        Path path = workspaceRoot.resolve(relativePath).normalize();
+        if (Files.isSymbolicLink(path)) {
+            return "120000";
+        }
+        if (!coreFileMode) {
+            return "100644";
+        }
+        try {
+            Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(path);
+            boolean executable = permissions.contains(PosixFilePermission.OWNER_EXECUTE)
+                    || permissions.contains(PosixFilePermission.GROUP_EXECUTE)
+                    || permissions.contains(PosixFilePermission.OTHERS_EXECUTE);
+            return executable ? "100755" : "100644";
+        } catch (UnsupportedOperationException exception) {
+            return "100644";
+        } catch (IOException exception) {
+            throw failure(GitChangeFailureType.COLLECT_FAILED,
+                    "无法读取未跟踪文件的 Git mode。", relativePath + ": " + exception.getMessage());
         }
     }
 

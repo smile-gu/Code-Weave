@@ -118,6 +118,18 @@ public final class CodingTurnOrchestratorImpl implements CodingTurnOrchestrator 
                     turn.turnId().toString(), workspace.workspaceRoot(), 1
             ));
             workspaceGuard.assertStable(currentSession.get());
+            GitChangeSet verifiedChanges = changes.collect(workspace);
+            String verifiedFingerprint = fingerprintCalculator.calculate(verifiedChanges);
+            if (!workspaceFingerprint.equals(verifiedFingerprint)) {
+                CodingTurn failed = turn.failed(
+                        TurnOutcome.WORKSPACE_DRIFT,
+                        "WORKSPACE_CHANGED_DURING_VERIFICATION",
+                        "Maven 验证期间工作区发生变化，本次验证结论已失效，请稳定代码后重新验证。",
+                        String.join("\n", assistant), nativeId, Instant.now()
+                );
+                appendTerminal(turn, RunEventType.RUN_FAILED, failed.userMessage());
+                return new CodingTurnExecution(updatedSession, failed);
+            }
             TurnOutcome outcome = verification.passed() ? TurnOutcome.CHANGES_VERIFIED : TurnOutcome.VERIFICATION_FAILED;
             CodingTurn completed = turn.complete(outcome, changeSet.files().size(),
                     workspaceFingerprint, verification.userMessage(),

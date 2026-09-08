@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   advanceReviewBaseline,
   getCodingSession,
-  getCodingTurnChanges,
+  getCodingSessionChanges,
   getCodingTurns,
   getReviewBaselineReadiness,
 } from '../../shared/api/sessionApi'
@@ -16,7 +16,7 @@ vi.mock('../../shared/api/sessionApi', () => ({
   getCodingSession: vi.fn(),
   getCodingTurns: vi.fn(),
   getReviewBaselineReadiness: vi.fn(),
-  getCodingTurnChanges: vi.fn(),
+  getCodingSessionChanges: vi.fn(),
   submitCodingTurn: vi.fn(),
   cancelCodingTurn: vi.fn(),
   advanceReviewBaseline: vi.fn(),
@@ -60,8 +60,8 @@ describe('CodingSessionDetailPage', () => {
   beforeEach(() => {
     vi.mocked(getCodingSession).mockResolvedValue(activeSession)
     vi.mocked(getCodingTurns).mockResolvedValue({ turns: [] })
-    vi.mocked(getCodingTurnChanges).mockResolvedValue({
-      runId: 'turn-1', baseCommit: 'abc123', workspaceRoot: activeSession.sourceRepository,
+    vi.mocked(getCodingSessionChanges).mockResolvedValue({
+      baseCommit: 'abc123', workspaceRoot: activeSession.sourceRepository,
       totalFiles: 1, unifiedDiffBytes: 0, files: [], unifiedDiff: '',
     })
     vi.mocked(getReviewBaselineReadiness).mockResolvedValue({

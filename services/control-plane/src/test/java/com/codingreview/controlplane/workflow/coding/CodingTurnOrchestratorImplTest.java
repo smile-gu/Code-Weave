@@ -13,16 +13,25 @@ import com.codingreview.controlplane.session.model.TurnOutcome;
 import com.codingreview.controlplane.session.guard.SessionWorkspaceDriftException;
 import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
+import com.codingreview.controlplane.verification.maven.model.MavenVerificationResult;
+import com.codingreview.controlplane.verification.maven.model.MavenVerificationStatus;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
+import com.codingreview.controlplane.workspace.change.model.GitChangeType;
+import com.codingreview.controlplane.workspace.change.model.GitChangedFile;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluator;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
+import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicyResult;
 import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
 import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -39,6 +48,9 @@ import static org.mockito.Mockito.when;
 
 /** 验证 Coding 编排中的原生会话持久化时机和无修改边界。 */
 class CodingTurnOrchestratorImplTest {
+
+    @TempDir
+    Path tempDir;
 
     @Test
     void stopsBeforeClaudeWhenWorkspaceDrifted() {
@@ -127,6 +139,106 @@ class CodingTurnOrchestratorImplTest {
         ));
         verify(policy, never()).evaluate(any(), any());
         verify(maven, never()).verify(any());
+    }
+
+    @Test
+    void invalidatesVerificationWhenWorkspaceChangesAfterMaven() {
+        ClaudeCodeAdapter claude = mock(ClaudeCodeAdapter.class);
+        GitChangeCollector changes = mock(GitChangeCollector.class);
+        ChangePolicyEvaluator policy = mock(ChangePolicyEvaluator.class);
+        MavenVerifier maven = mock(MavenVerifier.class);
+        RunEventJournal journal = mock(RunEventJournal.class);
+        SessionWorkspaceGuard guard = mock(SessionWorkspaceGuard.class);
+        CodingSession session = activeSession().advanceReviewBaseline(
+                "def456", Instant.parse("2026-08-18T07:59:02Z")
+        );
+        CodingTurn running = runningTurn(session);
+        GitChangeSet before = changedSet("before");
+        GitChangeSet after = changedSet("after");
+        when(claude.run(any(), any())).thenReturn(completedClaude());
+        when(changes.collect(any())).thenReturn(before, after);
+        when(policy.evaluate(any(), any())).thenReturn(new ChangePolicyResult(List.of()));
+        when(maven.verify(any())).thenReturn(passedMaven());
+
+        CodingTurnExecution execution = new CodingTurnOrchestratorImpl(
+                claude, changes, policy, maven, journal,
+                JsonMapper.builder().findAndAddModules().build(), guard
+        ).execute(session, running, ignored -> { });
+
+        assertThat(execution.turn().outcome()).isEqualTo(TurnOutcome.WORKSPACE_DRIFT);
+        assertThat(execution.turn().failureCode()).isEqualTo("WORKSPACE_CHANGED_DURING_VERIFICATION");
+        verify(changes, org.mockito.Mockito.times(2)).collect(any());
+    }
+
+    @Test
+    void keepsVerifiedOutcomeWhenWorkspaceFingerprintIsUnchanged() {
+        ClaudeCodeAdapter claude = mock(ClaudeCodeAdapter.class);
+        GitChangeCollector changes = mock(GitChangeCollector.class);
+        ChangePolicyEvaluator policy = mock(ChangePolicyEvaluator.class);
+        MavenVerifier maven = mock(MavenVerifier.class);
+        RunEventJournal journal = mock(RunEventJournal.class);
+        SessionWorkspaceGuard guard = mock(SessionWorkspaceGuard.class);
+        CodingSession session = activeSession().advanceReviewBaseline(
+                "def456", Instant.parse("2026-08-18T07:59:02Z")
+        );
+        CodingTurn running = runningTurn(session);
+        GitChangeSet changeSet = changedSet("same");
+        when(claude.run(any(), any())).thenReturn(completedClaude());
+        when(changes.collect(any())).thenReturn(changeSet, changeSet);
+        when(policy.evaluate(any(), any())).thenReturn(new ChangePolicyResult(List.of()));
+        when(maven.verify(any())).thenReturn(passedMaven());
+
+        CodingTurnExecution execution = new CodingTurnOrchestratorImpl(
+                claude, changes, policy, maven, journal,
+                JsonMapper.builder().findAndAddModules().build(), guard
+        ).execute(session, running, ignored -> { });
+
+        assertThat(execution.turn().outcome()).isEqualTo(TurnOutcome.CHANGES_VERIFIED);
+        verify(changes, org.mockito.Mockito.times(2)).collect(any());
+    }
+
+    /** 创建带有代码变更的合成快照。 */
+    private GitChangeSet changedSet(String diff) {
+        Path workspace = tempDir.resolve("snapshot-" + diff);
+        try {
+            Files.createDirectories(workspace.resolve("src"));
+            Files.writeString(workspace.resolve("src/App.java"), diff, StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new IllegalStateException("无法创建测试工作区。", exception);
+        }
+        return new GitChangeSet(
+                "def456", workspace,
+                List.of(new GitChangedFile("src/App.java", null, GitChangeType.MODIFIED, false)),
+                diff, diff.length()
+        );
+    }
+
+    /** 创建可直接返回的已完成 Claude 结果。 */
+    private ClaudeRunResult completedClaude() {
+        Instant started = Instant.parse("2026-08-18T08:00:01Z");
+        return new ClaudeRunResult(
+                ClaudeRunStatus.COMPLETED, 0, true, "native-claude-session", true,
+                new AgentEvent(AgentEventType.RUNTIME_COMPLETED,
+                        "native-claude-session", JsonNodeFactory.instance.objectNode()),
+                started, started.plusSeconds(1), null
+        );
+    }
+
+    /** 创建通过的 Maven 结果。 */
+    private MavenVerificationResult passedMaven() {
+        Instant started = Instant.parse("2026-08-18T08:00:02Z");
+        return new MavenVerificationResult(
+                MavenVerificationStatus.PASSED, 0, List.of("mvn", "clean", "test"),
+                started, started.plusSeconds(1), null, null, null, "Maven 验证通过", null
+        );
+    }
+
+    /** 创建运行中的测试 Turn。 */
+    private CodingTurn runningTurn(CodingSession session) {
+        return CodingTurn.queued(
+                UUID.randomUUID(), session.sessionId(), 1,
+                "修改代码", Instant.parse("2026-08-18T08:00:00Z")
+        ).running(Instant.parse("2026-08-18T08:00:01Z"));
     }
 
     /** 创建直接绑定真实 Git 工作区的测试 Session。 */

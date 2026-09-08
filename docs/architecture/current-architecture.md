@@ -147,13 +147,13 @@ flowchart TB
     A --> B1[activeReviewBaselineCommit 为 A]
     B1 -->|模块 1 提交 B| B2[activeReviewBaselineCommit 为 B]
     B2 -->|模块 2 提交 C| B3[activeReviewBaselineCommit 为 C]
-    R --> D[Session 累计 Diff: A 到当前工作区]
+    R --> D[历史累计展示：A 到当前工作区（可选）]
     B3 --> E[当前模块 Diff: C 到当前工作区]
 ```
 
 | 基线 | 为什么存在 | 如果只保留一个会怎样 |
 |---|---|---|
-| 初始基线 | 保留整个 Session 的累计成果 | 推进后历史累计 Diff 会消失 |
+| 初始基线 | 保留整个 Session 的累计成果 | 正式当前模块查询不使用它 |
 | 活动审查基线 | 隔离当前模块的 Coding、Review 和验证范围 | 下一模块会重复审查旧修改 |
 
 ## 4. 完整运行链路
@@ -199,10 +199,14 @@ sequenceDiagram
     C-->>E: 持续发布 Agent 事实事件
     O->>G: 采集相对活动基线的 Diff
     O->>G: 执行路径策略
+    O->>G: 记录 Maven 前工作区指纹
     O->>M: 有合规修改时执行 Maven
+    O->>G: 重新采集并比较 Maven 后指纹
     O->>APP: 返回 Session 更新与 Turn 结论
     APP->>APP: 保存终态
 ```
+
+累计 Diff 查询、Turn 提交和活动审查基线推进共享同一 Session 进程内操作锁。查询会把 Session 读取、活动 Turn 检查、工作区门禁和 Git 采集作为一个互斥区间，防止平台内部并发请求返回混合状态；外部 IDE 不受该锁控制，仍通过最终状态指纹与验证前后指纹暴露漂移。
 
 ### 4.3 SSE 可观测链路
 

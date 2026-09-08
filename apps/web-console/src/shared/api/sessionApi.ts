@@ -6,6 +6,7 @@ import type {
   CodingTurnList,
   CodingTurn,
   RunChanges,
+  WorkspaceChanges,
   ReviewBaselineReadiness,
 } from './types'
 
@@ -42,6 +43,11 @@ export function cancelCodingTurn(sessionId: string, turnId: string) { return req
 /** 读取真实工作区相对 Session 创建基线的累计代码变更。 */
 export function getCodingTurnChanges(sessionId: string, turnId: string) {
   return request<RunChanges>(`/api/v1/coding-sessions/${sessionId}/turns/${turnId}/changes`)
+}
+
+/** 读取当前 Session 相对活动审查基线的累计代码变更。 */
+export function getCodingSessionChanges(sessionId: string) {
+  return request<WorkspaceChanges>(`/api/v1/coding-sessions/${sessionId}/changes`)
 }
 
 /** 检查当前模块的正式 Git 提交是否可成为下一模块的活动审查基线。 */

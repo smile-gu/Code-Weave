@@ -68,6 +68,33 @@ class SessionWorkspaceGuardTest {
                 .doesNotThrowAnyException();
     }
 
+    @Test
+    void allowsReadingWhenHeadAdvancedFromActiveBaseline() {
+        GitRepositoryInspector inspector = mock(GitRepositoryInspector.class);
+        Path repository = Path.of("D:/test/repository").toAbsolutePath();
+        CodingSession session = session(repository, "main", "abc123");
+        when(inspector.inspect(repository)).thenReturn(
+                new GitRepositorySnapshot(repository, "main", "def456", false));
+        when(inspector.isAncestor(repository, "abc123", "def456")).thenReturn(true);
+
+        assertThatCode(() -> new SessionWorkspaceGuard(inspector).assertReadable(session))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void rejectsReadingWhenHeadIsNotActiveBaselineDescendant() {
+        GitRepositoryInspector inspector = mock(GitRepositoryInspector.class);
+        Path repository = Path.of("D:/test/repository").toAbsolutePath();
+        CodingSession session = session(repository, "main", "abc123");
+        when(inspector.inspect(repository)).thenReturn(
+                new GitRepositorySnapshot(repository, "main", "def456", false));
+        when(inspector.isAncestor(repository, "abc123", "def456")).thenReturn(false);
+
+        assertThatThrownBy(() -> new SessionWorkspaceGuard(inspector).assertReadable(session))
+                .isInstanceOf(SessionWorkspaceDriftException.class)
+                .hasMessageContaining("不是活动审查基线的后继提交");
+    }
+
     /** 创建绑定真实仓库的测试 Session。 */
     private CodingSession session(Path repository, String branch, String head) {
         Instant now = Instant.parse("2026-08-18T06:00:00Z");

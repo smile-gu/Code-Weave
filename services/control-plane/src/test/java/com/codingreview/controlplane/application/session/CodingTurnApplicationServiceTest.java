@@ -19,8 +19,10 @@ import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.workflow.coding.CodingTurnOrchestrator;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
+import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
 import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
+import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.task.TaskExecutor;
@@ -31,6 +33,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -100,8 +106,80 @@ class CodingTurnApplicationServiceTest {
         ));
     }
 
+    @Test
+    void readsChangesAgainstActiveBaselineAfterHeadAdvanced() {
+        CodingSession session = activeSession().advanceReviewBaseline(
+                "def456", Instant.parse("2026-08-18T08:00:00Z")
+        );
+        Fixture fixture = fixture(RuntimeReadiness.from(Instant.now(), List.of()), session);
+        CodingTurn completed = CodingTurn.queued(
+                UUID.randomUUID(), session.sessionId(), 1,
+                "修改完成", Instant.parse("2026-08-18T08:01:00Z")
+        ).running(Instant.parse("2026-08-18T08:01:01Z")).complete(
+                com.codingreview.controlplane.session.model.TurnOutcome.NO_CHANGES,
+                0, null, "没有变更", "", null, Instant.parse("2026-08-18T08:01:02Z")
+        );
+        when(fixture.turns.find(session.sessionId(), completed.turnId()))
+                .thenReturn(Optional.of(completed));
+        GitChangeSet changes = new GitChangeSet(
+                "def456", session.sourceRepository(), List.of(), "", 0
+        );
+        when(fixture.changes.collect(new WorkspaceHandle(
+                session.sourceRepository(), "def456"
+        ))).thenReturn(changes);
+
+        assertThat(fixture.service.changes(session.sessionId(), completed.turnId()))
+                .isSameAs(changes);
+        verify(fixture.workspaceGuard).assertReadable(session);
+        verify(fixture.changes).collect(new WorkspaceHandle(
+                session.sourceRepository(), "def456"
+        ));
+    }
+
+    @Test
+    void preventsTurnSubmissionFromEnteringDuringWorkspaceChangesRead() throws Exception {
+        Fixture fixture = fixture(RuntimeReadiness.from(Instant.now(), List.of()));
+        when(fixture.turns.findAll(fixture.session.sessionId())).thenReturn(List.of());
+        CountDownLatch collecting = new CountDownLatch(1);
+        CountDownLatch releaseCollection = new CountDownLatch(1);
+        when(fixture.changes.collect(any())).thenAnswer(invocation -> {
+            collecting.countDown();
+            assertThat(releaseCollection.await(5, TimeUnit.SECONDS)).isTrue();
+            return new GitChangeSet(
+                    fixture.session.activeReviewBaselineCommit(),
+                    fixture.session.sourceRepository(), List.of(), "", 0
+            );
+        });
+
+        boolean submittedWhileReading;
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var read = executor.submit(() -> fixture.service.changes(fixture.session.sessionId()));
+            assertThat(collecting.await(5, TimeUnit.SECONDS)).isTrue();
+            var submit = executor.submit(() -> fixture.service.submit(
+                    fixture.session.sessionId(), "不应穿透变更读取窗口"
+            ));
+            try {
+                submit.get(200, TimeUnit.MILLISECONDS);
+                submittedWhileReading = true;
+            } catch (TimeoutException expected) {
+                submittedWhileReading = false;
+            } finally {
+                releaseCollection.countDown();
+            }
+            read.get(5, TimeUnit.SECONDS);
+            submit.get(5, TimeUnit.SECONDS);
+        }
+
+        assertThat(submittedWhileReading).isFalse();
+    }
+
     /** 创建使用内存替身的 Turn 应用服务。 */
     private Fixture fixture(RuntimeReadiness readiness) {
+        return fixture(readiness, activeSession());
+    }
+
+    /** 使用指定 Session 创建内存替身，便于验证活动基线变化。 */
+    private Fixture fixture(RuntimeReadiness readiness, CodingSession session) {
         CodingSessionRepository sessions = mock(CodingSessionRepository.class);
         CodingTurnRepository turns = mock(CodingTurnRepository.class);
         CodingTurnOrchestrator orchestrator = mock(CodingTurnOrchestrator.class);
@@ -110,14 +188,13 @@ class CodingTurnApplicationServiceTest {
         RuntimeReadinessService readinessService = () -> readiness;
         SessionWorkspaceGuard workspaceGuard = mock(SessionWorkspaceGuard.class);
         CapturingExecutor executor = new CapturingExecutor();
-        CodingSession session = activeSession();
         when(sessions.find(session.sessionId())).thenReturn(Optional.of(session));
         CodingTurnApplicationService service = new CodingTurnApplicationService(
                 sessions, turns, orchestrator, changes, journal,
                 JsonMapper.builder().findAndAddModules().build(), executor, readinessService,
                 workspaceGuard, new SessionOperationLockManager()
         );
-        return new Fixture(session, turns, executor, service, workspaceGuard);
+        return new Fixture(session, turns, changes, executor, service, workspaceGuard);
     }
 
     /** 创建直接绑定真实仓库的测试 Session。 */
@@ -148,6 +225,7 @@ class CodingTurnApplicationServiceTest {
     private record Fixture(
             CodingSession session,
             CodingTurnRepository turns,
+            GitChangeCollector changes,
             CapturingExecutor executor,
             CodingTurnApplicationService service,
             SessionWorkspaceGuard workspaceGuard

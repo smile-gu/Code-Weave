@@ -2,12 +2,16 @@ package com.codingreview.controlplane.api.session;
 
 import com.codingreview.controlplane.api.common.error.ApiExceptionHandler;
 import com.codingreview.controlplane.application.session.CodingSessionApplicationService;
+import com.codingreview.controlplane.application.session.CodingTurnApplicationService;
 import com.codingreview.controlplane.application.session.ReviewBaselineApplicationService;
 import com.codingreview.controlplane.application.session.ReviewBaselineReadiness;
 import com.codingreview.controlplane.application.session.error.CodingSessionCreationException;
 import com.codingreview.controlplane.application.session.error.CodingSessionNotFoundException;
 import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
+import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
+import com.codingreview.controlplane.workspace.change.model.GitChangedFile;
+import com.codingreview.controlplane.workspace.change.model.GitChangeType;
 import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,17 +38,19 @@ class CodingSessionControllerTest {
 
     private CodingSessionApplicationService applicationService;
     private ReviewBaselineApplicationService baselineService;
+    private CodingTurnApplicationService turnService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         applicationService = mock(CodingSessionApplicationService.class);
         baselineService = mock(ReviewBaselineApplicationService.class);
+        turnService = mock(CodingTurnApplicationService.class);
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new CodingSessionController(
-                        applicationService, baselineService
+                        applicationService, baselineService, turnService
                 ))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator)
@@ -141,6 +147,27 @@ class CodingSessionControllerTest {
                 .andExpect(jsonPath("$.sessionId").value(session.sessionId().toString()))
                 .andExpect(jsonPath("$.sourceRepository").value("D:\\repository"))
                 .andExpect(jsonPath("$.sourceRepositoryDirty").value(false));
+    }
+
+    @Test
+    void returnsWorkspaceChangesWithoutTurnOwnership() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        Path repository = Path.of("D:/repository").toAbsolutePath();
+        when(turnService.changes(sessionId)).thenReturn(new GitChangeSet(
+                "abc123", repository,
+                List.of(new GitChangedFile(
+                        "src/main/java/demo/App.java", null, GitChangeType.MODIFIED, false
+                )),
+                "diff --git a/src/main/java/demo/App.java b/src/main/java/demo/App.java",
+                68
+        ));
+
+        mockMvc.perform(get("/api/v1/coding-sessions/{sessionId}/changes", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.runId").doesNotExist())
+                .andExpect(jsonPath("$.baseCommit").value("abc123"))
+                .andExpect(jsonPath("$.totalFiles").value(1))
+                .andExpect(jsonPath("$.files[0].path").value("src/main/java/demo/App.java"));
     }
 
     @Test

@@ -86,6 +86,20 @@ class MavenVerifierImplTest {
     }
 
     @Test
+    void doesNotPassWhenSurefireReportsFailureDespiteZeroExitCode() throws Exception {
+        String runId = "run-test-failure-ignored";
+        FileRunEventJournal journal = new FileRunEventJournal(runtimeRoot(), objectMapper);
+
+        MavenVerificationResult result = verifier(
+                "test-failure-ignored", journal, Duration.ofSeconds(5), 1024 * 1024
+        ).verify(request(runId, createWorktree(runId)));
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.status()).isEqualTo(MavenVerificationStatus.TEST_FAILED);
+        assertThat(result.testSummary().hasTestFailures()).isTrue();
+    }
+
+    @Test
     void rejectsUnsafeSurefireReport() throws Exception {
         String runId = "run-invalid-report";
         FileRunEventJournal journal = new FileRunEventJournal(runtimeRoot(), objectMapper);

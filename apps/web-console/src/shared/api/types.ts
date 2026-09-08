@@ -40,14 +40,19 @@ export type ChangedFile = {
   binary: boolean
 }
 
-export type RunChanges = {
-  runId: string
+type ChangesSnapshot = {
   baseCommit: string
   workspaceRoot: string
   totalFiles: number
   unifiedDiffBytes: number
   files: ChangedFile[]
   unifiedDiff: string
+}
+
+export type WorkspaceChanges = ChangesSnapshot
+
+export type RunChanges = ChangesSnapshot & {
+  runId: string
 }
 
 export type ApiErrorBody = {

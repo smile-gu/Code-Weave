@@ -8,6 +8,7 @@
 | [HTTP API](api/http-api.md) | 前后端目前可以调用哪些接口 | Controller 契约变化时 |
 | [本地开发指南](guides/local-development.md) | 如何配置、启动、测试和排障 | 环境或命令变化时 |
 | [开发路线图](roadmap.md) | 已完成、正在做和下一阶段是什么 | 每个里程碑完成时 |
+| [工程落地复盘](engineering/engineering-practice-log.md) | 工程难点、解决方案、验证结果和剩余边界 | 每次确认并完成一个问题修复后 |
 | [ADR 索引](decisions/README.md) | 技术决策如何演进、哪些已被替代 | 新增或替代决策时 |
 
 ```mermaid

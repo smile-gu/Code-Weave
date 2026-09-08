@@ -4,7 +4,9 @@ import com.codingreview.controlplane.api.session.dto.CodingSessionListResponse;
 import com.codingreview.controlplane.api.session.dto.CodingSessionResponse;
 import com.codingreview.controlplane.api.session.dto.CreateCodingSessionRequest;
 import com.codingreview.controlplane.api.session.dto.ReviewBaselineReadinessResponse;
+import com.codingreview.controlplane.api.session.dto.WorkspaceChangesResponse;
 import com.codingreview.controlplane.application.session.CodingSessionApplicationService;
+import com.codingreview.controlplane.application.session.CodingTurnApplicationService;
 import com.codingreview.controlplane.application.session.CreateCodingSessionCommand;
 import com.codingreview.controlplane.application.session.ReviewBaselineApplicationService;
 import com.codingreview.controlplane.session.model.CodingSession;
@@ -34,14 +36,17 @@ public class CodingSessionController {
 
     private final CodingSessionApplicationService applicationService;
     private final ReviewBaselineApplicationService baselineService;
+    private final CodingTurnApplicationService turnService;
 
     /** 装配 Session 生命周期与活动基线服务。 */
     public CodingSessionController(
             CodingSessionApplicationService applicationService,
-            ReviewBaselineApplicationService baselineService
+            ReviewBaselineApplicationService baselineService,
+            CodingTurnApplicationService turnService
     ) {
         this.applicationService = applicationService;
         this.baselineService = baselineService;
+        this.turnService = turnService;
     }
 
     /** 创建一个直接绑定真实 Git 工作区的持久 Coding Session。 */
@@ -75,6 +80,12 @@ public class CodingSessionController {
     @GetMapping("/{sessionId}")
     public CodingSessionResponse get(@PathVariable UUID sessionId) {
         return CodingSessionResponse.from(applicationService.get(sessionId));
+    }
+
+    /** 读取当前 Session 相对活动审查基线的累计代码变更。 */
+    @GetMapping("/{sessionId}/changes")
+    public WorkspaceChangesResponse changes(@PathVariable UUID sessionId) {
+        return WorkspaceChangesResponse.from(turnService.changes(sessionId));
     }
 
     /** 检查当前 Git 提交是否可作为下一审查周期的活动基线。 */

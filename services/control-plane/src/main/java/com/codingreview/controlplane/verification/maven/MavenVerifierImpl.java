@@ -232,12 +232,13 @@ public final class MavenVerifierImpl implements MavenVerifier {
 
     /** 根据退出码和测试报告区分通过、构建失败与测试失败。 */
     private MavenVerificationStatus classify(Integer exitCode, MavenTestSummary summary) {
+        if (summary != null && summary.hasTestFailures()) {
+            return MavenVerificationStatus.TEST_FAILED;
+        }
         if (Integer.valueOf(0).equals(exitCode)) {
             return MavenVerificationStatus.PASSED;
         }
-        return summary.hasTestFailures()
-                ? MavenVerificationStatus.TEST_FAILED
-                : MavenVerificationStatus.BUILD_FAILED;
+        return MavenVerificationStatus.BUILD_FAILED;
     }
 
     /** 生成面向用户的 Maven 验证结论。 */

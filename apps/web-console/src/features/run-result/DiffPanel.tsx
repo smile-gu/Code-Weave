@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Diff, Hunk, parseDiff } from 'react-diff-view'
 import { FileCode2 } from 'lucide-react'
-import type { RunChanges } from '../../shared/api/types'
+import type { WorkspaceChanges } from '../../shared/api/types'
 
 /** 去除 Git 写入 Diff 正文之前的诊断信息，兼容已经产生的历史 Run。 */
 export function normalizeUnifiedDiff(unifiedDiff: string) {
@@ -10,7 +10,7 @@ export function normalizeUnifiedDiff(unifiedDiff: string) {
 }
 
 /** 使用成熟 Unified Diff 组件展示本次 Run 的代码修改。 */
-export function DiffPanel({ changes }: { changes: RunChanges }) {
+export function DiffPanel({ changes }: { changes: WorkspaceChanges }) {
   const parsed = useMemo(() => {
     const normalizedDiff = normalizeUnifiedDiff(changes.unifiedDiff)
     if (!/^diff --git /m.test(normalizedDiff)) {

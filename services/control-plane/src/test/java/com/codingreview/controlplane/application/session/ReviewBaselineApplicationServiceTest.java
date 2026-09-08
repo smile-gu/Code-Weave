@@ -15,8 +15,12 @@ import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
 import com.codingreview.controlplane.workspace.git.GitRepositoryInspector;
 import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -35,6 +39,9 @@ import static org.mockito.Mockito.when;
 class ReviewBaselineApplicationServiceTest {
     private static final String INITIAL_COMMIT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private static final String NEW_COMMIT = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+    @TempDir
+    Path tempDir;
 
     @Test
     void advancesVerifiedCleanDescendantAndPreservesInitialBaseline() {
@@ -115,7 +122,14 @@ class ReviewBaselineApplicationServiceTest {
         CodingTurnRepository turns = mock(CodingTurnRepository.class);
         GitRepositoryInspector inspector = mock(GitRepositoryInspector.class);
         GitChangeCollector changes = mock(GitChangeCollector.class);
-        Path repository = Path.of("D:/test/repository").toAbsolutePath();
+        Path repository = tempDir.resolve("review-baseline-repository");
+        try {
+            Files.createDirectories(repository.resolve("src/main/java/demo"));
+            Files.writeString(repository.resolve("src/main/java/demo/App.java"),
+                    "class App {}\n", StandardCharsets.UTF_8);
+        } catch (IOException exception) {
+            throw new IllegalStateException("无法创建测试工作区。", exception);
+        }
         UUID sessionId = UUID.randomUUID();
         Instant createdAt = Instant.parse("2026-08-28T08:00:00Z");
         CodingSession session = CodingSession.initializing(

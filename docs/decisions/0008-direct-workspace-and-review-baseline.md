@@ -19,8 +19,8 @@
 
 | 字段 | 生命周期 | 用途 |
 |---|---|---|
-| `resolvedCommit` | Session 内永久不变 | 展示整个 Session 从创建以来的累计 Diff |
-| `activeReviewBaselineCommit` | 每个模块完成后推进 | 新 Turn、Review 范围、路径门禁、Maven 验证和 HEAD 防漂移 |
+| `resolvedCommit` | Session 内永久不变 | 保留 Session 创建时的初始历史基线，用于追溯；正式页面不再用它查询当前累计 Diff |
+| `activeReviewBaselineCommit` | 每个模块完成后推进 | 正式页面累计 Diff、新 Turn、Review 范围、路径门禁、Maven 验证和 HEAD 防漂移 |
 
 ```mermaid
 flowchart LR

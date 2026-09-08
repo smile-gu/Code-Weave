@@ -6,7 +6,7 @@ import {
   cancelCodingTurn,
   advanceReviewBaseline,
   getCodingSession,
-  getCodingTurnChanges,
+  getCodingSessionChanges,
   getCodingTurns,
   getReviewBaselineReadiness,
   submitCodingTurn,
@@ -64,13 +64,10 @@ export function CodingSessionDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['coding-session', sessionId] })
     void queryClient.invalidateQueries({ queryKey: ['review-baseline-readiness', sessionId] })
   }, [queryClient, sessionId])
-  const latestChangedTurn = [...(turnsQuery.data?.turns ?? [])]
-    .reverse()
-    .find((turn) => turn.changedFiles > 0 && turn.status !== 'QUEUED' && turn.status !== 'RUNNING')
   const changesQuery = useQuery({
-    queryKey: ['coding-turn-changes', sessionId, latestChangedTurn?.turnId],
-    queryFn: () => getCodingTurnChanges(sessionId, latestChangedTurn!.turnId),
-    enabled: Boolean(latestChangedTurn),
+    queryKey: ['coding-session-changes', sessionId, sessionQuery.data?.activeReviewBaselineCommit],
+    queryFn: () => getCodingSessionChanges(sessionId),
+    enabled: Boolean(sessionQuery.data) && !activeTurn,
   })
   const baselineReadinessQuery = useQuery({
     queryKey: ['review-baseline-readiness', sessionId],
@@ -207,7 +204,7 @@ export function CodingSessionDetailPage() {
 
       {changesQuery.isLoading && <section className="session-changes"><p>正在读取累计代码变更…</p></section>}
       {changesQuery.data && <section className="session-changes">
-        <header><strong>当前累计代码变更</strong><small>相对 Session 创建基线</small></header>
+          <header><strong>当前累计代码变更</strong><small>相对当前活动审查基线</small></header>
         <DiffPanel changes={changesQuery.data} />
       </section>}
 

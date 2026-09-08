@@ -13,7 +13,8 @@ Control Plane 默认监听 `127.0.0.1:8080`。正式 Web 工作台只使用 Codi
 | POST | `/api/v1/coding-sessions/{sessionId}/turns` | 提交 Coding Turn | 是 |
 | GET | `/api/v1/coding-sessions/{sessionId}/turns` | 查询多轮历史 | 是 |
 | GET | `/api/v1/coding-sessions/{sessionId}/turns/{turnId}` | 查询单轮状态 | 是 |
-| GET | `/api/v1/coding-sessions/{sessionId}/turns/{turnId}/changes` | 查询累计 Diff | 是 |
+| GET | `/api/v1/coding-sessions/{sessionId}/changes` | 查询相对活动审查基线的当前累计 Diff | 是 |
+| GET | `/api/v1/coding-sessions/{sessionId}/turns/{turnId}/changes` | 兼容旧版按 Turn 查询累计 Diff | 否 |
 | POST | `/api/v1/coding-sessions/{sessionId}/turns/{turnId}/cancel` | 停止当前 Turn | 是 |
 | GET | `/api/v1/coding-sessions/{sessionId}/turns/{turnId}/stream` | 消费 Turn SSE | 是 |
 | GET | `/api/v1/coding-sessions/{sessionId}/review-baseline-readiness` | 预览模块提交门禁 | 是 |
@@ -73,6 +74,38 @@ Content-Type: application/json
 ```
 
 成功返回 `201 Created` 和已持久化的 `QUEUED` Turn。同一 Session 已有 `QUEUED` 或 `RUNNING` Turn 时返回 `409`。
+
+## 4. 查询当前累计代码变更
+
+```http
+GET /api/v1/coding-sessions/{sessionId}/changes
+```
+
+该接口返回真实工作区相对 `activeReviewBaselineCommit` 的当前累计变更，不表示某个 Turn 的不可变历史快照。用户手工修改、多个 Coding Turn 的修改，以及提交后尚未推进活动基线的修改，都会按当前工作区事实返回。
+
+存在 `QUEUED` 或 `RUNNING` Turn 时返回 `409 TURN_NOT_FINISHED`，避免将执行中的混合状态描述为稳定快照。分支切换或当前 HEAD 不是活动基线后继提交时也会返回明确的 `409` 业务错误。
+
+从读取 Session、检查活动 Turn、执行工作区读取门禁到完成 Git 采集，后端始终持有同一 Session 操作锁。这能阻止平台内部的 Turn 提交或基线推进穿透查询窗口；它不锁定操作系统文件，外部 IDE 修改仍由工作区指纹和后续验证负责发现。
+
+响应不包含 `runId` 或 `turnId`：
+
+```json
+{
+  "baseCommit": "abc123",
+  "workspaceRoot": "D:/personal_project/demo",
+  "totalFiles": 1,
+  "unifiedDiffBytes": 128,
+  "files": [
+    {
+      "path": "src/main/java/demo/App.java",
+      "oldPath": null,
+      "changeType": "MODIFIED",
+      "binary": false
+    }
+  ],
+  "unifiedDiff": "diff --git ..."
+}
+```
 
 ## 4. SSE 事件
 
