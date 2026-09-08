@@ -73,7 +73,21 @@ Content-Type: application/json
 }
 ```
 
-成功返回 `201 Created` 和已持久化的 `QUEUED` Turn。同一 Session 已有 `QUEUED` 或 `RUNNING` Turn 时返回 `409`。
+通常返回 `201 Created` 和已持久化的 `QUEUED` Turn。同一 Session 已有 `QUEUED` 或 `RUNNING` Turn 时返回 `409`。如果执行器在接收任务时拒绝，但失败 Turn 已可靠保存，响应仍携带该 Turn 身份和真实 `FAILED` 状态；状态无法确认时返回服务错误，前端不能把它当成“任务一定没有创建”而自动重试。
+
+单 Turn 状态接口供页面终态确认与低频对账使用，不读取或返回完整历史正文：
+
+```http
+GET /api/v1/coding-sessions/{sessionId}/turns/{turnId}
+```
+
+运行中取消不会提前伪造 `CANCELLED`：
+
+```http
+POST /api/v1/coding-sessions/{sessionId}/turns/{turnId}/cancel
+```
+
+排队任务可直接保存为 `CANCELLED`；运行中任务先登记取消请求并返回当时的真实状态，只有执行资源确认清理后才由统一终态逻辑保存 `CANCELLED`。重复取消或完成后取消返回已有真实终态，不覆盖结果。
 
 ## 4. 查询当前累计代码变更
 
@@ -115,6 +129,8 @@ Accept: text/event-stream
 ```
 
 客户端也可以使用 `Last-Event-ID`。服务端取两个游标的较大值，先补发历史，再发送实时事件；SSE 事件名固定为 `run-event`，`id` 是事件序号。
+
+终态 SSE 是“可能需要确认状态”的通知，不是覆盖 Turn 状态的命令。前端收到终态通知后有限退避查询单 Turn；活动任务每五秒对账一次。查询失败显示连接或确认异常，不转换成 `FAILED/CANCELLED`，也不开放下一轮提交。
 
 ```mermaid
 sequenceDiagram

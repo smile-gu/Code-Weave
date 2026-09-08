@@ -4,6 +4,7 @@ import com.codingreview.controlplane.application.session.error.CodingSessionCrea
 import com.codingreview.controlplane.application.session.error.CodingSessionNotFoundException;
 import com.codingreview.controlplane.application.session.error.CodingSessionConflictException;
 import com.codingreview.controlplane.runtime.readiness.error.RuntimeNotReadyException;
+import com.codingreview.controlplane.session.persistence.CodingTurnHistoryException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -99,6 +100,19 @@ public class ApiExceptionHandler {
     ) {
         return response(HttpStatus.CONFLICT, exception.code(),
                 exception.getMessage(), request, null, Map.of());
+    }
+
+    /** 将不可读取的 Turn 历史转换为明确的会话隔离错误。 */
+    @ExceptionHandler(CodingTurnHistoryException.class)
+    ResponseEntity<ApiErrorResponse> handleTurnHistoryFailure(
+            CodingTurnHistoryException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.error("Coding Turn 历史不可读取，sessionId={}, kind={}, path={}",
+                exception.sessionId(), exception.kind(), exception.file(), exception);
+        return response(HttpStatus.CONFLICT, "TURN_HISTORY_" + exception.kind().name(),
+                "当前会话的 Coding 历史无法可靠读取，已停止继续执行，请检查服务日志。",
+                request, null, Map.of());
     }
 
     /** 将本机环境未就绪转换为不创建 Run 的 503 响应。 */

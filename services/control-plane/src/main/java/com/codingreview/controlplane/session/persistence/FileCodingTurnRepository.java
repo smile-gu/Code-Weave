@@ -2,6 +2,7 @@ package com.codingreview.controlplane.session.persistence;
 
 import com.codingreview.controlplane.session.model.CodingTurn;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +55,26 @@ public final class FileCodingTurnRepository implements CodingTurnRepository {
 
     /** 查询单轮快照。 */
     @Override public Optional<CodingTurn> find(UUID sessionId, UUID turnId) {
-        return findAll(sessionId).stream().filter(turn -> turn.turnId().equals(turnId)).findFirst();
+        Path dir = sessionDir(sessionId).resolve("turns");
+        if (!Files.isDirectory(dir)) return Optional.empty();
+        String suffix = "-" + turnId + ".json";
+        try (var files = Files.list(dir)) {
+            List<Path> matches = files.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(suffix))
+                    .toList();
+            if (matches.size() > 1) {
+                throw historyFailure(sessionId, dir,
+                        CodingTurnHistoryFailureKind.DATA_CORRUPTED,
+                        "同一个 Coding Turn 存在多个快照文件。", null);
+            }
+            return matches.isEmpty() ? Optional.empty()
+                    : Optional.of(read(sessionId, matches.getFirst()));
+        } catch (CodingTurnHistoryException exception) {
+            throw exception;
+        } catch (IOException exception) {
+            throw historyFailure(sessionId, dir, CodingTurnHistoryFailureKind.IO_FAILURE,
+                    "无法查询 Coding Turn 快照。", exception);
+        }
     }
 
     /** 扫描 Session 下所有 Turn，并按序号排序。 */
@@ -63,26 +83,59 @@ public final class FileCodingTurnRepository implements CodingTurnRepository {
         if (!Files.isDirectory(dir)) return List.of();
         try (var files = Files.list(dir)) {
             return files.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".json"))
-                    .map(this::read).sorted(Comparator.comparingInt(CodingTurn::sequence)).toList();
-        } catch (IOException e) { throw new CodingSessionPersistenceException("无法读取 Coding Turn 快照。", e); }
+                    .map(path -> read(sessionId, path))
+                    .sorted(Comparator.comparingInt(CodingTurn::sequence)).toList();
+        } catch (IOException e) {
+            throw historyFailure(sessionId, dir, CodingTurnHistoryFailureKind.IO_FAILURE,
+                    "无法列举 Coding Turn 快照。", e);
+        }
     }
 
-    /** 从文件恢复 Turn 快照。 */
-    private CodingTurn read(Path path) {
+    /** 从文件恢复 Turn 快照，并校验记录身份确实属于目标 Session。 */
+    private CodingTurn read(UUID expectedSessionId, Path path) {
         try {
             var tree = mapper.readTree(path.toFile());
-            if (!tree.has("schemaVersion")) {
-                return mapper.treeToValue(tree, CodingTurn.class);
+            int schemaVersion = tree.has("schemaVersion")
+                    ? tree.path("schemaVersion").asInt(-1) : 0;
+            if (schemaVersion < 0 || schemaVersion > SCHEMA_VERSION) {
+                throw historyFailure(expectedSessionId, path,
+                        CodingTurnHistoryFailureKind.VERSION_UNSUPPORTED,
+                        "不支持的 Coding Turn 快照版本：" + schemaVersion, null);
             }
-            TurnDocument document = mapper.treeToValue(tree, TurnDocument.class);
-            if (document.schemaVersion() != SCHEMA_VERSION) {
-                throw new CodingSessionPersistenceException(
-                        "不支持的 Coding Turn 快照版本：" + document.schemaVersion()
-                );
+            CodingTurn turn = schemaVersion == 0
+                    ? mapper.treeToValue(tree, CodingTurn.class)
+                    : mapper.treeToValue(tree, TurnDocument.class).turn();
+            String expectedFileName = turn == null ? null
+                    : turn.sequence() + "-" + turn.turnId() + ".json";
+            if (turn == null || !expectedSessionId.equals(turn.sessionId())
+                    || !path.getFileName().toString().equals(expectedFileName)) {
+                throw historyFailure(expectedSessionId, path,
+                        CodingTurnHistoryFailureKind.DATA_CORRUPTED,
+                        "Coding Turn 快照身份与所属 Session 或文件名不一致。", null);
             }
-            return document.turn();
+            return turn;
+        } catch (CodingTurnHistoryException exception) {
+            throw exception;
+        } catch (JsonProcessingException | IllegalArgumentException exception) {
+            throw historyFailure(expectedSessionId, path,
+                    CodingTurnHistoryFailureKind.DATA_CORRUPTED,
+                    "Coding Turn 快照内容损坏：" + path, exception);
+        } catch (IOException exception) {
+            throw historyFailure(expectedSessionId, path,
+                    CodingTurnHistoryFailureKind.IO_FAILURE,
+                    "暂时无法读取 Coding Turn 快照：" + path, exception);
         }
-        catch (IOException | IllegalArgumentException e) { throw new CodingSessionPersistenceException("无法读取 Coding Turn 快照：" + path, e); }
+    }
+
+    /** 构造保留 Session、文件和诊断类别的历史异常。 */
+    private CodingTurnHistoryException historyFailure(
+            UUID sessionId,
+            Path path,
+            CodingTurnHistoryFailureKind kind,
+            String message,
+            Throwable cause
+    ) {
+        return new CodingTurnHistoryException(sessionId, path, kind, message, cause);
     }
 
     /** 返回 Session 的受控目录。 */

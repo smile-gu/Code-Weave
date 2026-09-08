@@ -449,6 +449,8 @@ input::placeholder, textarea::placeholder { color: #a1a8a2; }
 .turn-execution-panel .stage-rail { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .turn-execution-panel .stage-item > span:last-child { background: white; }
 .turn-execution-panel .stage-item small { max-width: 150px; }
+.turn-confirmation-notice { margin: 12px 0 0; padding: 9px 11px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #e3cfa4; border-radius: 8px; background: #fffaf0; color: #77613b; font-size: 11px; }
+.turn-confirmation-notice button { padding: 4px 8px; border: 0; background: transparent; color: #7a5b20; font-size: 11px; text-decoration: underline; cursor: pointer; }
 .turn-activity-details { margin: 16px 0 0; border-top: 1px solid #eceeeb; background: transparent; }
 .turn-activity-details > summary { min-height: 42px; padding: 0 3px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; cursor: pointer; list-style: none; color: #667069; font-size: 10px; }
 .turn-activity-details > summary::-webkit-details-marker { display: none; }

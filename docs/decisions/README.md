@@ -12,6 +12,7 @@
 | [ADR-0008](0008-direct-workspace-and-review-baseline.md) | 真实工作区与活动审查基线 | 当前有效 | 规定正式 Coding、Review、自测和模块 Commit 的主链路 |
 | [ADR-0009](0009-review-harness-service-contract.md) | Review Harness 跨服务运行契约 | 部分冻结 | 记录 Java/Python 内部接口、Run 生命周期及 Java、Python、LangGraph、Memory 的持久化职责分层 |
 | [ADR-0010](0010-legacy-worktree-run-isolation.md) | 旧版 Worktree Run 隔离 | 当前有效 | 旧版单轮链路只在显式 Profile、独立目录与独立回归测试中存在，不进入正式运行面 |
+| [ADR-0011](0011-coding-turn-terminal-reliability.md) | Coding Turn 终态、取消与恢复可靠性 | 当前有效 | 规定持久状态、终态事件、取消竞争、进程清理、损坏历史隔离与前端对账顺序 |
 
 ```mermaid
 flowchart LR
@@ -24,6 +25,7 @@ flowchart LR
     G -->|被替代| H[0008 真实工作区与活动基线]
     H --> I[0009 Review Harness 跨服务契约]
     I --> J[0010 旧版 Worktree Run 隔离]
+    J --> K[0011 Turn 可靠终态]
 ```
 
 ## 状态含义

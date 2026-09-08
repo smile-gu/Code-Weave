@@ -5,6 +5,12 @@ import { ActivityTimeline } from '../run-monitor/ActivityTimeline'
 import { projectActivities } from '../run-monitor/activityProjection'
 import { StageRail } from '../run-monitor/StageRail'
 import { projectTurnStages } from './turnProjection'
+import { getCodingTurn } from '../../shared/api/sessionApi'
+import {
+  confirmTerminalTurn,
+  isTerminalTurn,
+  TURN_STATUS_RECONCILIATION_MS,
+} from './turnStatusConfirmation'
 
 type TurnExecutionPanelProps = {
   sessionId: string
@@ -21,18 +27,56 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
   const [events, setEvents] = useState<RunEvent[]>([])
   const [streamConnected, setStreamConnected] = useState(false)
   const terminalObserved = useRef(false)
+  const terminalConfirmed = useRef(false)
+  const generation = useRef(0)
+  const retryConfirmation = useRef<() => void>(() => {})
+  const [confirmation, setConfirmation] = useState<'idle' | 'confirming' | 'unconfirmed' | 'network-error'>('idle')
   const stages = useMemo(() => projectTurnStages(events, turn), [events, turn])
   const activities = useMemo(() => projectActivities(events), [events])
 
   useEffect(() => {
+    terminalObserved.current = false
+    terminalConfirmed.current = !active
+    setConfirmation('idle')
     if (!active && !expanded) return
+    const currentGeneration = ++generation.current
+    const isCurrent = () => generation.current === currentGeneration
+    const canConfirm = () => isCurrent() && !terminalConfirmed.current
+    let confirming = false
+    let polling = false
+    let reconciliation: number | undefined
+    const controller = new AbortController()
+    /** 页面离开或终态确认后立即解除退避定时器。 */
+    const wait = (milliseconds: number) => new Promise<void>((resolve) => {
+      const stop = () => { window.clearTimeout(timer); controller.signal.removeEventListener('abort', stop); resolve() }
+      const timer = window.setTimeout(stop, milliseconds)
+      controller.signal.addEventListener('abort', stop, { once: true })
+      if (controller.signal.aborted) stop()
+    })
     const source = new EventSource(
       `/api/v1/coding-sessions/${sessionId}/turns/${turn.turnId}/stream`,
     )
-    source.onopen = () => setStreamConnected(true)
+    source.onopen = () => { if (isCurrent()) setStreamConnected(true) }
+    source.onerror = () => {
+      if (canConfirm() && active) { setStreamConnected(false); setConfirmation('network-error') }
+    }
+
+    /** 所有确认入口共同关闭实时资源并清除尚未确认提示。 */
+    const finishConfirmation = () => {
+      if (!canConfirm()) return
+      terminalConfirmed.current = true
+      terminalObserved.current = true
+      controller.abort()
+      setConfirmation('idle')
+      source.close()
+      if (reconciliation !== undefined) window.clearInterval(reconciliation)
+      setStreamConnected(false)
+      onTerminal()
+    }
 
     /** 接收可用于产品展示的事实事件，并过滤大段控制台输出。 */
     const receive = (raw: Event) => {
+      if (!isCurrent()) return
       try {
         const event = JSON.parse((raw as MessageEvent<string>).data) as RunEvent
         if (event.type !== 'PROCESS_STDOUT' && event.type !== 'PROCESS_STDERR'
@@ -41,21 +85,51 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
             ? current
             : [...current, event])
         }
-        if (terminalTypes.has(event.type)) {
-          source.close()
-          setStreamConnected(false)
-          if (!terminalObserved.current) {
-            terminalObserved.current = true
-            onTerminal()
-          }
+        if (active && terminalTypes.has(event.type) && !terminalObserved.current) {
+          terminalObserved.current = true
+          void confirmTerminal()
         }
       } catch {
         // 非结构化事件不进入展示投影，事实日志仍由 Control Plane 保留。
       }
     }
 
+    /** 使用持久化单 Turn 查询确认 SSE 所通知的终态。 */
+    const confirmTerminal = async () => {
+      if (!canConfirm() || confirming) return
+      confirming = true
+      if (terminalObserved.current) setConfirmation('confirming')
+      const result = await confirmTerminalTurn(
+        () => getCodingTurn(sessionId, turn.turnId, controller.signal), canConfirm, wait,
+      )
+      confirming = false
+      if (!canConfirm() || result.kind === 'stale') return
+      if (result.kind === 'confirmed') {
+        finishConfirmation()
+        return
+      }
+      setConfirmation(result.error ? 'network-error' : 'unconfirmed')
+    }
+    retryConfirmation.current = () => { void confirmTerminal() }
+
+    reconciliation = active ? window.setInterval(() => {
+      if (!canConfirm() || polling) return
+      polling = true
+      void getCodingTurn(sessionId, turn.turnId, controller.signal).then((persisted) => {
+        if (!canConfirm()) return
+        if (isTerminalTurn(persisted)) finishConfirmation()
+        else if (!terminalObserved.current) setConfirmation('idle')
+      }).catch(() => {
+        if (canConfirm()) setConfirmation('network-error')
+      }).finally(() => { polling = false })
+    }, TURN_STATUS_RECONCILIATION_MS) : undefined
+
     source.addEventListener('run-event', receive)
     return () => {
+      generation.current++
+      controller.abort()
+      retryConfirmation.current = () => {}
+      if (reconciliation !== undefined) window.clearInterval(reconciliation)
       source.removeEventListener('run-event', receive)
       source.close()
       setStreamConnected(false)
@@ -71,6 +145,18 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
         </small>
       </div>
       <StageRail stages={stages} ariaLabel={`第 ${turn.sequence} 轮 Coding 阶段进度`} />
+      {confirmation !== 'idle' && (
+        <div className="turn-confirmation-notice" role="status">
+          <span>{confirmation === 'confirming'
+            ? '正在确认最终状态…'
+            : confirmation === 'network-error'
+              ? '连接异常，尚未确认最终状态。'
+              : '尚未确认最终状态，当前任务仍保持占用。'}</span>
+          {confirmation !== 'confirming' && (
+            <button type="button" onClick={() => retryConfirmation.current()}>手动重试</button>
+          )}
+        </div>
+      )}
       <details className="turn-activity-details" open={expanded}
         onToggle={(event) => setExpanded(event.currentTarget.open)}>
         <summary>

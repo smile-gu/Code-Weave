@@ -68,6 +68,14 @@ public record CodingTurn(
                 createdAt, startedAt, now);
     }
 
+    /** 在执行尚未开始时将排队 Turn 收敛为失败，不伪造 startedAt。 */
+    public CodingTurn failBeforeStart(String code, String message, Instant now) {
+        requireStatus(TurnStatus.QUEUED);
+        return new CodingTurn(turnId, sessionId, sequence, userPrompt, TurnStatus.FAILED,
+                TurnOutcome.AGENT_FAILED, null, nativeClaudeSessionId, 0, null,
+                code, message, createdAt, null, now);
+    }
+
     /** 记录用户主动停止的 Turn。 */
     public CodingTurn cancelled(String message, Instant now) {
         if (status != TurnStatus.QUEUED && status != TurnStatus.RUNNING) throw new IllegalStateException("turn is not cancellable");

@@ -225,6 +225,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
             case CANCELLED -> MavenVerificationStatus.CANCELLED;
             case LOG_LIMIT_EXCEEDED -> MavenVerificationStatus.LOG_LIMIT_EXCEEDED;
             case LOG_CAPTURE_FAILED -> MavenVerificationStatus.LOG_CAPTURE_FAILED;
+            case PROCESS_CLEANUP_FAILED -> MavenVerificationStatus.PROCESS_CLEANUP_FAILED;
             case COMPLETED -> throw new IllegalArgumentException("completed process is not a failure");
         };
         return result(status, command, process, null, userMessage(status, null), process.diagnostic());
@@ -255,6 +256,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
             case LOG_LIMIT_EXCEEDED -> "Maven 日志超过 100 MB 安全上限，验证已被终止。";
             case LOG_CAPTURE_FAILED -> "Maven 日志或验证产物无法可靠保存，验证已被终止。";
             case REPORT_INVALID -> "Surefire 测试报告无法可靠解析，本次验证已失败。";
+            case PROCESS_CLEANUP_FAILED -> "Maven 进程未能可靠清理，当前会话已停止继续执行。";
         };
     }
 

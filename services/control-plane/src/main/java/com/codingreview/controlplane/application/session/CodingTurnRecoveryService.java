@@ -6,6 +6,8 @@ import com.codingreview.controlplane.session.model.CodingTurn;
 import com.codingreview.controlplane.session.model.TurnStatus;
 import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
 import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
+import com.codingreview.controlplane.session.persistence.CodingTurnHistoryException;
+import com.codingreview.controlplane.session.persistence.CodingTurnHistoryFailureKind;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,24 +48,79 @@ public final class CodingTurnRecoveryService implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         int interrupted = 0;
         for (var session : sessions.findAll()) {
-            for (CodingTurn turn : turns.findAll(session.sessionId())) {
+            final java.util.List<CodingTurn> history;
+            try {
+                history = turns.findAll(session.sessionId());
+            } catch (CodingTurnHistoryException exception) {
+                isolateDamagedHistory(session, exception);
+                continue;
+            } catch (RuntimeException exception) {
+                LOGGER.error("读取 Turn 历史失败，本次启动保留 Session 现状，sessionId={}",
+                        session.sessionId(), exception);
+                continue;
+            }
+            for (CodingTurn turn : history) {
+                if ("PROCESS_CLEANUP_FAILED".equals(turn.failureCode())) {
+                    try {
+                        sessions.save(session.fail("PROCESS_CLEANUP_FAILED",
+                                "历史任务资源清理未确认，仓库继续保持保护。", Instant.now()));
+                    } catch (RuntimeException exception) {
+                        LOGGER.error("清理风险无法投影到 Session，Turn 证据仍阻止提交，sessionId={}",
+                                session.sessionId(), exception);
+                    }
+                }
                 if (turn.status() != TurnStatus.QUEUED
                         && turn.status() != TurnStatus.RUNNING) {
                     continue;
                 }
                 CodingTurn recovered = turn.interrupted(Instant.now());
-                turns.save(recovered);
-                journal.append(
-                        turn.turnId().toString(), "coding-turn", 1,
-                        RunEventType.RUN_FAILED,
-                        mapper.createObjectNode()
-                                .put("turnId", turn.turnId().toString())
-                                .put("failureCode", recovered.failureCode())
-                                .put("message", recovered.userMessage())
-                );
-                interrupted++;
+                try {
+                    turns.save(recovered);
+                    interrupted++;
+                } catch (RuntimeException exception) {
+                    LOGGER.error("遗留 Turn 终态保存失败，保留 Session 执行保护，sessionId={}, turnId={}",
+                            session.sessionId(), turn.turnId(), exception);
+                    continue;
+                }
+                try {
+                    journal.append(
+                            turn.turnId().toString(), "coding-turn", 1,
+                            RunEventType.RUN_FAILED,
+                            mapper.createObjectNode()
+                                    .put("turnId", turn.turnId().toString())
+                                    .put("failureCode", recovered.failureCode())
+                                    .put("message", recovered.userMessage())
+                    );
+                } catch (RuntimeException exception) {
+                    LOGGER.error("遗留 Turn 已保存为中断，但恢复通知追加失败，sessionId={}, turnId={}",
+                            session.sessionId(), turn.turnId(), exception);
+                }
             }
         }
         LOGGER.info("Coding Turn 恢复完成，中断遗留 Turn={}", interrupted);
+    }
+
+    /** 将单个损坏历史隔离为 Session 失败，不影响其他 Session 继续恢复。 */
+    private void isolateDamagedHistory(
+            com.codingreview.controlplane.session.model.CodingSession session,
+            CodingTurnHistoryException exception
+    ) {
+        String code = switch (exception.kind()) {
+            case DATA_CORRUPTED -> "TURN_HISTORY_CORRUPTED";
+            case VERSION_UNSUPPORTED -> "TURN_HISTORY_VERSION_UNSUPPORTED";
+            case IO_FAILURE -> "TURN_HISTORY_IO_FAILED";
+        };
+        String message = exception.kind() == CodingTurnHistoryFailureKind.DATA_CORRUPTED
+                ? "Coding Turn 历史已损坏，原文件已保留，请人工检查后再继续。"
+                : "Coding Turn 历史当前无法可靠读取，请检查版本或文件系统后再继续。";
+        try {
+            sessions.save(session.fail(code, message, Instant.now()));
+        } catch (RuntimeException saveFailure) {
+            LOGGER.error("Turn 历史异常且 Session 保护状态保存失败，既有仓库保护不会释放，sessionId={}, path={}",
+                    session.sessionId(), exception.file(), saveFailure);
+            return;
+        }
+        LOGGER.error("已隔离异常 Turn 历史，sessionId={}, kind={}, path={}",
+                exception.sessionId(), exception.kind(), exception.file(), exception);
     }
 }

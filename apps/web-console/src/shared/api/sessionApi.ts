@@ -32,6 +32,11 @@ export function getCodingSession(sessionId: string) {
 /** 查询持续 Session 的多轮 Coding 历史。 */
 export function getCodingTurns(sessionId: string) { return request<CodingTurnList>(`/api/v1/coding-sessions/${sessionId}/turns`) }
 
+/** 只查询单个 Turn 的持久状态，供终态确认和低频对账使用。 */
+export function getCodingTurn(sessionId: string, turnId: string, signal?: AbortSignal) {
+  return request<CodingTurn>(`/api/v1/coding-sessions/${sessionId}/turns/${turnId}`, { signal })
+}
+
 /** 提交下一轮 Coding 指令。 */
 export function submitCodingTurn(sessionId: string, prompt: string) {
   return request<CodingTurn>(`/api/v1/coding-sessions/${sessionId}/turns`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) })

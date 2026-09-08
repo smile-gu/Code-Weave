@@ -40,6 +40,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -142,6 +145,38 @@ class CodingTurnOrchestratorImplTest {
     }
 
     @Test
+    void returnsTerminalCandidateWithoutPublishingTerminalEvent() {
+        ClaudeCodeAdapter claude = mock(ClaudeCodeAdapter.class);
+        GitChangeCollector changes = mock(GitChangeCollector.class);
+        ChangePolicyEvaluator policy = mock(ChangePolicyEvaluator.class);
+        MavenVerifier maven = mock(MavenVerifier.class);
+        RunEventJournal journal = mock(RunEventJournal.class);
+        SessionWorkspaceGuard guard = mock(SessionWorkspaceGuard.class);
+        CodingSession session = activeSession();
+        CodingTurn running = runningTurn(session);
+        when(claude.run(any(), any())).thenReturn(completedClaude());
+        when(changes.collect(any())).thenReturn(new GitChangeSet(
+                session.activeReviewBaselineCommit(), session.sourceRepository(),
+                List.of(), "", 0
+        ));
+
+        CodingTurnExecution result = new CodingTurnOrchestratorImpl(
+                claude, changes, policy, maven, journal,
+                JsonMapper.builder().findAndAddModules().build(), guard
+        ).execute(session, running, ignored -> { });
+
+        assertThat(result.turn().status())
+                .isEqualTo(com.codingreview.controlplane.session.model.TurnStatus.COMPLETED);
+        verify(journal, never()).append(
+                anyString(), anyString(), anyInt(),
+                argThat(type -> type == com.codingreview.controlplane.observability.run.RunEventType.RUN_COMPLETED
+                        || type == com.codingreview.controlplane.observability.run.RunEventType.RUN_FAILED
+                        || type == com.codingreview.controlplane.observability.run.RunEventType.RUN_CANCELLED),
+                any()
+        );
+    }
+
+    @Test
     void invalidatesVerificationWhenWorkspaceChangesAfterMaven() {
         ClaudeCodeAdapter claude = mock(ClaudeCodeAdapter.class);
         GitChangeCollector changes = mock(GitChangeCollector.class);
@@ -195,6 +230,37 @@ class CodingTurnOrchestratorImplTest {
 
         assertThat(execution.turn().outcome()).isEqualTo(TurnOutcome.CHANGES_VERIFIED);
         verify(changes, org.mockito.Mockito.times(2)).collect(any());
+    }
+
+    @Test
+    void mapsMavenCancellationWithoutCollectingPostVerificationChanges() {
+        ClaudeCodeAdapter claude = mock(ClaudeCodeAdapter.class);
+        GitChangeCollector changes = mock(GitChangeCollector.class);
+        ChangePolicyEvaluator policy = mock(ChangePolicyEvaluator.class);
+        MavenVerifier maven = mock(MavenVerifier.class);
+        RunEventJournal journal = mock(RunEventJournal.class);
+        SessionWorkspaceGuard guard = mock(SessionWorkspaceGuard.class);
+        CodingSession session = activeSession();
+        CodingTurn running = runningTurn(session);
+        GitChangeSet changeSet = changedSet("cancelled-maven");
+        when(claude.run(any(), any())).thenReturn(completedClaude());
+        when(changes.collect(any())).thenReturn(changeSet);
+        when(policy.evaluate(any(), any())).thenReturn(new ChangePolicyResult(List.of()));
+        Instant started = Instant.parse("2026-08-18T08:00:02Z");
+        when(maven.verify(any())).thenReturn(new MavenVerificationResult(
+                MavenVerificationStatus.CANCELLED, null, List.of("mvn", "clean", "test"),
+                started, started.plusSeconds(1), null, null, null,
+                "Maven 验证已取消", null
+        ));
+
+        CodingTurnExecution execution = new CodingTurnOrchestratorImpl(
+                claude, changes, policy, maven, journal,
+                JsonMapper.builder().findAndAddModules().build(), guard
+        ).execute(session, running, ignored -> { });
+
+        assertThat(execution.turn().status())
+                .isEqualTo(com.codingreview.controlplane.session.model.TurnStatus.CANCELLED);
+        verify(changes).collect(any());
     }
 
     /** 创建带有代码变更的合成快照。 */

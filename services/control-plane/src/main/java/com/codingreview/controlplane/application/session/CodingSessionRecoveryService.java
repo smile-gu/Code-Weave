@@ -4,6 +4,7 @@ import com.codingreview.controlplane.session.model.CodingSession;
 import com.codingreview.controlplane.session.model.CodingSessionStatus;
 import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
 import com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager;
+import com.codingreview.controlplane.workspace.lock.RepositoryWriteLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -55,13 +56,44 @@ public class CodingSessionRecoveryService implements ApplicationRunner {
                         Instant.now()
                 ));
                 failed++;
-            } else if (session.status() == CodingSessionStatus.ACTIVE) {
-                lockManager.recover(session.sourceRepository(), session.sessionId());
-                recovered++;
+            } else if (requiresRepositoryProtection(session)) {
+                try {
+                    lockManager.recover(session.sourceRepository(), session.sessionId());
+                    recovered++;
+                } catch (RepositoryWriteLockException exception) {
+                    LOGGER.error("单个 Session 的仓库保护恢复失败，其他 Session 将继续恢复，sessionId={}",
+                            session.sessionId(), exception);
+                    if (session.status() == CodingSessionStatus.ACTIVE) {
+                        try {
+                            repository.save(session.fail(
+                                    "REPOSITORY_LOCK_RECOVERY_FAILED",
+                                    "仓库执行保护无法恢复，当前 Session 已停止继续执行。",
+                                    Instant.now()
+                            ));
+                        } catch (RuntimeException saveFailure) {
+                            LOGGER.error("仓库保护恢复失败后无法保存 Session 状态，sessionId={}",
+                                    session.sessionId(), saveFailure);
+                        }
+                    }
+                    failed++;
+                }
             } else {
                 recovered++;
             }
         }
         LOGGER.info("Coding Session 恢复完成，可用={}，修正失败={}", recovered, failed);
+    }
+
+    /** 判断活动或安全状态不确定的 Session 是否必须继续占有仓库保护。 */
+    private boolean requiresRepositoryProtection(CodingSession session) {
+        if (session.status() == CodingSessionStatus.ACTIVE) return true;
+        if (session.status() != CodingSessionStatus.FAILED) return false;
+        return java.util.Set.of(
+                "TURN_HISTORY_CORRUPTED",
+                "TURN_HISTORY_VERSION_UNSUPPORTED",
+                "TURN_HISTORY_IO_FAILED",
+                "PROCESS_CLEANUP_FAILED",
+                "REPOSITORY_LOCK_RECOVERY_FAILED"
+        ).contains(session.failureCode());
     }
 }

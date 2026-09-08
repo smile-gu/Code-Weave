@@ -63,6 +63,7 @@ export function CodingSessionDetailPage() {
     void queryClient.invalidateQueries({ queryKey: ['coding-turns', sessionId] })
     void queryClient.invalidateQueries({ queryKey: ['coding-session', sessionId] })
     void queryClient.invalidateQueries({ queryKey: ['review-baseline-readiness', sessionId] })
+    void queryClient.invalidateQueries({ queryKey: ['coding-session-changes', sessionId] })
   }, [queryClient, sessionId])
   const changesQuery = useQuery({
     queryKey: ['coding-session-changes', sessionId, sessionQuery.data?.activeReviewBaselineCommit],

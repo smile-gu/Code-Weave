@@ -10,5 +10,6 @@ public enum MavenVerificationStatus {
     CANCELLED,
     LOG_LIMIT_EXCEEDED,
     LOG_CAPTURE_FAILED,
-    REPORT_INVALID
+    REPORT_INVALID,
+    PROCESS_CLEANUP_FAILED
 }

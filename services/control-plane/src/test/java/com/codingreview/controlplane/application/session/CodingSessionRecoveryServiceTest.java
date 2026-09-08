@@ -53,6 +53,22 @@ class CodingSessionRecoveryServiceTest {
         verify(locks).recover(existingPath.toAbsolutePath(), existing.sessionId());
     }
 
+    @Test
+    void restoresRepositoryProtectionForCorruptedHistoryOnSecondStartup() throws Exception {
+        MemoryRepository repository = new MemoryRepository();
+        Path workspace = tempDir.resolve("protected-workspace").toAbsolutePath();
+        Files.createDirectories(workspace);
+        CodingSession protectedSession = active(
+                UUID.randomUUID(), workspace, Instant.parse("2026-09-08T00:00:00Z")
+        ).fail("TURN_HISTORY_CORRUPTED", "历史损坏", Instant.parse("2026-09-08T00:00:01Z"));
+        repository.save(protectedSession);
+        RepositoryWriteLockManager locks = mock(RepositoryWriteLockManager.class);
+
+        new CodingSessionRecoveryService(repository, locks).run(null);
+
+        verify(locks).recover(workspace, protectedSession.sessionId());
+    }
+
     private CodingSession active(UUID id, Path repository, Instant now) {
         Path root = repository.toAbsolutePath();
         CodingSession initializing = CodingSession.initializing(

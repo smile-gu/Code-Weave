@@ -136,8 +136,8 @@ classDiagram
 | `RUNNING` | 已占用 Session 执行权 | 空 |
 | `COMPLETED` | 编排正常得到结论 | `NO_CHANGES`、`CHANGES_VERIFIED`、`VERIFICATION_FAILED`、`POLICY_VIOLATION` |
 | `FAILED` | Agent 或系统执行失败 | `AGENT_FAILED`、`WORKSPACE_DRIFT` |
-| `CANCELLED` | 用户主动停止 | 由取消消息说明 |
-| `INTERRUPTED` | 服务重启中断 | 启动恢复生成 |
+| `CANCELLED` | 取消请求已登记且执行资源确认清理 | 由取消消息说明 |
+| `INTERRUPTED` | 服务重启时仍未得到可靠终态 | 启动恢复生成 |
 
 ### 3.2 两类 Git 基线
 
@@ -202,8 +202,11 @@ sequenceDiagram
     O->>G: 记录 Maven 前工作区指纹
     O->>M: 有合规修改时执行 Maven
     O->>G: 重新采集并比较 Maven 后指纹
-    O->>APP: 返回 Session 更新与 Turn 结论
-    APP->>APP: 保存终态
+    O->>APP: 返回 Session 更新与 Turn 候选结论
+    APP->>APP: 释放执行资源并锁内重读 Turn
+    APP->>APP: 保存必要 Session 更新
+    APP->>APP: 保存 Turn 终态事实
+    APP->>E: 尽力追加由已保存 Turn 生成的终态事件
 ```
 
 累计 Diff 查询、Turn 提交和活动审查基线推进共享同一 Session 进程内操作锁。查询会把 Session 读取、活动 Turn 检查、工作区门禁和 Git 采集作为一个互斥区间，防止平台内部并发请求返回混合状态；外部 IDE 不受该锁控制，仍通过最终状态指纹与验证前后指纹暴露漂移。
@@ -226,7 +229,7 @@ sequenceDiagram
     W->>W: 投影为五阶段和中文行为
 ```
 
-事件日志是事实源，SSE 只是实时传输。如果浏览器断开，重新连接后可根据序号恢复；SSE 失败不会反向导致 Coding Turn 失败。
+Turn 快照是当前状态事实源，事件日志是历史事实，SSE 只是实时传输。如果浏览器断开，重新连接后可根据序号恢复；SSE 失败不会反向导致 Coding Turn 失败。前端收到终态通知后查询单 Turn 状态确认，活动任务还会每五秒低频对账。
 
 ### 4.4 模块完成与基线推进
 
@@ -264,10 +267,12 @@ flowchart TB
 | 数据 | 策略 | 可靠性边界 |
 |---|---|---|
 | Session 快照 | schema v4、临时文件、刷盘、原子替换 | 单文件损坏不会阻止其他 Session 恢复 |
-| Turn 快照 | schema v1、每轮独立 JSON | 启动时将 `QUEUED/RUNNING` 修正为 `INTERRUPTED` |
+| Turn 快照 | schema v1、每轮独立 JSON | 单 Turn 可直接定位；启动时将 `QUEUED/RUNNING` 修正为 `INTERRUPTED` |
 | 事件 | 追加 NDJSON、严格 sequence | 先持久化再实时发布 |
 | Maven 产物 | 每个 Turn/attempt 独立目录 | 日志和 Surefire 汇总保留用于追溯 |
 | 仓库锁 | runtime 锁文件 | 当前面向单机进程恢复，不是分布式锁 |
+
+损坏 Turn 历史不会静默跳过：仓储区分数据损坏、版本不支持和暂时 I/O 故障，恢复服务只隔离受影响 Session，原文件保持原位。因历史损坏或进程清理不确定而失败的 Session 在第二次启动仍恢复仓库保护，避免同一仓库被新会话接管。
 
 ```mermaid
 stateDiagram-v2

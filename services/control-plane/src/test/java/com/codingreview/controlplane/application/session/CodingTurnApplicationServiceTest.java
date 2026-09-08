@@ -18,6 +18,7 @@ import com.codingreview.controlplane.session.guard.SessionWorkspaceDriftExceptio
 import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.workflow.coding.CodingTurnOrchestrator;
+import com.codingreview.controlplane.workflow.coding.CodingTurnExecution;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
@@ -37,10 +38,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
@@ -48,6 +52,65 @@ import static org.mockito.Mockito.when;
 
 /** 验证 Turn 创建的环境门禁、Session 串行约束和排队取消语义。 */
 class CodingTurnApplicationServiceTest {
+
+    @Test
+    void publishesTerminalEventOnlyAfterTerminalTurnWasSaved() {
+        CodingSession session = activeSession();
+        AtomicReference<CodingSession> storedSession = new AtomicReference<>(session);
+        AtomicReference<CodingTurn> storedTurn = new AtomicReference<>();
+        CodingSessionRepository sessions = mock(CodingSessionRepository.class);
+        CodingTurnRepository turns = mock(CodingTurnRepository.class);
+        CodingTurnOrchestrator orchestrator = mock(CodingTurnOrchestrator.class);
+        GitChangeCollector changes = mock(GitChangeCollector.class);
+        RunEventJournal journal = mock(RunEventJournal.class);
+        SessionWorkspaceGuard workspaceGuard = mock(SessionWorkspaceGuard.class);
+        CapturingExecutor executor = new CapturingExecutor();
+        when(sessions.find(session.sessionId())).thenAnswer(ignored -> Optional.of(storedSession.get()));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            storedSession.set(invocation.getArgument(0));
+            return null;
+        }).when(sessions).save(any());
+        when(turns.findAll(session.sessionId())).thenAnswer(ignored -> storedTurn.get() == null
+                ? List.of() : List.of(storedTurn.get()));
+        when(turns.find(org.mockito.ArgumentMatchers.eq(session.sessionId()), any()))
+                .thenAnswer(ignored -> Optional.ofNullable(storedTurn.get()));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            storedTurn.set(invocation.getArgument(0));
+            return null;
+        }).when(turns).save(any());
+        when(orchestrator.execute(any(), any(), any(), any())).thenAnswer(invocation -> {
+            CodingSession currentSession = invocation.getArgument(0);
+            CodingTurn running = invocation.getArgument(1);
+            return new CodingTurnExecution(currentSession, running.complete(
+                    com.codingreview.controlplane.session.model.TurnOutcome.NO_CHANGES,
+                    0, null, "执行完成", "完成", null, Instant.now()
+            ));
+        });
+        List<com.codingreview.controlplane.observability.run.RunEventType> terminalEvents = new ArrayList<>();
+        when(journal.append(anyString(), anyString(), anyInt(), any(), any())).thenAnswer(invocation -> {
+            var type = (com.codingreview.controlplane.observability.run.RunEventType) invocation.getArgument(3);
+            if (type == com.codingreview.controlplane.observability.run.RunEventType.RUN_COMPLETED
+                    || type == com.codingreview.controlplane.observability.run.RunEventType.RUN_FAILED
+                    || type == com.codingreview.controlplane.observability.run.RunEventType.RUN_CANCELLED) {
+                assertThat(storedTurn.get().status()).isEqualTo(TurnStatus.COMPLETED);
+                terminalEvents.add(type);
+            }
+            return null;
+        });
+        CodingTurnApplicationService service = new CodingTurnApplicationService(
+                sessions, turns, orchestrator, changes, journal,
+                JsonMapper.builder().findAndAddModules().build(), executor,
+                () -> RuntimeReadiness.from(Instant.now(), List.of()), workspaceGuard,
+                new SessionOperationLockManager()
+        );
+
+        service.submit(session.sessionId(), "执行一次任务");
+        executor.tasks.getFirst().run();
+
+        assertThat(terminalEvents).containsExactly(
+                com.codingreview.controlplane.observability.run.RunEventType.RUN_COMPLETED
+        );
+    }
 
     @Test
     void refusesToCreateTurnWhenRuntimeIsNotReady() {
