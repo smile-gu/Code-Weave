@@ -1,7 +1,8 @@
+import { readAgentEvent, orderedEvents } from '../../shared/events/eventProtocol'
 import type { RunEvent, RunEventType } from '../../shared/api/types'
 
 export type StageKey = 'worktree' | 'workspace' | 'coding' | 'change-collection' | 'change-policy' | 'maven'
-export type StageStatus = 'pending' | 'running' | 'completed' | 'failed'
+export type StageStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'stopped' | 'incomplete'
 
 export type StageView = {
   key: StageKey
@@ -27,6 +28,7 @@ const terminalTypes = new Set<RunEventType>(['RUN_COMPLETED', 'RUN_FAILED', 'RUN
 const stageLabels: Record<string, string> = {
   run: 'Coding Run',
   worktree: '隔离工作区',
+  workspace: '工作区检查',
   coding: 'Coding Agent',
   'change-collection': '代码变更采集',
   'change-policy': '变更边界检查',
@@ -52,6 +54,7 @@ const eventLabels: Record<RunEventType, string> = {
   ANALYSIS_COMPLETED: '验证结果分析完成',
   STAGE_COMPLETED: '阶段完成',
   STAGE_FAILED: '阶段失败',
+  STAGE_SKIPPED: '阶段已跳过',
   RUN_COMPLETED: 'Coding Run 执行完成',
   RUN_CANCELLED: 'Coding Run 已取消',
   RUN_FAILED: 'Coding Run 执行失败',
@@ -84,7 +87,7 @@ export function projectStages(events: RunEvent[]): StageView[] {
   }))
   const byKey = new Map(stages.map((stage) => [stage.key, stage]))
 
-  for (const event of events) {
+  for (const event of orderedEvents(events)) {
     const stage = byKey.get(event.stage as StageKey)
     if (!stage) continue
     if (event.type === 'STAGE_STARTED') {
@@ -93,8 +96,8 @@ export function projectStages(events: RunEvent[]): StageView[] {
     } else if (event.type === 'STAGE_COMPLETED') {
       stage.status = 'completed'
       stage.endedAt = event.timestamp
-    } else if (event.type === 'STAGE_FAILED') {
-      stage.status = 'failed'
+    } else if ((event.type === 'STAGE_FAILED' || event.type === 'STAGE_SKIPPED')) {
+      stage.status = event.type === 'STAGE_SKIPPED' ? 'skipped' : 'failed'
       stage.endedAt = event.timestamp
     }
   }
@@ -109,11 +112,11 @@ export function terminalEvent(events: RunEvent[]) {
 /** 从工具开始事件建立调用标识到工具名称的展示关联。 */
 export function createEventPresentationContext(events: RunEvent[]): EventPresentationContext {
   const toolNamesByExternalId = new Map<string, string>()
-  for (const event of events) {
+  for (const event of orderedEvents(events)) {
     if (event.type !== 'AGENT_EVENT_OBSERVED'
-      || text(event.payload.agentEventType) !== 'TOOL_CALL_STARTED') continue
-    const externalId = text(event.payload.externalId)
-    const toolName = text(record(event.payload.payload).name)
+      || readAgentEvent(event).type !== 'TOOL_CALL_STARTED') continue
+    const externalId = readAgentEvent(event).correlationKey
+    const toolName = text(readAgentEvent(event).payload.name)
     if (externalId && toolName) toolNamesByExternalId.set(externalId, toolName)
   }
   return { toolNamesByExternalId }
@@ -123,9 +126,9 @@ export function createEventPresentationContext(events: RunEvent[]): EventPresent
 export function eventTitle(event: RunEvent, context?: EventPresentationContext): string {
   const stage = stageLabels[event.stage] ?? event.stage
   if (event.type === 'AGENT_EVENT_OBSERVED') {
-    const agentType = text(event.payload.agentEventType)
-    const payload = record(event.payload.payload)
-    const externalId = text(event.payload.externalId)
+    const agentType = readAgentEvent(event).type
+    const payload = readAgentEvent(event).payload
+    const externalId = readAgentEvent(event).correlationKey
     const label = agentType ? agentEventLabels[agentType] : undefined
     const base = label ?? (agentType ? `Agent 事件 · ${agentType}` : 'Agent 事件')
     if (agentType === 'TOOL_CALL_STARTED') {
@@ -146,7 +149,7 @@ export function eventTitle(event: RunEvent, context?: EventPresentationContext):
       : ''
     return `${stage} · ${eventLabels[event.type]}${range}`
   }
-  if (event.type === 'STAGE_STARTED' || event.type === 'STAGE_COMPLETED' || event.type === 'STAGE_FAILED'
+  if (event.type === 'STAGE_STARTED' || event.type === 'STAGE_COMPLETED' || (event.type === 'STAGE_FAILED' || event.type === 'STAGE_SKIPPED')
     || event.type.startsWith('PROCESS_') || event.type === 'LOG_CAPTURE_COMPLETED'
     || event.type === 'ARTIFACT_RECORDED' || event.type === 'ANALYSIS_COMPLETED') {
     return `${stage} · ${eventLabels[event.type]}`
@@ -161,7 +164,7 @@ export function eventSummary(event: RunEvent, context?: EventPresentationContext
     return text(event.payload.preview) ?? `收到 ${number(event.payload.bytes) ?? 0} 字节进程输出。`
   }
   if (event.type === 'STAGE_STARTED' || event.type === 'STAGE_COMPLETED'
-    || event.type === 'STAGE_FAILED') return stageEventSummary(event)
+    || (event.type === 'STAGE_FAILED' || event.type === 'STAGE_SKIPPED')) return stageEventSummary(event)
   if (event.type === 'RUN_CREATED') {
     const baseRef = text(event.payload.baseRef) ?? '指定版本'
     const taskPrompt = text(event.payload.taskPrompt)
@@ -217,9 +220,10 @@ export function eventSummary(event: RunEvent, context?: EventPresentationContext
 
 /** 生成一条具体 Agent 行为的中文摘要。 */
 function agentEventSummary(event: RunEvent, context?: EventPresentationContext): string | undefined {
-  const agentType = text(event.payload.agentEventType)
-  const payload = record(event.payload.payload)
-  const externalId = text(event.payload.externalId)
+  if (readAgentEvent(event).truncated) return readAgentEvent(event).preview ?? 'Agent 载荷已截断。'
+  const agentType = readAgentEvent(event).type
+  const payload = readAgentEvent(event).payload
+  const externalId = readAgentEvent(event).correlationKey
   if (agentType === 'RUNTIME_INITIALIZED') {
     const model = text(payload.model)
     const version = text(payload.claude_code_version)
@@ -266,7 +270,8 @@ function agentEventSummary(event: RunEvent, context?: EventPresentationContext):
 
 /** 根据阶段和产出字段生成非重复的阶段摘要。 */
 function stageEventSummary(event: RunEvent): string | undefined {
-  if (event.type === 'STAGE_FAILED') {
+  if (text(event.payload.message)) return text(event.payload.message)
+  if ((event.type === 'STAGE_FAILED' || event.type === 'STAGE_SKIPPED')) {
     return text(event.payload.message) ?? text(event.payload.reason) ?? text(event.payload.code)
   }
   if (event.type === 'STAGE_STARTED') {

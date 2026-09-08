@@ -41,6 +41,22 @@ import static org.mockito.Mockito.mock;
 /** 验证终态、排队、取消竞争和持久化故障均按统一规则收敛。 */
 class CodingTurnReliabilityTest {
 
+    /** 终态日志丢失时，单 Turn 查询仍保留阶段诊断。 */
+    @Test
+    void retainsDiagnosticWhenTerminalNotificationFails() {
+        Fixture fixture = fixture(new CapturingExecutor(), (session, turn, sink) ->
+                new CodingTurnExecution(session, turn.failed(TurnOutcome.AGENT_FAILED,
+                        "MAVEN_EXECUTION_FAILED", "Maven 启动失败", null, null, Instant.now())
+                        .withDiagnostic("maven", "INFRASTRUCTURE", "MAVEN_EXECUTION_FAILED")));
+        fixture.journal.failTerminal = true;
+        var queued = fixture.service.submit(fixture.session.sessionId(), "验证");
+        fixture.executor.tasks.getFirst().run();
+        var persisted = fixture.service.get(fixture.session.sessionId(), queued.turnId());
+        assertThat(persisted.failedStage()).isEqualTo("maven");
+        assertThat(persisted.failureKind()).isEqualTo("INFRASTRUCTURE");
+        assertThat(persisted.failureCode()).isEqualTo("MAVEN_EXECUTION_FAILED");
+    }
+
     @Test
     void keepsSavedTerminalWhenTerminalEventCannotBeAppended() {
         Fixture fixture = fixture(new CapturingExecutor(), completedOrchestrator());
@@ -64,7 +80,10 @@ class CodingTurnReliabilityTest {
         assertThat(failed.failureCode()).isEqualTo("TURN_QUEUE_REJECTED");
         assertThat(failed.startedAt()).isNull();
         assertThat(fixture.journal.types).containsExactly(
-                RunEventType.RUN_QUEUED, RunEventType.RUN_FAILED
+                RunEventType.RUN_QUEUED,
+                RunEventType.STAGE_SKIPPED, RunEventType.STAGE_SKIPPED,
+                RunEventType.STAGE_SKIPPED, RunEventType.STAGE_SKIPPED,
+                RunEventType.STAGE_SKIPPED, RunEventType.RUN_FAILED
         );
     }
 
@@ -316,13 +335,21 @@ class CodingTurnReliabilityTest {
     void cancellationWhileWorkerWaitsForTerminalLockWins() throws Exception {
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch finish = new CountDownLatch(1);
+        var eventJournal = new java.util.concurrent.atomic.AtomicReference<RunEventJournal>();
         Fixture fixture = fixture(new CapturingExecutor(), (session, turn, sink) -> {
+            var lifecycle = new com.codingreview.controlplane.workflow.coding.stage.CodingStageLifecycle(
+                    turn.turnId().toString(), eventJournal.get(), JsonMapper.builder().build());
+            for (var stage : com.codingreview.controlplane.workflow.coding.stage.CodingStage.values()) {
+                lifecycle.start(stage);
+                lifecycle.complete("阶段真实完成");
+            }
             entered.countDown();
             try {
                 if (!finish.await(5, TimeUnit.SECONDS)) throw new AssertionError("未释放编排器");
             } catch (InterruptedException exception) { throw new AssertionError(exception); }
             return new CodingTurnExecution(session, completed(turn));
         });
+        eventJournal.set(fixture.journal);
         CodingTurn queued = fixture.service.submit(fixture.session.sessionId(), "锁内取消");
         Thread worker = new Thread(fixture.executor.tasks.getFirst());
         worker.start();
@@ -340,6 +367,9 @@ class CodingTurnReliabilityTest {
         assertThat(worker.isAlive()).isFalse();
         assertThat(fixture.service.get(fixture.session.sessionId(), queued.turnId()).status())
                 .isEqualTo(TurnStatus.CANCELLED);
+        assertThat(fixture.service.get(fixture.session.sessionId(), queued.turnId()).failedStage()).isNull();
+        assertThat(fixture.journal.types.stream().filter(type -> type == RunEventType.STAGE_COMPLETED)).hasSize(5);
+        assertThat(fixture.journal.types).doesNotContain(RunEventType.STAGE_FAILED, RunEventType.STAGE_SKIPPED);
     }
 
     /** 创建正常完成的受控编排器。 */

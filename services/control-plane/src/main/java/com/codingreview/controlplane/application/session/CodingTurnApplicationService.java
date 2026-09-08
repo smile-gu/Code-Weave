@@ -16,7 +16,6 @@ import com.codingreview.controlplane.session.guard.SessionWorkspaceDriftExceptio
 import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.workflow.coding.CodingTurnExecution;
 import com.codingreview.controlplane.workflow.coding.CodingTurnOrchestrator;
-import com.codingreview.controlplane.workflow.coding.CodingTurnOrchestratorImpl.CodingTurnExecutionException;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.model.GitChangeSet;
 import com.codingreview.controlplane.workspace.model.WorkspaceHandle;
@@ -217,6 +216,7 @@ public final class CodingTurnApplicationService {
     /** 在线程池中执行 Turn，并依次保存 Session 与 Turn，文件间不构成原子事务。 */
     private void execute(UUID sessionId, UUID turnId, AtomicBoolean cancellationRequested) {
         CodingTurn runningTurn;
+        boolean orchestrationStarted = false;
         try {
             synchronized (lock(sessionId)) {
                 CodingTurn current = get(sessionId, turnId);
@@ -232,16 +232,15 @@ public final class CodingTurnApplicationService {
                     return;
                 }
             }
+            CodingSession activeSession = requireActive(sessionId);
+            orchestrationStarted = true;
             CodingTurnExecution result = orchestrator.execute(
-                    requireActive(sessionId), runningTurn, sessions::save,
+                    activeSession, runningTurn, sessions::save,
                     cancellationRequested::get
             );
             settleWithoutInterrupt(sessionId, turnId, result, cancellationRequested);
-        } catch (CodingTurnExecutionException exception) {
-            settleWithoutInterrupt(sessionId, turnId, new CodingTurnExecution(
-                    requireSession(sessionId), exception.failedTurn()), cancellationRequested);
         } catch (RuntimeException exception) {
-            settleInfrastructureFailure(sessionId, turnId, exception);
+            settleInfrastructureFailure(sessionId, turnId, exception, orchestrationStarted);
         } finally {
             removeExecution(sessionId, turnId);
         }
@@ -375,7 +374,7 @@ public final class CodingTurnApplicationService {
     }
 
     /** 保存基础设施失败；若连终态也无法确认，则保留进程内执行阻断。 */
-    private void settleInfrastructureFailure(UUID sessionId, UUID turnId, RuntimeException cause) {
+    private void settleInfrastructureFailure(UUID sessionId, UUID turnId, RuntimeException cause, boolean orchestrationStarted) {
         boolean interrupted = Thread.interrupted();
         try {
             synchronized (lock(sessionId)) {
@@ -387,7 +386,8 @@ public final class CodingTurnApplicationService {
                         "Turn 基础设施发生故障，任务尚未启动。", Instant.now())
                         : latest.failed(
                         com.codingreview.controlplane.session.model.TurnOutcome.AGENT_FAILED,
-                        resourceBlocks.contains(sessionId) ? "PROCESS_CLEANUP_FAILED" : "TURN_INFRASTRUCTURE_FAILED",
+                        resourceBlocks.contains(sessionId) ? "PROCESS_CLEANUP_FAILED"
+                                : orchestrationStarted ? "TURN_INFRASTRUCTURE_FAILED" : "TURN_START_FAILED",
                         "Turn 基础设施发生故障，真实工作区修改已保留。",
                         null, null, Instant.now());
                 persistTerminalOrBlock(sessionId, failed, cause);
@@ -477,6 +477,18 @@ public final class CodingTurnApplicationService {
 
     /** 尽力发布终态事件；失败仅记录诊断，由持久状态查询兜底。 */
     private void appendTerminalBestEffort(CodingTurn turn) {
+        if ((turn.startedAt() == null || "TURN_START_STATE_WRITE_FAILED".equals(turn.failureCode())
+                || "TURN_START_FAILED".equals(turn.failureCode()))
+                && !"TURN_QUEUE_EVENT_WRITE_FAILED".equals(turn.failureCode())) {
+            try {
+                new com.codingreview.controlplane.workflow.coding.stage.CodingStageLifecycle(
+                        turn.turnId().toString(), journal, mapper).skipRemaining(
+                        turn.status() == TurnStatus.CANCELLED ? "TURN_CANCELLED" : "TURN_NOT_STARTED",
+                        "本轮未进入执行阶段。", null);
+            } catch (RuntimeException exception) {
+                LOGGER.warn("启动前跳过事实未能完整记录，保留已保存终态，turnId={}", turn.turnId(), exception);
+            }
+        }
         try {
             appendTerminal(turn);
         } catch (RuntimeException exception) {
@@ -531,7 +543,12 @@ public final class CodingTurnApplicationService {
                 (ignored, handle) -> handle.turnId().equals(turnId) ? null : handle);
     }
     /** 追加 Turn 级事件。 */
-    private void append(CodingTurn turn, RunEventType type, String message) { journal.append(turn.turnId().toString(), "coding-turn", 1, type, mapper.createObjectNode().put("turnId", turn.turnId().toString()).put("message", message)); }
+    private void append(CodingTurn turn, RunEventType type, String message) {
+        journal.append(turn.turnId().toString(), "coding-turn", 1, type, mapper.createObjectNode()
+                .put("turnId", turn.turnId().toString()).put("message", message)
+                .put("failedStage", turn.failedStage()).put("failureKind", turn.failureKind())
+                .put("failureCode", turn.failureCode()));
+    }
 
     /** 关联一个 Session 当前占用执行资源的 Turn 和 Future。 */
     private record ExecutionHandle(

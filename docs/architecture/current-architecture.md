@@ -289,6 +289,12 @@ stateDiagram-v2
 
 ## 6. 设计取舍与技术债务
 
+### 阶段事实与任务状态分离
+
+正式链路现在由每 Turn 独立的 `CodingStageLifecycle` 记录工作区、Agent、采集、路径门禁、Maven 五阶段。编排器只返回带可选诊断的候选结果，应用层保持锁内裁决、持久化后通知；进程资源失败继续优先保护 Session。
+
+前端 `eventProtocol` 统一读取历史和新版 Agent 载荷，`turnProjection` 只使用阶段事实；活动详情与阶段结果分离。历史缺证据与已终结但记录不完整均明确展示，不再根据 Agent 输出或 Turn 结果猜测阶段。共享 Mapper 由正式链路和 Legacy 单向依赖。详见 [ADR-0012](../decisions/0012-coding-stage-facts-and-agent-protocol.md)。
+
 | 主题 | 当前选择 | 收益 | 代价或后续工作 |
 |---|---|---|---|
 | 工作区 | 直接操作真实仓库 | 避免 Worktree 合并冲突，符合本地 Agent 心智 | 必须严格执行分支、HEAD 和并发门禁 |

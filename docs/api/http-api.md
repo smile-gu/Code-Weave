@@ -202,7 +202,21 @@ Content-Type: application/json
 | 503 | 本机运行依赖不可用 | Claude、Git、Java 或 Maven 未就绪 |
 | 500 | 未分类系统错误 | 诊断写服务日志，响应不泄露内部命令 |
 
-## 7. 旧版 Worktree Run API
+## 7. 阶段与 Agent 事件协议
+
+### 正式 Turn 新增的诊断与事件协议
+
+单 Turn 状态及历史列表新增可选 `failedStage`、`failureKind`，旧记录可为 null；`failureCode` 也用于正常执行结束但业务门禁失败的结果。例如 `COMPLETED / VERIFICATION_FAILED` 可以携带 `maven / VERIFICATION / MAVEN_VERIFICATION_FAILED`。
+
+SSE 外层信封不变。五阶段标识为 `workspace`、`coding`、`change-collection`、`change-policy`、`maven`，`attempt = 1`。新增 `STAGE_SKIPPED`，阶段载荷统一 `stageProtocolVersion = 1`，失败包含 `failureCode/failureKind/message`，跳过包含 `reasonCode/message`。
+
+Agent 载荷使用 `agentProtocolVersion = 1`、`agentEventType`、`externalId`、原始字节大小和 SHA-256；超过 16 KiB 时只提供 `payloadPreview` 文本，不提供完整 `payload`。客户端不得解析预览为 JSON。历史字段兼容由客户端集中适配。
+
+终态事件只是通知，客户端仍查询持久 Turn 确认最终状态。阶段完成不等于 Turn 成功；缺失阶段记录不能按终态补全。详细契约见 [ADR-0012](../decisions/0012-coding-stage-facts-and-agent-protocol.md)。
+
+历史事件通过 `GET /api/v1/coding-sessions/{sessionId}/turns/{turnId}/events` 一次性读取，返回事件数组。该接口先校验 Session/Turn 身份，再读取已有日志，不等待终态通知、不补齐阶段、不作为定时轮询接口。前端仅在加载已结束 Turn 或确认终态后读取；失败可手动重试。
+
+## 8. Legacy 接口
 
 以下接口只在显式启用 Spring Profile `legacy-worktree-run` 时存在，用于早期链路回归，不应成为新页面或 Review Harness 的依赖：
 

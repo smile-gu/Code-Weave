@@ -1,5 +1,7 @@
 # 架构决策记录索引
 
+最新决策：[ADR-0012：阶段事实事件与统一 Agent 协议](0012-coding-stage-facts-and-agent-protocol.md)，当前有效；在 ADR-0011 的终态可靠性约束上增加过程事实投影，不替换任务持久状态。
+
 | 编号 | 决策 | 状态 | 当前意义 |
 |---|---|---|---|
 | [ADR-0001](0001-claude-code-adapter-m0.md) | Claude Code Adapter M0 契约 | 历史有效 | 仍约束旧单轮 M0 Run；Session 已演进为上下文续接模式 |

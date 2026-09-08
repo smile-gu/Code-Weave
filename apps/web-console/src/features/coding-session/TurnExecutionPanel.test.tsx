@@ -1,21 +1,44 @@
 import { act, cleanup, render, screen, fireEvent } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { TurnExecutionPanel } from './TurnExecutionPanel'
-import { getCodingTurn } from '../../shared/api/sessionApi'
+import { getCodingTurn, getCodingTurnEvents } from '../../shared/api/sessionApi'
 import type { CodingTurn } from '../../shared/api/types'
 
-vi.mock('../../shared/api/sessionApi', () => ({ getCodingTurn: vi.fn() }))
+vi.mock('../../shared/api/sessionApi', () => ({ getCodingTurn: vi.fn(), getCodingTurnEvents: vi.fn().mockResolvedValue([]) }))
 vi.mock('../run-monitor/StageRail', () => ({ StageRail: () => null }))
 vi.mock('../run-monitor/ActivityTimeline', () => ({ ActivityTimeline: () => null }))
 
 class FakeSource extends EventTarget {
+ static instances = 0
  static latest: FakeSource
  onopen: (() => void) | null = null
  onerror: (() => void) | null = null
- constructor() { super(); FakeSource.latest = this }
+ constructor() { super(); FakeSource.latest = this; FakeSource.instances++ }
  close() {}
 }
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks() })
+
+it('loads terminal history once without waiting for a terminal SSE event', async () => {
+ vi.stubGlobal('EventSource', FakeSource)
+ const before = FakeSource.instances
+ vi.mocked(getCodingTurnEvents).mockResolvedValue([])
+ render(<TurnExecutionPanel sessionId="s" turn={finishedTurn} onTerminal={vi.fn()} />)
+ expect(await screen.findByText('历史记录未提供完整阶段信息。')).toBeTruthy()
+ expect(FakeSource.instances).toBe(before)
+ expect(getCodingTurnEvents).toHaveBeenCalledTimes(1)
+})
+
+it('ignores late historical records after switching turns', async () => {
+ vi.stubGlobal('EventSource', FakeSource)
+ let resolve!: (events: []) => void
+ vi.mocked(getCodingTurnEvents).mockImplementationOnce(() => new Promise(done => { resolve = done }))
+ const view = render(<TurnExecutionPanel sessionId="s" turn={finishedTurn} onTerminal={vi.fn()} />)
+ const signal = vi.mocked(getCodingTurnEvents).mock.calls[0][2]!
+ view.rerender(<TurnExecutionPanel sessionId="next" turn={{ ...activeTurn, sessionId: 'next', turnId: 'next' }} onTerminal={vi.fn()} />)
+ expect(signal.aborted).toBe(true)
+ await act(async () => resolve([]))
+ expect(screen.queryByText('历史记录未提供完整阶段信息。')).toBeNull()
+})
 
 it('clears unknown-status warning when reconciliation confirms a saved terminal', async () => {
  vi.useFakeTimers()

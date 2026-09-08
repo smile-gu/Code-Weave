@@ -19,6 +19,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("legacy-worktree-run")
 class AgentRunEventMapperTest {
 
+    /** Legacy 包装器与正式共享协议保持相同映射结果。 */
+    @Test
+    void delegatesToSharedProtocol() {
+        var event = new AgentEvent(AgentEventType.MESSAGE_COMPLETED, "原样关联",
+                objectMapper.createObjectNode().put("text", "中文😀"));
+        assertThat(new AgentRunEventMapper(objectMapper, 12).map(event))
+                .isEqualTo(new com.codingreview.controlplane.observability.agent.AgentEventPayloadMapper(objectMapper, 12).map(event));
+    }
+
     private final ObjectMapper objectMapper = JsonMapper.builder().build();
 
     @Test

@@ -13,6 +13,7 @@ import type { CodingSession } from '../../shared/api/types'
 import { CodingSessionDetailPage } from './CodingSessionDetailPage'
 
 vi.mock('../../shared/api/sessionApi', () => ({
+  getCodingTurnEvents: vi.fn().mockResolvedValue([]),
   getCodingSession: vi.fn(),
   getCodingTurns: vi.fn(),
   getReviewBaselineReadiness: vi.fn(),
@@ -133,6 +134,6 @@ describe('CodingSessionDetailPage', () => {
     expect(await screen.findByRole('heading', { name: '已完成' })).toBeInTheDocument()
     expect(screen.getByText('UserController')).toBeInTheDocument()
     expect(screen.getByRole('list', { name: '第 1 轮 Coding 阶段进度' })).toBeInTheDocument()
-    expect(screen.getByText('Maven 编译与测试通过。')).toBeInTheDocument()
+    expect(await screen.findByText('历史记录未提供完整阶段信息。')).toBeInTheDocument()
   })
 })

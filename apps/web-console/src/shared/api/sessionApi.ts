@@ -5,6 +5,7 @@ import type {
   CreateCodingSessionInput,
   CodingTurnList,
   CodingTurn,
+  RunEvent,
   RunChanges,
   WorkspaceChanges,
   ReviewBaselineReadiness,
@@ -35,6 +36,11 @@ export function getCodingTurns(sessionId: string) { return request<CodingTurnLis
 /** 只查询单个 Turn 的持久状态，供终态确认和低频对账使用。 */
 export function getCodingTurn(sessionId: string, turnId: string, signal?: AbortSignal) {
   return request<CodingTurn>(`/api/v1/coding-sessions/${sessionId}/turns/${turnId}`, { signal })
+}
+
+/** 一次性读取历史阶段事实，不建立历史 SSE 或轮询事件。 */
+export function getCodingTurnEvents(sessionId: string, turnId: string, signal?: AbortSignal) {
+  return request<RunEvent[]>(`/api/v1/coding-sessions/${sessionId}/turns/${turnId}/events`, { signal })
 }
 
 /** 提交下一轮 Coding 指令。 */

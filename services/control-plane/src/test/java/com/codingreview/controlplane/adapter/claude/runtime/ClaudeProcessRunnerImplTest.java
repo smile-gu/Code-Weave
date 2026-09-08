@@ -50,6 +50,7 @@ class ClaudeProcessRunnerImplTest {
             var result = controlled.run(launch, event -> {});
             long pid = Long.parseLong(Files.readString(root.resolve("child.pid")));
             assertThat(ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false)).isFalse();
+            assertThat(result.initialized()).isTrue();
             assertThat(result.status()).isEqualTo(ClaudeRunStatus.COMPLETED);
         } finally { com.codingreview.controlplane.runtime.process.ChildProcessFixture.cleanup(gate); }
     }

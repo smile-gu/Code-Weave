@@ -19,6 +19,29 @@ class FileCodingTurnRepositoryTest {
     @TempDir
     Path tempDir;
 
+    /** 新诊断真实落盘，旧快照缺字段时仍按空值读取。 */
+    @Test
+    void preservesDiagnosticsAndReadsOldSnapshotWithoutNewFields() throws Exception {
+        var mapper = JsonMapper.builder().findAndAddModules().build();
+        var repository = new FileCodingTurnRepository(tempDir, mapper);
+        Instant precise = Instant.parse("2026-09-08T06:31:39.136604600Z");
+        var turn = CodingTurn.queued(UUID.randomUUID(), UUID.randomUUID(), 1, "测试", precise)
+                .running(precise).failed(TurnOutcome.AGENT_FAILED, "MAVEN_EXECUTION_FAILED",
+                        "验证启动失败", null, null, precise)
+                .withDiagnostic("maven", "INFRASTRUCTURE", "MAVEN_EXECUTION_FAILED");
+        repository.save(turn);
+        assertThat(repository.find(turn.sessionId(), turn.turnId())).contains(turn);
+        var response = com.codingreview.controlplane.api.session.dto.CodingTurnResponse.from(turn);
+        assertThat(response.failedStage()).isEqualTo("maven");
+        assertThat(response.failureKind()).isEqualTo("INFRASTRUCTURE");
+        var old = mapper.valueToTree(turn);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) old).remove(java.util.List.of("failedStage", "failureKind"));
+        var decoded = mapper.treeToValue(old, CodingTurn.class);
+        assertThat(decoded.failedStage()).isNull();
+        assertThat(decoded.failureKind()).isNull();
+        assertThat(decoded.failureCode()).isEqualTo(turn.failureCode());
+    }
+
     @Test
     void savesLatestVersionAndListsTurnsBySequence() throws Exception {
         FileCodingTurnRepository repository = new FileCodingTurnRepository(

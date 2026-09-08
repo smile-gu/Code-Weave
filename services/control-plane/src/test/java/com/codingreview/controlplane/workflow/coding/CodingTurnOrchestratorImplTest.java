@@ -310,7 +310,7 @@ class CodingTurnOrchestratorImplTest {
     /** 创建直接绑定真实 Git 工作区的测试 Session。 */
     private CodingSession activeSession() {
         UUID sessionId = UUID.randomUUID();
-        Path repository = Path.of("D:/test/repository").toAbsolutePath();
+        Path repository = tempDir.toAbsolutePath();
         Instant now = Instant.parse("2026-08-18T07:59:00Z");
         return CodingSession.initializing(
                 sessionId, "测试会话", repository, "HEAD",

@@ -12,6 +12,9 @@ public final class ChildProcessFixture {
     public static void main(String[] args) throws Exception {
         if (args[0].equals("child")) { Thread.sleep(30000); return; }
         Path gate = Path.of(args[1]);
+        String cwd = Path.of("").toAbsolutePath().toString().replace("\\", "/").replace("\"", "\\\"");
+        System.out.println("{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"test\",\"cwd\":\""
+                + cwd + "\",\"tools\":[\"Read\"]}");
         var builder = new ProcessBuilder(command("child", gate, false));
         if (Boolean.parseBoolean(args[2])) builder.inheritIO();
         else builder.redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD);

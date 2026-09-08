@@ -20,8 +20,26 @@ public record CodingTurn(
         String userMessage,
         Instant createdAt,
         Instant startedAt,
-        Instant endedAt
+        Instant endedAt,
+        String failedStage,
+        String failureKind
 ) {
+    /** 兼容旧调用与缺少阶段诊断的历史快照。 */
+    public CodingTurn(UUID turnId, UUID sessionId, int sequence, String userPrompt,
+                      TurnStatus status, TurnOutcome outcome, String assistantMessage,
+                      String nativeClaudeSessionId, int changedFiles, String workspaceFingerprint,
+                      String failureCode, String userMessage, Instant createdAt, Instant startedAt, Instant endedAt) {
+        this(turnId, sessionId, sequence, userPrompt, status, outcome, assistantMessage,
+                nativeClaudeSessionId, changedFiles, workspaceFingerprint, failureCode, userMessage,
+                createdAt, startedAt, endedAt, null, null);
+    }
+
+    /** 将实际阶段诊断附加到候选结论，保留原业务状态。 */
+    public CodingTurn withDiagnostic(String stage, String kind, String code) {
+        return new CodingTurn(turnId, sessionId, sequence, userPrompt, status, outcome, assistantMessage,
+                nativeClaudeSessionId, changedFiles, workspaceFingerprint, code, userMessage,
+                createdAt, startedAt, endedAt, stage, kind);
+    }
     public CodingTurn {
         Objects.requireNonNull(turnId, "turnId");
         Objects.requireNonNull(sessionId, "sessionId");
@@ -82,7 +100,7 @@ public record CodingTurn(
         return new CodingTurn(turnId, sessionId, sequence, userPrompt, TurnStatus.CANCELLED, null,
                 assistantMessage, nativeClaudeSessionId, changedFiles, workspaceFingerprint,
                 "CANCELLED", message,
-                createdAt, startedAt, now);
+                createdAt, startedAt, now, null, "CANCELLED");
     }
 
     /** 服务重启后把无法确认结果的运行中 Turn 标记为中断。 */

@@ -6,6 +6,9 @@ const icons = {
   running: <LoaderCircle className="spin" size={16} />,
   completed: <Check size={16} />,
   failed: <X size={16} />,
+  skipped: <Circle size={16} />,
+  stopped: <Circle size={16} />,
+  incomplete: <Circle size={16} />,
 }
 
 type StageRailProps = {

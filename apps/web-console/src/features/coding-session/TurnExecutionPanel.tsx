@@ -4,8 +4,9 @@ import type { CodingTurn, RunEvent } from '../../shared/api/types'
 import { ActivityTimeline } from '../run-monitor/ActivityTimeline'
 import { projectActivities } from '../run-monitor/activityProjection'
 import { StageRail } from '../run-monitor/StageRail'
-import { projectTurnStages } from './turnProjection'
-import { getCodingTurn } from '../../shared/api/sessionApi'
+import { readAgentEvent } from '../../shared/events/eventProtocol'
+import { projectTurnStages, stageEvidenceNotice } from './turnProjection'
+import { getCodingTurn, getCodingTurnEvents } from '../../shared/api/sessionApi'
 import {
   confirmTerminalTurn,
   isTerminalTurn,
@@ -22,23 +23,46 @@ const terminalTypes = new Set(['RUN_COMPLETED', 'RUN_FAILED', 'RUN_CANCELLED'])
 
 /** 在对话中展示一轮 Turn 的横向阶段，并按需加载上层执行活动。 */
 export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutionPanelProps) {
-  const active = turn.status === 'QUEUED' || turn.status === 'RUNNING'
+  const [confirmedTurn, setConfirmedTurn] = useState<CodingTurn | null>(null)
+  const displayTurn = confirmedTurn?.turnId === turn.turnId && confirmedTurn.sessionId === sessionId ? confirmedTurn : turn
+  const active = displayTurn.status === 'QUEUED' || displayTurn.status === 'RUNNING'
   const [expanded, setExpanded] = useState(false)
   const [events, setEvents] = useState<RunEvent[]>([])
   const [streamConnected, setStreamConnected] = useState(false)
+  const [historyState, setHistoryState] = useState<'loading' | 'loaded' | 'error'>('loading')
+  const [historyRetry, setHistoryRetry] = useState(0)
   const terminalObserved = useRef(false)
   const terminalConfirmed = useRef(false)
   const generation = useRef(0)
   const retryConfirmation = useRef<() => void>(() => {})
   const [confirmation, setConfirmation] = useState<'idle' | 'confirming' | 'unconfirmed' | 'network-error'>('idle')
-  const stages = useMemo(() => projectTurnStages(events, turn), [events, turn])
-  const activities = useMemo(() => projectActivities(events), [events])
+  const turnEvents = useMemo(() => events.filter((event) => event.runId === turn.turnId), [events, turn.turnId])
+  const stages = useMemo(() => projectTurnStages(turnEvents,
+    !active && historyState !== 'loaded' && turnEvents.length === 0 ? null : displayTurn),
+    [turnEvents, displayTurn, active, historyState])
+  const activities = useMemo(() => projectActivities(turnEvents, displayTurn), [turnEvents, displayTurn])
+
+  useEffect(() => { setEvents([]); setConfirmedTurn(null) }, [sessionId, turn.turnId])
+
+  useEffect(() => {
+    setHistoryState('loading')
+    if (active) return
+    const controller = new AbortController()
+    void getCodingTurnEvents(sessionId, turn.turnId, controller.signal).then((history) => {
+      if (controller.signal.aborted) return
+      setEvents(history)
+      setHistoryState('loaded')
+    }).catch(() => {
+      if (!controller.signal.aborted) setHistoryState('error')
+    })
+    return () => controller.abort()
+  }, [active, sessionId, turn.turnId, historyRetry])
 
   useEffect(() => {
     terminalObserved.current = false
     terminalConfirmed.current = !active
     setConfirmation('idle')
-    if (!active && !expanded) return
+    if (!active) return
     const currentGeneration = ++generation.current
     const isCurrent = () => generation.current === currentGeneration
     const canConfirm = () => isCurrent() && !terminalConfirmed.current
@@ -62,12 +86,13 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
     }
 
     /** 所有确认入口共同关闭实时资源并清除尚未确认提示。 */
-    const finishConfirmation = () => {
+    const finishConfirmation = (persisted: CodingTurn) => {
       if (!canConfirm()) return
       terminalConfirmed.current = true
       terminalObserved.current = true
       controller.abort()
       setConfirmation('idle')
+      setConfirmedTurn(persisted)
       source.close()
       if (reconciliation !== undefined) window.clearInterval(reconciliation)
       setStreamConnected(false)
@@ -80,7 +105,7 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
       try {
         const event = JSON.parse((raw as MessageEvent<string>).data) as RunEvent
         if (event.type !== 'PROCESS_STDOUT' && event.type !== 'PROCESS_STDERR'
-          && agentEventType(event) !== 'USAGE_UPDATED') {
+          && readAgentEvent(event).type !== 'USAGE_UPDATED') {
           setEvents((current) => current.some((item) => item.eventId === event.eventId)
             ? current
             : [...current, event])
@@ -105,7 +130,7 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
       confirming = false
       if (!canConfirm() || result.kind === 'stale') return
       if (result.kind === 'confirmed') {
-        finishConfirmation()
+        finishConfirmation(result.turn)
         return
       }
       setConfirmation(result.error ? 'network-error' : 'unconfirmed')
@@ -117,7 +142,7 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
       polling = true
       void getCodingTurn(sessionId, turn.turnId, controller.signal).then((persisted) => {
         if (!canConfirm()) return
-        if (isTerminalTurn(persisted)) finishConfirmation()
+        if (isTerminalTurn(persisted)) finishConfirmation(persisted)
         else if (!terminalObserved.current) setConfirmation('idle')
       }).catch(() => {
         if (canConfirm()) setConfirmation('network-error')
@@ -134,17 +159,22 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
       source.close()
       setStreamConnected(false)
     }
-  }, [active, expanded, onTerminal, sessionId, turn.turnId])
+  }, [active, onTerminal, sessionId, turn.turnId])
 
   return (
     <section className="turn-execution-panel">
       <div className="turn-execution-heading">
         <span><CircleDot size={15} /> 第 {turn.sequence} 轮执行链路</span>
         <small className={active ? 'turn-stream-active' : ''}>
-          {active && streamConnected ? <><Radio size={12} /> SSE 实时更新</> : statusLabel(turn)}
+          {active && streamConnected ? <><Radio size={12} /> SSE 实时更新</> : statusLabel(displayTurn)}
         </small>
       </div>
       <StageRail stages={stages} ariaLabel={`第 ${turn.sequence} 轮 Coding 阶段进度`} />
+      {!active && historyState !== 'loaded'
+        ? <p className="stage-evidence-notice">{historyState === 'loading' ? '正在读取阶段记录…' : '阶段记录读取失败。'}
+          {historyState === 'error' && <button type="button" onClick={() => setHistoryRetry((n) => n + 1)}>重新读取记录</button>}
+        </p>
+        : stageEvidenceNotice(turnEvents, displayTurn) && <p className="stage-evidence-notice">{stageEvidenceNotice(turnEvents, displayTurn)}</p>}
       {confirmation !== 'idle' && (
         <div className="turn-confirmation-notice" role="status">
           <span>{confirmation === 'confirming'
@@ -172,11 +202,6 @@ export function TurnExecutionPanel({ sessionId, turn, onTerminal }: TurnExecutio
       </details>
     </section>
   )
-}
-
-/** 读取兼容单轮和多轮协议的 Agent 事件类型。 */
-function agentEventType(event: RunEvent): unknown {
-  return event.payload.agentEventType ?? event.payload.eventType
 }
 
 /** 返回执行面板右上角的简短终态。 */

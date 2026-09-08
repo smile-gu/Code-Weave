@@ -25,7 +25,8 @@ public final class FileCodingTurnRepository implements CodingTurnRepository {
     public FileCodingTurnRepository(Path runtimeRoot, ObjectMapper mapper) {
         if (runtimeRoot == null || !runtimeRoot.isAbsolute()) throw new IllegalArgumentException("runtimeRoot must be absolute");
         this.sessionsRoot = runtimeRoot.normalize().resolve("sessions");
-        this.mapper = mapper.copy();
+        // 树读取必须保留小数时间戳精度，否则重读终态可能与刚保存的对象不相等。
+        this.mapper = mapper.copy().enable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
     }
 
     /** 原子保存 Turn 快照，避免服务中断留下半份 JSON。 */

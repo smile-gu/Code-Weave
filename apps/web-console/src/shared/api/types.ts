@@ -17,6 +17,7 @@ export type RunEventType =
   | 'ANALYSIS_COMPLETED'
   | 'STAGE_COMPLETED'
   | 'STAGE_FAILED'
+  | 'STAGE_SKIPPED'
   | 'RUN_COMPLETED'
   | 'RUN_CANCELLED'
   | 'RUN_FAILED'
@@ -99,6 +100,8 @@ export type CreateCodingSessionInput = {
 export type TurnStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'INTERRUPTED'
 export type TurnOutcome = 'NO_CHANGES' | 'CHANGES_VERIFIED' | 'VERIFICATION_FAILED' | 'POLICY_VIOLATION' | 'WORKSPACE_DRIFT' | 'AGENT_FAILED'
 export type CodingTurn = {
+  failedStage?: string | null
+  failureKind?: string | null
   turnId: string
   sessionId: string
   sequence: number

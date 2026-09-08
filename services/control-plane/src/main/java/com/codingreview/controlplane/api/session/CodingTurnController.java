@@ -42,6 +42,13 @@ public class CodingTurnController {
     @GetMapping("/{turnId}")
     public CodingTurnResponse get(@PathVariable UUID sessionId, @PathVariable UUID turnId) { return CodingTurnResponse.from(service.get(sessionId, turnId)); }
 
+    /** 一次性读取已保存事件，历史回放不依赖终态通知是否存在。 */
+    @GetMapping("/{turnId}/events")
+    public java.util.List<com.codingreview.controlplane.observability.run.RunEvent> events(
+            @PathVariable UUID sessionId, @PathVariable UUID turnId) {
+        return service.events(sessionId, turnId, 0);
+    }
+
     /** 读取本轮相对 Session 基线的累计代码变更。 */
     @GetMapping("/{turnId}/changes")
     public RunChangesResponse changes(@PathVariable UUID sessionId, @PathVariable UUID turnId) { return RunChangesResponse.from(turnId, service.changes(sessionId, turnId)); }
