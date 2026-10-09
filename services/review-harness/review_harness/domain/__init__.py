@@ -1,0 +1,1 @@
+"""Framework-independent execution invariants."""

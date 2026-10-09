@@ -5,6 +5,8 @@
 - 范围：Review Agent 模型请求、上下文压缩、长内容存储、证据形成与 Result Envelope
 - 上游：ADR-0009、ADR-0014
 
+批次 1 已实现本文的空 Result Envelope、原始字节保存与原子成功事务，待独立审查；Context、Artifact、Evidence 和 Finding 的真实能力仍未实现。
+
 ## 1. 问题与边界
 
 Review Agent 需要持续读取代码、工具结果、历史消息和项目经验。若把它们全部塞入消息历史，会超出模型窗口；若用一个摘要替换全部事实，则无法证明 Finding 对应哪份代码和证据；若把 Tool Result 直接当 Evidence，则截断、抽样或错误归属会被包装成确定性结论。

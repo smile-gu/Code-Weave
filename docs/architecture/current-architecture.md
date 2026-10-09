@@ -1,6 +1,6 @@
 # Code Weave 当前系统架构
 
-> 本文只描述当前分支已经落地的事实。Review Harness 相关节点使用虚线或“下一阶段”标记，不代表已经实现。
+> 本文描述当前 Coding 主链路。Review Harness 批次 1 的独立 Python Runtime 已实现，待独立审查，见 [服务说明](../../services/review-harness/README.md)；图中虚线和“下一阶段”仍表示尚未接入的真实 Review Agent 与 Java 集成。
 
 ## 1. WHY：系统要解决什么问题
 

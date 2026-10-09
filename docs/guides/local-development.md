@@ -137,3 +137,9 @@ git status --short --branch
 - 平台不会替用户执行 Commit、Push 或 Merge。
 - 测试旧 Worktree 链路时，不要删除其他历史 Run 的 Worktree。
 - HTTP 错误只返回可操作信息，内部命令和诊断应从 Control Plane 日志查看。
+
+## 8. 独立 Review Harness Runtime
+
+批次 1 使用 Python 3.12、FastAPI、SQLAlchemy Async 与 SQLite，独立于 Maven。安装、必填配置、显式 Alembic 迁移、单 Worker 启动和测试命令见 [服务 README](../../services/review-harness/README.md)。
+
+默认地址为 `127.0.0.1:8091`，全部内部接口需要 Bearer Token。生产启动只校验 Schema，不自动迁移。当前执行器产生空 Result，真实 Snapshot、模型、Tool、Java 和前端 Review 集成尚未接入。

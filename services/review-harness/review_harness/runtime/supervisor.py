@@ -1,0 +1,160 @@
+import asyncio
+import logging
+
+from review_harness.application.ports import RunStorePort
+from review_harness.domain.model import Failure, HarnessError, SessionBlocked
+from review_harness.runtime.executor import ExecutionCancelled
+
+logger = logging.getLogger("review_harness")
+
+
+class Supervisor:
+    def __init__(self, store: RunStorePort, executor, capacity: int):
+        self.store, self.executor = store, executor
+        self.queue: asyncio.Queue[str] = asyncio.Queue(maxsize=capacity)
+        self.scheduled_run_ids: set[str] = set()
+        self.signals: dict[str, asyncio.Event] = {}
+        self.accepting = False
+        self._preparing = True
+        self._stopping = False
+        self._task: asyncio.Task | None = None
+
+    @property
+    def healthy(self):
+        return self.accepting and self._task is not None and not self._task.done()
+
+    def ensure_submitted(self, run_id: str) -> bool:
+        if self._stopping or not (self.accepting or self._preparing):
+            return False
+        if run_id in self.scheduled_run_ids:
+            return True
+        try:
+            self.queue.put_nowait(run_id)
+        except asyncio.QueueFull:
+            return False
+        self.scheduled_run_ids.add(run_id)
+        return True
+
+    def signal_cancel(self, run_id: str):
+        signal = self.signals.get(run_id)
+        if signal:
+            signal.set()
+
+    def start(self):
+        if self._task is not None:
+            raise RuntimeError("Supervisor is already started")
+        self._preparing = False
+        self.accepting = True
+        self._task = asyncio.create_task(self._work(), name="review-harness-worker")
+
+    async def join(self):
+        await self.queue.join()
+
+    async def _work(self):
+        try:
+            while not self._stopping and self.accepting:
+                run_id = await self.queue.get()
+                try:
+                    if self._stopping or not self.accepting:
+                        return
+                    signal = self.signals[run_id] = asyncio.Event()
+                    await self._run_one(run_id, signal)
+                except HarnessError as error:
+                    if error.code == "REVIEW_RUN_INTEGRITY_ERROR":
+                        # RunStore has quarantined this Run and its Session.
+                        # One damaged record must not stop unrelated simulation runs.
+                        continue
+                    self.accepting = False
+                    logger.error('{"runId":"%s","errorCode":"%s"}', run_id, error.code)
+                    return
+                except Exception:
+                    self.accepting = False
+                    logger.error(
+                        '{"runId":"%s","errorCode":"REVIEW_HARNESS_INTERNAL_ERROR"}',
+                        run_id,
+                    )
+                    return
+                finally:
+                    self.signals.pop(run_id, None)
+                    self.scheduled_run_ids.discard(run_id)
+                    self.queue.task_done()
+        finally:
+            self.accepting = False
+
+    async def _run_one(self, run_id, signal):
+        try:
+            run, acquired = await self.store.start_run(run_id)
+        except SessionBlocked:
+            # Keep PENDING and all protection evidence; this is not a global fault
+            # or an execution failure. A later retry must pass the same durable gate.
+            return
+        except HarnessError as error:
+            if error.code in {
+                "REVIEW_RUN_STATE_WRITE_UNCERTAIN",
+                "REVIEW_RUN_INTEGRITY_ERROR",
+            }:
+                raise
+            await self.store.fail_before_start(
+                run_id, Failure.make("REVIEW_HARNESS_INTERNAL_ERROR")
+            )
+            return
+        if not acquired:
+            return
+        # A cancellation can commit while start_run is returning; reread before execution.
+        if (await self.store.get_run(run_id)).status == "CANCELLING":
+            signal.set()
+        cancelled, failure = False, None
+        try:
+            await self.executor.execute(run, signal)
+        except ExecutionCancelled:
+            cancelled = True
+        except Exception:
+            failure = Failure.make("REVIEW_EXECUTION_FAILED")
+        # CancelledError deliberately escapes: shutdown cannot invent cleanup evidence.
+        try:
+            await self.executor.cleanup(run)
+        except Exception:
+            await self.store.fail_cleanup_uncertain(
+                run_id, Failure.make("REVIEW_RESOURCE_CLEANUP_FAILED")
+            )
+            return
+        if failure:
+            await self.store.complete_failure_safe(run_id, failure)
+            return
+        if cancelled or signal.is_set():
+            current = await self.store.get_run(run_id)
+            if current.status == "RUNNING":
+                # Graceful shutdown interrupted the simulator without a user cancellation.
+                await self.store.complete_failure_safe(
+                    run_id, Failure.make("REVIEW_RUN_INTERRUPTED")
+                )
+            else:
+                await self.store.complete_cancel(run_id)
+            return
+        try:
+            current, completed = await self.store.complete_success(run_id)
+        except HarnessError as error:
+            if error.code == "REVIEW_RUN_STATE_WRITE_UNCERTAIN":
+                raise
+            await self.store.complete_failure_safe(
+                run_id, Failure.make("REVIEW_RESULT_PERSISTENCE_FAILED")
+            )
+            return
+        if not completed and current.status == "CANCELLING":
+            await self.store.complete_cancel(run_id)
+
+    async def stop(self, grace: float):
+        self.accepting = False
+        self._preparing = False
+        self._stopping = True
+        for signal in self.signals.values():
+            signal.set()
+        if self._task is None:
+            return
+        if not self.signals and not self._task.done():
+            self._task.cancel()
+        try:
+            await asyncio.wait_for(asyncio.shield(self._task), grace)
+        except (TimeoutError, asyncio.CancelledError):
+            self._task.cancel()
+            await asyncio.gather(self._task, return_exceptions=True)

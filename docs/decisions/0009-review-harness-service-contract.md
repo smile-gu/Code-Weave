@@ -1,8 +1,8 @@
 # ADR-0009：Review Harness 跨服务运行契约
 
-- 状态：已冻结，尚未实现
+- 状态：已冻结；Python 批次 1 Runtime 已实现，待独立审查；Java 集成尚未实现
 - 范围：Java Control Plane 与 Python Review Harness 的内部通信契约
-- 计划实施阶段：Review Harness 服务骨架与确定性模拟执行器（尚未实现）
+- 实施阶段：Review Harness 服务骨架与确定性模拟执行器已落地；见 `services/review-harness/DEVELOPMENT-HANDOFF.md`
 - 最近核对：2026-10-09，完成批次 1 字段级协议、SQLite 列、事件 Payload 与排队/恢复边界审定；Snapshot 输入遵循 ADR-0014，Context/Artifact/Evidence 遵循 ADR-0015
 
 ## 1. 背景
@@ -11,7 +11,7 @@ Code Weave 使用 Java Control Plane 承载产品 API、运行事实持久化和
 
 Python 服务采用 FastAPI 与 Uvicorn。它只向 Java 提供内部接口，不直接面向浏览器，也不主动回调 Java。
 
-本文描述待实现的跨服务契约，不代表 Python 服务、Review Run 表或 Java Review 集成已落地。当前正式 Coding 使用单 Control Plane 进程、Session/Turn 文件快照与事件日志；Python 的 SQLite 选型不意味着 Java 已迁移数据库。
+本文冻结跨服务契约。Python 服务、Run/Event/Result 表与模拟生命周期已在批次 1 落地，Java Review 集成尚未实现。当前正式 Coding 使用单 Control Plane 进程、Session/Turn 文件快照与事件日志；Python 的 SQLite 选型不意味着 Java 已迁移数据库。
 
 ## 2. 已冻结的接口职责
 

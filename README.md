@@ -1,6 +1,6 @@
 # Code Weave
 
-Code Weave 是一个面向本地 Git 项目的 Coding–Review 一体化 Agent 平台。Coding 侧复用 Claude Code，平台负责长期会话、真实工作区保护、过程可观测、独立验证和模块级 Git 基线；Review Harness 将由 Python、LangGraph 与 LangChain 独立实现。
+Code Weave 是一个面向本地 Git 项目的 Coding–Review 一体化 Agent 平台。Coding 侧复用 Claude Code，平台负责长期会话、真实工作区保护、过程可观测、独立验证和模块级 Git 基线；Python Review Harness 已实现独立运行底座，后续接入 LangGraph 与 LangChain。
 
 ## 当前状态
 
@@ -12,7 +12,7 @@ Code Weave 是一个面向本地 Git 项目的 Coding–Review 一体化 Agent �
 | Maven 验证 | 已实现 | 当前只支持 Spring Boot 3.x + Maven 项目 |
 | SSE 可观测 | 已实现 | 支持历史补发、实时事件和游标恢复 |
 | 模块级基线推进 | 已实现 | 用户完成 Review、自测和正式 Commit 后确认推进 |
-| Review Harness | 待开发 | 当前尚未接入 Review Agent 与报告交互 |
+| Review Harness Runtime | 批次 1 已实现，待独立审查 | FastAPI、SQLite、生命周期、取消、SSE、恢复与确定性模拟器；尚未接入真实 Review Agent、Java 与报告交互 |
 | 桌面端 | 待开发 | 当前先提供本机 Web 工作台 |
 
 当前正式业务流程：
@@ -49,7 +49,7 @@ flowchart LR
 |---|---|---|
 | `apps/web-console` | React、TypeScript、Vite | 多轮对话、阶段投影、Diff 和模块完成入口 |
 | `services/control-plane` | Java 21、Spring Boot | Session、Turn、Claude 调用、Git 门禁、Maven 验证和 SSE |
-| `services/review-harness` | Python，待搭建 | Review Agent Loop、上下文、记忆、Skills、Tools 和报告 |
+| `services/review-harness` | Python 3.12、FastAPI、SQLite | 已实现运行底座与模拟执行；Agent、上下文、记忆、Skills 和 Tools 属于后续批次 |
 | `fixtures/spring-boot-demo` | Spring Boot、Maven | 本地链路与自动化验证目标项目 |
 | `runtime` | 本地文件，Git 忽略 | Session/Turn 快照、事件和 Maven 产物 |
 
@@ -86,6 +86,8 @@ npm run dev
 浏览器访问 `http://127.0.0.1:5173`。前端会将 `/api` 代理到 `http://127.0.0.1:8080`，两个服务都只监听本机。
 
 详细步骤、常见故障和验证命令见 [本地开发指南](docs/guides/local-development.md)。
+
+独立启动 Python Runtime 和验证批次 1，见 [Review Harness 开发说明](services/review-harness/README.md)。
 
 ## 验证项目
 

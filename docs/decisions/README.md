@@ -12,7 +12,7 @@
 | [ADR-0006](0006-agent-event-noise-reduction.md) | Claude 高频事件降噪 | 当前有效 | 同时保护磁盘日志、SSE 和浏览器内存 |
 | [ADR-0007](0007-coding-session-persistence.md) | 长期 Worktree Session | 已被替代 | 保留 M5 历史背景，不再代表正式 Session 工作区模型 |
 | [ADR-0008](0008-direct-workspace-and-review-baseline.md) | 真实工作区与活动审查基线 | 当前有效 | 规定正式 Coding、Review、自测和模块 Commit 的主链路 |
-| [ADR-0009](0009-review-harness-service-contract.md) | Review Harness 跨服务运行契约 | 已冻结，尚未实现 | 规定状态与资源状态、幂等、Result 原子提交、SSE 消费、恢复和产品门禁 |
+| [ADR-0009](0009-review-harness-service-contract.md) | Review Harness 跨服务运行契约 | Python Runtime 已实现，待独立审查；Java 集成未实现 | 规定状态与资源状态、幂等、Result 原子提交、SSE 消费、恢复和产品门禁 |
 | [ADR-0010](0010-legacy-worktree-run-isolation.md) | 旧版 Worktree Run 隔离 | 当前有效 | 旧版单轮链路只在显式 Profile、独立目录与独立回归测试中存在，不进入正式运行面 |
 | [ADR-0011](0011-coding-turn-terminal-reliability.md) | Coding Turn 终态、取消与恢复可靠性 | 当前有效 | 规定持久状态、终态事件、取消竞争、进程清理、损坏历史隔离与前端对账顺序 |
 | [ADR-0012](0012-coding-stage-facts-and-agent-protocol.md) | 阶段事实事件与统一 Agent 协议 | 当前有效 | 用后端阶段事实替代前端推断，并统一正式 Agent 事件信封 |
