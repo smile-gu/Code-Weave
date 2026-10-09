@@ -12,6 +12,10 @@
 
 关闭服务与 Turn 提交、基线推进共用 SessionOperationLockManager。首次关闭必须可靠读取 Turn 历史，确认没有 QUEUED/RUNNING、执行句柄、持久化阻断、资源阻断或 PROCESS_CLEANUP_FAILED 历史证据。Future 已完成或 Turn 已落终态不能代替句柄清理。
 
+Review Harness 接入前，关闭门禁必须按 ADR-0009/0014 扩展：同一 Session 不得存在 Review 启动预留、`SUBMITTING/SUBMISSION_UNKNOWN/ACTIVE/FINALIZING/EXECUTION_BLOCKED` 产品记录，也不得存在 Python 非终态、事件/Result 导入未知或不安全 `resourceState`。只有 Python 已终态且资源为 `NOT_ACQUIRED/RELEASED`、Java 已可靠导入执行事实时，才可以解除执行资源门禁。报告仍在审阅但执行资源已经安全时允许正常关闭并保留历史；关闭后不得再从真实目录读取 Review 证据。
+
+以上是 Review 接入时必须实现的扩展条件，不代表当前 Coding-only 关闭代码已经具备 Python 状态查询能力。
+
 关闭不检查 HEAD、分支、脏工作区、Claude/Maven 就绪或验证结果，因为它只释放所有权，不修改代码。
 
 ## 非原子写入与补偿

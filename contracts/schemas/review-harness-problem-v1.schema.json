@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-problem-v1.schema.json",
+  "title": "Review Harness RFC 9457 Problem Details v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "title", "status", "detail", "instance", "errorCode", "diagnosticId"],
+  "properties": {
+    "type": { "type": "string", "pattern": "^urn:code-weave:problem:[a-z0-9-]+$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "status": { "type": "integer", "minimum": 400, "maximum": 599 },
+    "detail": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "instance": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "errorCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$", "maxLength": 128 },
+    "diagnosticId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" }
+  }
+}

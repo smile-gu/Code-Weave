@@ -14,30 +14,37 @@
 | 文档重构 | 当前架构、API、开发指南、ADR 索引 | 历史决策与当前事实分离 |
 | 阶段事实与事件协议 | 五阶段生命周期、持久诊断、共享 Agent 映射、历史适配 | 不再从 Agent 消息或任务终态推断阶段结果 |
 | Session 正常关闭 | 安全关闭、按所有者释放、失败补偿、历史只读 | 不操作代码，CLOSED 与释放确认分离 |
+| Harness 批次 0 设计冻结 | Snapshot、跨服务恢复、Context/Artifact/Evidence | ADR-0009/0014/0015 已成为开发依据，尚未实现 |
 
 ## 下一阶段：Review Harness MVP
 
 ```mermaid
 flowchart LR
-    A[M1 Python 服务骨架与契约] --> B[M2 LangGraph 外层工作流]
-    B --> C[M3 LangChain Agent Loop 与 Tools]
-    C --> D[M4 上下文、记忆与 Skills]
-    D --> E[M5 Review 报告与用户确认]
-    E --> F[M6 Coding 整改传输与模块门禁]
-    F --> G[M7 前端双对话框与 Review 可观测]
+    A[1 Python 服务骨架] --> B[2 Snapshot 与执行空间]
+    B --> C[3 Artifact 与只读 Tool]
+    C --> D[4 LangGraph 与 Context]
+    D --> E[5 单 Pass 真实闭环]
+    E --> F[6 六 Pass 报告与 Handoff]
+    F --> G[7 执行型 Tool]
+    G --> H[8 Project Memory]
+    H --> I[9 Skill 与 MCP]
+    I --> J[10 Eval 与可靠性]
 ```
 
 ### 建议开发顺序
 
 | 顺序 | 开发点 | 首版边界 | 验收条件 |
 |---:|---|---|---|
-| 1 | Python Review Harness 服务骨架 | 健康检查、Run 创建、状态、SSE、取消 | Java 可启动 Review Run 并稳定转发事件 |
-| 2 | LangGraph 固定外层流程 | 输入冻结、调查、审查、报告草稿 | 阶段可恢复，失败有明确位置 |
-| 3 | LangChain 有界 Agent Loop | 代码搜索、读取、Git Diff、Maven/Surefire 事实工具 | 模型能自主调查，但受预算与取消控制 |
-| 4 | 上下文与渐进式披露 | 项目地图、摘要、Tool Search、Skills 按需加载 | 长审查不会把全部仓库塞入上下文 |
-| 5 | Review 报告交互 | 报告草稿与用户多轮交流，确认后结构化 | 用户看到的是清晰报告而非内部字段 |
-| 6 | Coding 整改闭环 | 确认报告传给 Coding Agent | Coding 与 Review 互斥且可循环复审 |
-| 7 | 前端 Review 工作台 | 双对话框、传输动画、阶段投影 | 活跃侧可交互，非活跃侧只读可展开 |
+| 1 | Python Review Harness 服务骨架 | FastAPI、认证、Readiness、SQLite Run/Event/Result、幂等、取消、SSE、恢复、确定性模拟器 | 不接模型也能证明跨服务生命周期可靠收敛 |
+| 2 | Review Snapshot 与执行空间 | Java 捕获发布、Python 校验和每 Run 副本、产品门禁 | Agent 输入不可变，漂移和路径逃逸被拒绝 |
+| 3 | Artifact 与基础只读 Tool | Artifact 完整性、有界读取、read/search/glob/diff | 长输出不挤爆 Context，权限入口不可绕过 |
+| 4 | LangGraph State 与 Context | Checkpoint、Token Meter、Context Manifest、Compaction | 锚点不丢、压缩有进展且可追溯 |
+| 5 | 单 Pass 真实闭环 | 正确性 Pass、真实模型、Evidence、Finding、Result、Java 报告草稿 | 首条端到端 Review 具有可核查证据 |
+| 6 | 六 Pass、报告与 Handoff | 串行六 Pass、去重、用户批准、Coding 交接 | 用户可以审阅并驱动整改复审 |
+| 7 | Maven 与 Analyzer | 执行记录、Sandbox 边界、污染检查、进程清理 | 执行型证据不污染源码且可取消恢复 |
+| 8 | Project Memory | 项目隔离、提议、用户批准、STALE/REJECTED | 记忆只提供线索，不成为当前证据 |
+| 9 | Skill 与 MCP | 渐进加载、只缩权、统一 Tool 治理 | 外部能力不能绕过权限和输出预算 |
+| 10 | Eval 与可靠性 | 固定样例、误报遗漏、压缩、恢复和安全测试 | 用结构化证据评估质量，不编造提升比例 |
 
 ## 二期能力
 
@@ -46,7 +53,7 @@ flowchart LR
 | 六个审查维度并行 | 首版先验证质量和闭环，避免并发状态过重 | 串行评测稳定后使用 LangGraph 并行分支 |
 | 跨项目通用记忆 | 需要先验证经验提取质量和污染风险 | 项目级记忆稳定、可解释、可清理 |
 | 多语言 Review | 当前验证器和首版规则聚焦 Maven | Java 审查评测达到可接受水平后扩展 Worker |
-| SQLite/数据库 | 当前文件事实足以支撑本机单用户 | 需要分页、组合查询、全文检索或多进程时 |
+| PostgreSQL、Redis 与多 Worker | 首版 SQLite 单进程足以验证事务和恢复语义 | 出现多进程、多节点或跨进程通知需求时 |
 | 桌面端 | Web 更适合快速验证交互和协议 | Web Coding–Review 闭环稳定后封装桌面壳 |
 | Review 评测系统 | 应与在线主链路解耦 | Review Harness MVP 可独立运行后建设 benchmarks |
 

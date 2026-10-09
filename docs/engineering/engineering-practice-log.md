@@ -384,9 +384,9 @@ Turn 的验证结论
 |---|---|
 | 文档定位 | 工程落地复盘、问题追踪和实现经验沉淀 |
 | 初始记录 | Code Weave 正式 Coding 链路和 Review 前置重构 |
-| 当前记录 | 第三批阶段事实、统一 Agent 协议及历史兼容已实现；验收命令与结果见本次开发交接 |
+| 当前记录 | Coding 四批修复已实现；Review Harness 批次 0 契约已冻结但尚未实现 |
 | 更新方式 | 每次问题先汇报并确认方案，再追加本文件 |
-| 最后更新 | 2026-09-08 |
+| 最后更新 | 2026-09-09 |
 
 ## 2026-09-08：Session 关闭的跨文件部分成功
 
@@ -397,3 +397,16 @@ Turn 的验证结论
 - 验证中的实际问题：Windows 的独占文件锁阻止通过另一个通道直接读元数据，最初测试在持锁状态调用 Files.readString 失败。改为先验证新申请仍被拒绝，再关闭进程句柄读取持久 owner；不放宽业务断言。
 - 验证资产：CloseApplicationServiceTest 覆盖保存前/后失败、重读故障、补偿及并发；CloseGateTest 与 TurnReliabilityTest 覆盖门禁和终态句柄窗口；LockManagerTest 与 RecoveryServiceTest 覆盖稳定文件、损坏元数据、新 owner、句柄失败和两次重启；页面测试覆盖只读、网络和释放重试。最终测试结果以本批运行报告为准。
 本批最终回归（2026-09-08）：正式后端 227 项、Legacy 后端 39 项、正式前端 56 项、Legacy 前端 3 项均通过；正式前端生产构建与 Legacy TypeScript 构建通过，git diff --check 通过。保留既有 Vite 大于 500 kB 的分块提示，未扩大本批范围做打包重构。尚未进行真实 Claude 交互式端到端手测。
+
+## 2026-09-09：Review Harness 批次 0 契约冻结
+
+**问题**：旧方案仍混有三类高风险假设：Python 直接读取可变真实仓库；Run 终态被误当作资源已经安全；Summary、Artifact、Evidence 与 Memory 的事实边界不够严格。若直接编码，可能得到无法绑定固定代码、无法可靠恢复或把模型摘要当证据的 Review 链路。
+
+**决策**：
+
+- ADR-0014 规定 Java 在 Session 操作锁内捕获并原子发布不可变 Snapshot，Python 只按 ID 与摘要校验并创建每 Run Execution Workspace。
+- ADR-0009 增加独立 resourceState、Result 原子提交、内部认证、Readiness、Python 重启恢复、Java 事件先保存后投影及状态对账。
+- ADR-0015 规定 Context 是单次模型调用的有界投影，Summary 只压缩叙事；Artifact 保存长内容，Evidence 保存经验证来源，ReasoningSummary 不充当 Evidence。
+- 第一版只实现 Project Memory，Global Memory 延后；不复制大型插件体系，不自研第二套 Agent Loop 或 ToolNode。
+
+**边界**：本次只冻结设计并同步文档，没有创建 Harness 目录、数据库、接口或模型调用代码，也没有新增当前对外 HTTP API。当前架构和 API 文档继续只描述已落地 Coding 事实。

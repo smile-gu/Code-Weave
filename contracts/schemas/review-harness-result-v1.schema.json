@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-result-v1.schema.json",
+  "title": "Review Result Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "resultVersion",
+    "resultId",
+    "runId",
+    "snapshotId",
+    "manifestSha256",
+    "generatedAt",
+    "passResults",
+    "evidence",
+    "findings",
+    "reportDraft",
+    "diagnostics"
+  ],
+  "properties": {
+    "resultVersion": { "const": "1.0" },
+    "resultId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
+    "runId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
+    "snapshotId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
+    "manifestSha256": { "$ref": "review-harness-common-v1.schema.json#/$defs/sha256" },
+    "generatedAt": { "$ref": "review-harness-common-v1.schema.json#/$defs/utcTimestamp" },
+    "passResults": { "type": "array", "items": { "type": "object" } },
+    "evidence": { "type": "array", "items": { "type": "object" } },
+    "findings": { "type": "array", "items": { "type": "object" } },
+    "reportDraft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["markdown", "byteSize"],
+      "properties": {
+        "markdown": { "type": "string" },
+        "byteSize": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contextManifestArtifactIds"],
+      "properties": {
+        "contextManifestArtifactIds": {
+          "type": "array",
+          "items": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}
