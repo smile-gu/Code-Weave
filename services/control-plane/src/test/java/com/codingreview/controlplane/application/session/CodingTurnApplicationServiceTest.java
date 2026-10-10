@@ -102,7 +102,7 @@ class CodingTurnApplicationServiceTest {
                 JsonMapper.builder().findAndAddModules().build(), executor,
                 () -> RuntimeReadiness.from(Instant.now(), List.of()), workspaceGuard,
                 new SessionOperationLockManager()
-        );
+        , ReviewTestSupport.emptyGuard());
 
         service.submit(session.sessionId(), "执行一次任务");
         executor.tasks.getFirst().run();
@@ -256,7 +256,7 @@ class CodingTurnApplicationServiceTest {
                 sessions, turns, orchestrator, changes, journal,
                 JsonMapper.builder().findAndAddModules().build(), executor, readinessService,
                 workspaceGuard, new SessionOperationLockManager()
-        );
+        , ReviewTestSupport.emptyGuard());
         return new Fixture(session, turns, changes, executor, service, workspaceGuard);
     }
 

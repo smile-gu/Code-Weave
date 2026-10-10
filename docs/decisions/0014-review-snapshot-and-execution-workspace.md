@@ -1,9 +1,11 @@
 # ADR-0014：不可变 Review Snapshot 与 Run 执行空间
 
-- 状态：已冻结，尚未实现
+- 状态：已冻结；批次 2 开发完成，待独立审查
 - 日期：2026-09-09
 - 范围：Review 范围确认、不可变输入、Java/Python 文件职责与执行空间
 - 上游：ADR-0008、ADR-0009、ADR-0011、ADR-0013
+
+2026-10-09 批次 2 细化：Manifest v1 机器契约见 `contracts/schemas/review-snapshot-manifest-v1.schema.json`；批次 2 已实现 Snapshot、执行副本及 Java/Python 模拟闭环，待独立审查；交付证据见 `docs/review-harness-batch-2-development-handoff.md`。执行副本准备顺序按第 8 节校正，不能沿用 PENDING 无目录资源的模拟器恢复证明。
 
 ## 1. 问题与目标
 
@@ -62,6 +64,8 @@ Java 负责范围门禁、真实工作区采集、Staging、Manifest、固定 Di
 - FIFO、Socket、Device 等特殊文件。
 
 Git LFS 只捕获本地工作树已有字节，不自动联网 hydrate。
+
+2026-10-10 B2-R04 实现限制：Git status/diff 的内容转换仍可能调用 clean/process，包括 LFS。当前在业务命令前检查有效 filter 属性，发现任何活动 driver（含 filter=lfs）即拒绝采集，不启动过滤器、不 hydrate，也不关闭过滤器后静默改变 Diff 语义。全局仅注册 LFS、当前文件没有有效 filter 属性不受影响；支持 LFS 固定 Diff 需要后续明确的安全实现。
 
 ## 4. 范围预览与确认
 
@@ -195,7 +199,9 @@ stateDiagram-v2
     CLEANING --> RETAINED_FOR_DIAGNOSIS: 清理失败
 ```
 
-Python 在 Run 进入 `RUNNING` 前校验 Snapshot、创建 Staging Workspace、复制普通文件、复核 Manifest 并原子发布。绝对执行根只能作为受信 Runtime Context 注入 Tool Adapter，不得成为模型参数。
+Python 先在启动事务内检查 Session 隔离与不安全资源证据，提交 `RUNNING + ACTIVE`，再可靠保存执行空间准备意图、校验 Snapshot、创建 Staging Workspace、复制普通文件、复核 Manifest 并原子发布。`PENDING + NOT_ACQUIRED` 不创建目录或持有复制资源。准备失败也要确认线程、句柄与目录清理，无法确认时使用 `FAILED + UNCERTAIN`。绝对执行根只能作为受信 Runtime Context 注入 Tool Adapter，不得成为模型参数。
+
+执行空间有独立持久准备/清理记录，显式迁移后由启动恢复检查。本批只运行确定性模拟器，但文件目录已经是真实资源；不能再仅凭“进程内模拟器已经消失”确认 RELEASED。清理失败保留诊断和 Session 保护。
 
 首版不使用普通硬链接，避免执行空间写入反向修改 Snapshot。执行型工具接入后必须在执行前后比较受保护源码 Manifest；污染结果不能升级为 Evidence，Run 必须失败并保留诊断。普通本地副本不是安全 Sandbox，不得据此承诺可安全运行不可信项目代码。
 

@@ -25,14 +25,17 @@ public class CodingSessionRecoveryService implements ApplicationRunner {
 
     private final CodingSessionRepository repository;
     private final RepositoryWriteLockManager lockManager;
+    private final com.codingreview.controlplane.review.ReviewExecutionGuard reviewGuard;
 
     /** 装配需要扫描和更新的 Session 仓储。 */
     public CodingSessionRecoveryService(
             CodingSessionRepository repository,
-            RepositoryWriteLockManager lockManager
+            RepositoryWriteLockManager lockManager,
+            com.codingreview.controlplane.review.ReviewExecutionGuard reviewGuard
     ) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.lockManager = Objects.requireNonNull(lockManager, "lockManager");
+        this.reviewGuard = reviewGuard;
     }
 
     /** 扫描平台快照并修正无法继续使用的 Session。 */
@@ -41,6 +44,16 @@ public class CodingSessionRecoveryService implements ApplicationRunner {
         int recovered = 0;
         int failed = 0;
         for (CodingSession session : repository.findAll()) {
+            if (reviewGuard.blocks(session.sessionId())) {
+                try {
+                    if (session.usesRealRepository()) lockManager.recover(session.sourceRepository(), session.sessionId());
+                    failed++;
+                } catch (RuntimeException error) {
+                    LOGGER.error("Review 保护恢复尚未确认，sessionId={}", session.sessionId());
+                    reviewGuard.uncertain(session.sessionId()); failed++;
+                }
+                continue;
+            }
             if (session.status() == CodingSessionStatus.CLOSED) {
                 try {
                     if (session.usesRealRepository())

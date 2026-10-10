@@ -14,9 +14,12 @@ from tests.integration.test_supervisor import ControlledExecutor
 
 
 def settings_for(database, tmp_path):
+    for name in ("snapshots", "executions"):
+        (tmp_path / name).mkdir(exist_ok=True)
     return Settings(
         internal_bearer_token="test-only-credential",
-        snapshot_root=tmp_path,
+        snapshot_root=tmp_path / "snapshots",
+        execution_root=tmp_path / "executions",
         database_url=str(database.engine.url),
         shutdown_grace_seconds=0.05,
     )
@@ -143,7 +146,11 @@ async def test_corrupt_run_is_isolated_while_other_sessions_remain_ready(
 async def test_graceful_shutdown_leaves_pending_for_next_app(
     database, tmp_path, payload
 ):
-    settings = settings_for(database, tmp_path)
+    # This case proves graceful cleanup, not expiration of the shutdown budget.
+    # Real SQLite/file cleanup must have the production grace budget under load.
+    settings = settings_for(database, tmp_path).model_copy(
+        update={"shutdown_grace_seconds": 5}
+    )
     executor = ControlledExecutor()
     app = create_app(settings, executor=executor)
     pending = copy.deepcopy(payload)
@@ -194,13 +201,17 @@ async def test_each_logically_corrupt_history_is_isolated_on_restart(
 
 
 async def test_uncertain_resources_block_only_associated_session_until_confirmation(
-    database, tmp_path, payload
+    database, tmp_path, payload, workspaces
 ):
     from review_harness.domain.model import Failure
 
     store = RunStore(database)
     await store.create_run(payload)
-    await store.start_run(payload["runId"])
+    run, _ = await store.start_run(payload["runId"])
+    context = await workspaces.prepare(run, asyncio.Event())
+    owner = context.workspace_root / "owner.json"
+    original_owner = owner.read_bytes()
+    owner.write_bytes(b"{}")
     await store.fail_cleanup_uncertain(
         payload["runId"], Failure.make("REVIEW_RESOURCE_CLEANUP_FAILED")
     )
@@ -213,6 +224,9 @@ async def test_uncertain_resources_block_only_associated_session_until_confirmat
                 await client.post("/internal/v1/review-runs", json=same_session)
             ).status_code == 503
             assert (await client.get("/internal/v1/health")).status_code == 200
+            owner.write_bytes(original_owner)
+            failed = await app.state.service.store.get_run(payload["runId"])
+            await app.state.workspaces.cleanup(failed)
             await app.state.service.store.confirm_resources_released(payload["runId"])
             assert (
                 await client.post("/internal/v1/review-runs", json=same_session)

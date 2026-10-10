@@ -23,7 +23,7 @@ class CodingSessionCloseApplicationServiceTest {
     final RepositoryWriteLockManager locks = mock(RepositoryWriteLockManager.class);
     final SessionOperationLockManager operations = new SessionOperationLockManager();
     final CodingSessionCloseApplicationService service =
-            new CodingSessionCloseApplicationService(repository, turns, operations, locks);
+            new CodingSessionCloseApplicationService(repository, turns, operations, locks, ReviewTestSupport.emptyGuard());
     final CodingSession initial = CodingSession.initializing(UUID.randomUUID(), "关闭测试",
             Path.of("D:/repository"), "main", new ChangePolicy(List.of(), List.of()), Instant.now())
             .activateRealRepository(new GitRepositorySnapshot(Path.of("D:/repository"), "main", "abc", true), Instant.now());

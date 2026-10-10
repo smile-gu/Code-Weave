@@ -142,4 +142,4 @@ git status --short --branch
 
 批次 1 使用 Python 3.12、FastAPI、SQLAlchemy Async 与 SQLite，独立于 Maven。安装、必填配置、显式 Alembic 迁移、单 Worker 启动和测试命令见 [服务 README](../../services/review-harness/README.md)。
 
-默认地址为 `127.0.0.1:8091`，全部内部接口需要 Bearer Token。生产启动只校验 Schema，不自动迁移。当前执行器产生空 Result，真实 Snapshot、模型、Tool、Java 和前端 Review 集成尚未接入。
+默认地址为 `127.0.0.1:8091`，全部内部接口需要 Bearer Token。生产启动只校验 Schema，不自动迁移。批次 2 已接通 Java Snapshot 与 Python 独立副本，当前执行器产生空 Result，模拟成功不代表审查通过。两服务必须配置同一 Snapshot Root、Execution Root 和内部 Token；旧 SQLite 必须显式升级到 0002_workspaces。Java 最小 API、根目录配置、故障保护和验收命令见 [批次 2 交付记录](../review-harness-batch-2-development-handoff.md)。真实模型、Tool 和前端 Review 尚未接入。

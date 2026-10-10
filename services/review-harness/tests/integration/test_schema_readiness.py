@@ -14,6 +14,8 @@ from tests.integration.test_lifecycle import client_for, settings_for
         "ALTER TABLE review_runs DROP COLUMN request_payload",
         "ALTER TABLE review_run_events DROP COLUMN payload",
         "ALTER TABLE review_results DROP COLUMN document_bytes",
+        "DROP TABLE execution_workspaces",
+        "ALTER TABLE execution_workspaces DROP COLUMN diagnostic_id",
     ],
 )
 async def test_incomplete_empty_schema_cannot_be_ready_or_accept_runs(

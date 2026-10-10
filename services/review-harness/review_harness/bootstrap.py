@@ -2,11 +2,12 @@ import logging
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from review_harness.application.readiness import snapshot_accessible
 from review_harness.application.recovery import recover_runs
 from review_harness.application.service import RunService
 from review_harness.infrastructure.persistence.database import Database
 from review_harness.infrastructure.persistence.store import RunStore
+from review_harness.infrastructure.persistence.workspaces import WorkspaceStore
+from review_harness.infrastructure.workspaces import WorkspaceManager
 from review_harness.runtime.executor import DeterministicExecutor
 from review_harness.runtime.supervisor import Supervisor
 
@@ -23,19 +24,23 @@ async def lifespan(app):
     app.state.recovery_complete = False
     database = app.state.database = Database(settings.database_url)
     store = RunStore(database, notify=app.state.hub.notify)
+    workspaces = app.state.workspaces = WorkspaceManager(
+        settings, WorkspaceStore(database)
+    )
     supervisor = app.state.supervisor = Supervisor(
         store,
         app.state.executor or DeterministicExecutor(),
         settings.supervisor_queue_capacity,
+        workspaces,
     )
     app.state.service = RunService(store, supervisor)
     try:
         if (
             await database.schema_ready()
             and await database.writable()
-            and snapshot_accessible(settings.snapshot_root)
+            and app.state.storage_probe()
         ):
-            await recover_runs(store, app.state.service)
+            await recover_runs(store, app.state.service, workspaces)
             app.state.recovery_complete = True
             supervisor.start()
     except Exception:
@@ -47,4 +52,5 @@ async def lifespan(app):
         yield
     finally:
         await supervisor.stop(settings.shutdown_grace_seconds)
+        await workspaces.close(settings.shutdown_grace_seconds)
         await database.close()

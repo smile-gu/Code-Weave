@@ -7,19 +7,24 @@ from sqlalchemy import event, select, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
-from review_harness.infrastructure.persistence.tables import events, results, runs
+from review_harness.infrastructure.persistence.tables import (
+    events,
+    results,
+    runs,
+    workspaces,
+)
 
-REVISION = "0001_runtime"
+REVISION = "0002_workspaces"
 SERVICE_ROOT = Path(__file__).resolve().parents[3]
 
 
-def migrate(url: str) -> None:
+def migrate(url: str, revision: str = "head") -> None:
     """Explicit operator/test command; never called by application startup."""
     config = Config(str(SERVICE_ROOT / "alembic.ini"))
     config.set_main_option("script_location", str(SERVICE_ROOT / "migrations"))
     config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     config.attributes["explicit_url"] = True
-    command.upgrade(config, "head")
+    command.upgrade(config, revision)
 
 
 class Database:
@@ -56,7 +61,7 @@ class Database:
                 # Revision metadata alone cannot prove the schema still exists.
                 # Qualified projections validate every required column even on
                 # an empty database, without reading rows or repairing anything.
-                for table in (runs, events, results):
+                for table in (runs, events, results, workspaces):
                     await connection.execute(select(table).limit(0))
                 return True
         except Exception:

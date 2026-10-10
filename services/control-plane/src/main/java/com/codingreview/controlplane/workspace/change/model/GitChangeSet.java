@@ -10,8 +10,16 @@ public record GitChangeSet(
         Path workspaceRoot,
         List<GitChangedFile> files,
         String unifiedDiff,
-        int unifiedDiffBytes
+        int unifiedDiffBytes,
+        @com.fasterxml.jackson.annotation.JsonIgnore byte[] rawDiff
 ) {
+    public GitChangeSet(String baseCommit, Path workspaceRoot, List<GitChangedFile> files,
+            String unifiedDiff, int unifiedDiffBytes) {
+        this(baseCommit, workspaceRoot, files, unifiedDiff, unifiedDiffBytes,
+                unifiedDiff.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @Override public byte[] rawDiff() { return rawDiff.clone(); }
     public GitChangeSet {
         if (baseCommit == null || baseCommit.isBlank()) {
             throw new IllegalArgumentException("baseCommit must not be blank");
@@ -22,6 +30,7 @@ public record GitChangeSet(
         }
         files = List.copyOf(files);
         Objects.requireNonNull(unifiedDiff, "unifiedDiff");
+        rawDiff = Objects.requireNonNull(rawDiff, "rawDiff").clone();
         if (unifiedDiffBytes < 0) {
             throw new IllegalArgumentException("unifiedDiffBytes must not be negative");
         }

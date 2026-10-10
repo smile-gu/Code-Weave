@@ -15,7 +15,12 @@ from review_harness.domain.model import (
     sha256,
     utc_now,
 )
-from review_harness.infrastructure.persistence.tables import events, results, runs
+from review_harness.infrastructure.persistence.tables import (
+    events,
+    results,
+    runs,
+    workspaces,
+)
 
 logger = logging.getLogger("review_harness")
 
@@ -38,6 +43,15 @@ class RunStore:
         self.quarantined_runs.add(run_id)
         if session_id:
             self.blocked_sessions.add(session_id)
+
+    async def isolate_run(self, run_id: str):
+        async with self.database.engine.connect() as connection:
+            session_id = (
+                await connection.execute(
+                    select(runs.c.coding_session_id).where(runs.c.run_id == run_id)
+                )
+            ).scalar_one()
+        self._quarantine(run_id, session_id)
 
     async def get_run(self, run_id: str) -> Run:
         if run_id in self.quarantined_runs:
@@ -331,6 +345,23 @@ class RunStore:
                 await self._require_session_available(
                     connection, current.coding_session_id
                 )
+            if status in TERMINAL and resource in {"RELEASED", "NOT_ACQUIRED"}:
+                row = (
+                    (
+                        await connection.execute(
+                            select(workspaces).where(workspaces.c.run_id == run_id)
+                        )
+                    )
+                    .mappings()
+                    .first()
+                )
+                if row and (
+                    row["state"] != "REMOVED"
+                    or row["relative_directory"] != run_id
+                    or row["snapshot_id"] != current.snapshot_id
+                    or row["manifest_sha256"] != current.manifest_sha256
+                ):
+                    raise integrity_error()
             now = max(utc_now(), current.updated_at)
             values = {
                 "status": status,

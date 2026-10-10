@@ -81,3 +81,31 @@ results = Table(
     Column("sha256", Text, nullable=False),
     Column("created_at", Text, nullable=False),
 )
+
+workspaces = Table(
+    "execution_workspaces",
+    metadata,
+    Column(
+        "run_id",
+        Text,
+        ForeignKey("review_runs.run_id", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+    *[
+        Column(name, Text, nullable=False)
+        for name in (
+            "snapshot_id",
+            "manifest_sha256",
+            "relative_directory",
+            "state",
+            "created_at",
+            "updated_at",
+        )
+    ],
+    Column("failure_code", Text),
+    Column("diagnostic_id", Text),
+    CheckConstraint(
+        "state IN ('PREPARING','READY','CLEANING','REMOVED','RETAINED')",
+        name="workspace_state",
+    ),
+)

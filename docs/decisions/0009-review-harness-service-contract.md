@@ -1,6 +1,6 @@
 # ADR-0009：Review Harness 跨服务运行契约
 
-- 状态：已冻结；Python 批次 1 Runtime 已实现，待独立审查；Java 集成尚未实现
+- 状态：已冻结；Python 批次 1 Runtime 已通过独立复审并提交；批次 2 与 Java 模拟集成开发完成，待独立审查
 - 范围：Java Control Plane 与 Python Review Harness 的内部通信契约
 - 实施阶段：Review Harness 服务骨架与确定性模拟执行器已落地；见 `services/review-harness/DEVELOPMENT-HANDOFF.md`
 - 最近核对：2026-10-09，完成批次 1 字段级协议、SQLite 列、事件 Payload 与排队/恢复边界审定；Snapshot 输入遵循 ADR-0014，Context/Artifact/Evidence 遵循 ADR-0015
@@ -11,7 +11,7 @@ Code Weave 使用 Java Control Plane 承载产品 API、运行事实持久化和
 
 Python 服务采用 FastAPI 与 Uvicorn。它只向 Java 提供内部接口，不直接面向浏览器，也不主动回调 Java。
 
-本文冻结跨服务契约。Python 服务、Run/Event/Result 表与模拟生命周期已在批次 1 落地，Java Review 集成尚未实现。当前正式 Coding 使用单 Control Plane 进程、Session/Turn 文件快照与事件日志；Python 的 SQLite 选型不意味着 Java 已迁移数据库。
+本文冻结跨服务契约。Python 服务、Run/Event/Result 表与模拟生命周期已在批次 1 落地，Java Review 模拟集成已落地，待独立审查；真实 Agent 和报告交互仍属后续批次。当前正式 Coding 使用单 Control Plane 进程、Session/Turn 文件快照与事件日志；Python 的 SQLite 选型不意味着 Java 已迁移数据库。
 
 ## 2. 已冻结的接口职责
 
@@ -559,7 +559,7 @@ Python 启动时先校验配置、数据库和 Schema，并保持 `acceptingRuns
 | 单个逻辑损坏 Run | 隔离对应 Session，其他 Run 继续服务 |
 | SQLite 物理损坏或 Schema 不兼容 | 全服务 Not Ready |
 
-模拟执行器不产生外部资源，因此进程重启可以证明其进程内资源消失。接入真实模型或执行型 Tool 前，必须增加持久 Tool Execution Record 或等价意图与 Recovery Inspector；PID 证据必须防重用，不能只保存数字 PID。没有可靠释放证据时使用 `UNCERTAIN`。
+批次 1 模拟执行器不产生外部资源，因此进程重启可以证明其进程内资源消失。批次 2 虽仍使用模拟器，但执行目录、复制线程与文件句柄已经是真实本地资源，必须按 ADR-0014 的持久准备/清理记录恢复并验证，不能继续沿用“重启即安全”推断。接入真实模型或执行型 Tool 前，必须进一步增加持久 Tool Execution Record 或等价意图与 Recovery Inspector；PID 证据必须防重用，不能只保存数字 PID。没有可靠释放证据时使用 `UNCERTAIN`。
 
 ## 17. Java 可靠消费与产品收敛
 

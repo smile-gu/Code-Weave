@@ -30,3 +30,5 @@ flowchart TD
 4. API 文档必须能从 Controller 和 DTO 反向核对，不能记录已删除接口。
 5. 不在文档中写未经测试的性能数字、容量结论或简历数据。
 6. 架构、状态和时序关系使用 Mermaid；代码块只放真实命令、配置或协议示例。
+
+- [Review Harness 批次 2 开发交付与复审入口](review-harness-batch-2-development-handoff.md)

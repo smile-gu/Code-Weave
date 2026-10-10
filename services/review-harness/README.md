@@ -1,6 +1,6 @@
-# Review Harness Runtime — 批次 1
+# Review Harness Runtime — 批次 2
 
-独立 Python 3.12 服务，提供确定性模拟执行。批次 1 已实现内部 HTTP、持久 Run/Event/Result、有界单 Worker、取消、SSE 和启动恢复。真实 Snapshot、模型、Tool 与 Java/前端集成属于后续批次。
+独立 Python 3.12 服务，提供确定性模拟执行。批次 1 已实现内部 HTTP、持久 Run/Event/Result、有界单 Worker、取消、SSE 和启动恢复。批次 2 增加真实 Snapshot 校验、独立执行副本、持久文件资源记录与 Java HTTP/SSE 模拟接通。模型、Tool 与前端 Review 属于后续批次。
 
 ## 安装与启动
 
@@ -12,9 +12,10 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python -m pip install --no-deps --no-build-isolation -e .
 
 $harnessRuntime = Join-Path $env:TEMP 'code-weave-review-harness'
-New-Item -ItemType Directory -Force -Path "$harnessRuntime/snapshots" | Out-Null
+New-Item -ItemType Directory -Force -Path "$harnessRuntime/snapshots", "$harnessRuntime/executions" | Out-Null
 $env:CODE_WEAVE_REVIEW_DATABASE_URL = "sqlite+aiosqlite:///$($harnessRuntime.Replace('\', '/'))/runs.sqlite"
 $env:CODE_WEAVE_REVIEW_SNAPSHOT_ROOT = "$harnessRuntime/snapshots"
+$env:CODE_WEAVE_REVIEW_EXECUTION_ROOT = "$harnessRuntime/executions"
 # 交互输入真实内部凭证，避免把凭证明文写入脚本或 Git。
 $harnessCredential = Read-Host 'Internal Bearer Token' -AsSecureString
 $env:CODE_WEAVE_REVIEW_INTERNAL_BEARER_TOKEN = [System.Net.NetworkCredential]::new('', $harnessCredential).Password
@@ -25,9 +26,9 @@ $env:CODE_WEAVE_REVIEW_INTERNAL_BEARER_TOKEN = [System.Net.NetworkCredential]::n
 
 官方入口默认 `127.0.0.1:8091`，固定 `workers=1`，关闭访问日志。禁止 `uvicorn --workers > 1`，多进程所有权不在本批范围。Alembic 从源码目录显式执行；本批支持源码/可编辑安装，不提供脱离源码目录的独立迁移包。
 
-数据库目录必须已存在。Snapshot Root 必须是可读目录；模拟器只校验引用格式，不读取目录内 Snapshot 或源码。数据库 Schema 缺失/不兼容、物理损坏、恢复失败时服务返回 NOT_READY，启动不会自动迁移或修补 Schema。
+数据库目录必须已存在。Snapshot Root 必须可读，Execution Root 必须可读写；两个绝对根互不包含，且位于真实仓库外。PENDING 不读取 Snapshot 内容；取得 RUNNING + ACTIVE 后先可靠保存执行空间意图，再校验原始 Manifest 摘要、内容并创建独立副本。数据库 Schema 缺失/不兼容、物理损坏、恢复失败时服务返回 NOT_READY，启动不会自动迁移或修补 Schema。
 
-Schema 检查同时验证 Alembic revision 和三张核心表的全部必需列，空库也执行检查。Session 保护在创建和取得执行权的写事务中核验：同 Session 存在损坏历史或 UNCERTAIN 资源时，已排队任务也不能启动。被阻断任务保留 PENDING/ACCEPTED；确认资源安全后通过同请求重试或下一次恢复重新排队，其他 Session 继续服务。
+Schema 检查同时验证 Alembic revision 和Run/Event/Result 与 execution_workspaces 四张表的全部必需列，空库也执行检查。Session 保护在创建和取得执行权的写事务中核验：同 Session 存在损坏历史或 UNCERTAIN 资源时，已排队任务也不能启动。被阻断任务保留 PENDING/ACCEPTED；确认资源安全后通过同请求重试或下一次恢复重新排队，其他 Session 继续服务。
 
 ## 配置
 
@@ -39,7 +40,15 @@ Schema 检查同时验证 Alembic revision 和三张核心表的全部必需列�
 | `PORT` | `8091`，1–65535 |
 | `DATABASE_URL` | `sqlite+aiosqlite:///review-harness.sqlite`，文件 SQLite |
 | `INTERNAL_BEARER_TOKEN` | 必填；空值和常见示例值拒绝启动 |
-| `SNAPSHOT_ROOT` | 必填；Readiness 检查存在和可读 |
+| `SNAPSHOT_ROOT` | 必填绝对路径；Readiness 检查存在和可读 |
+| `EXECUTION_ROOT` | 必填绝对路径；与 Snapshot Root 互不包含，Readiness 检查可读写 |
+| `SNAPSHOT_MAX_FILES` | 20,000 |
+| `SNAPSHOT_MAX_FILE_BYTES` | 64 MiB |
+| `SNAPSHOT_MAX_TOTAL_BYTES` | 1 GiB |
+| `SNAPSHOT_MAX_MANIFEST_BYTES` | 16 MiB |
+| `SNAPSHOT_MAX_DIFF_BYTES` | 2 MiB |
+| `WORKSPACE_PREPARE_SECONDS` | 120 秒 |
+| `WORKSPACE_CLEANUP_SECONDS` | 30 秒 |
 | `SUPERVISOR_QUEUE_CAPACITY` | 32，1–10000；不包括当前执行项 |
 | `SSE_PAGE_SIZE` | 100，1–1000 |
 | `SSE_HEARTBEAT_SECONDS` | 5，`0 < x <= 60` |
@@ -62,7 +71,9 @@ SSE 每次 ASGI 写入超时为 5 秒；心跳为非持久 Comment。所有接�
 
 RunStore 每个命令在 `BEGIN IMMEDIATE` 事务内执行条件状态更新、序号递增和事件插入；成功同时插入 Result。进程内写锁只减少 SQLite 写竞争，状态转换条件与唯一约束仍在数据库中。提交报错后重读 Run、完整事件链和 Result 核实；确认失败时停止接收新任务。Hub 仅提供单比特唤醒，不存事件历史。读取和恢复逐页校验事实，损坏 Run 及其 Session 隔离，合法 UNCERTAIN 只阻断相关 Session。
 
-模拟器只有三个有界阶段，不创建外部资源，结果中的 Pass/Evidence/Finding 与 Markdown 全为空。由此，重启可把 RUNNING 转为 FAILED/RELEASED，把 CANCELLING 转为 CANCELLED/RELEASED。引入真实工具前必须替换这项资源安全证明。
+模拟器只有三个有界阶段，结果中的 Pass/Evidence/Finding 与 Markdown 全为空，成功不代表代码审查通过。目录、复制线程和句柄现在是真实资源：后台任务未退出、owner 不符、链接替换或清理未知，必须保留 RETAINED 与 FAILED + UNCERTAIN。重启先建立 Session 隔离并验证资源归属，再可靠清理；无法归属的目录或资源行使全服务 NOT_READY，原始文件保留。
+
+升级旧库必须显式执行 `alembic upgrade head` 到 `0002_workspaces`。未升级的库不会启动 Worker；旧 0001 migration 和 Run/Event/Result Wire 不变。Snapshot 不自动 GC，Run 结束只清理自己的执行副本。
 
 ## 代码组织
 
@@ -90,3 +101,7 @@ git diff --check
 测试使用真实临时 SQLite、HTTPX ASGI 与 Uvicorn/HTTPX 网络客户端；竞态使用 Barrier/Event。SQL 语句与提交故障只通过 Python 依赖/数据库 I/O 边界注入，没有生产 HTTP 故障开关。Schema 契约测试直接核对仓库中的字段、基础模式和事件 Payload，并非通用 JSON Schema 验证器。
 
 红测与交付证据见 [TDD-EVIDENCE.md](TDD-EVIDENCE.md)，本批交付检查见 [DEVELOPMENT-HANDOFF.md](DEVELOPMENT-HANDOFF.md)。
+
+批次 2 的实现、配置与复审入口见 [批次 2 开发交付](../../docs/review-harness-batch-2-development-handoff.md)。
+
+Java 采集当前拒绝 Git 可见文件的有效 filter 属性（clean/process，包括 filter=lfs），不启动过滤脚本、不 hydrate、不清空过滤器后改变 Diff 语义。只有全局 LFS 注册而文件未应用 filter 属性时仍可使用。见批次 2 交付记录 B2-R04。

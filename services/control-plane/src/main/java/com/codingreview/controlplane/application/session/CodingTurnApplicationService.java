@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /** 负责多轮 Turn 的创建、串行执行、停止和持久查询。 */
 @Service
-public final class CodingTurnApplicationService {
+public final class CodingTurnApplicationService implements CodingIdleSafety {
     private static final Logger LOGGER = LoggerFactory.getLogger(CodingTurnApplicationService.class);
     private final CodingSessionRepository sessions;
     private final CodingTurnRepository turns;
@@ -48,6 +48,7 @@ public final class CodingTurnApplicationService {
     private final RuntimeReadinessService readinessService;
     private final SessionWorkspaceGuard workspaceGuard;
     private final SessionOperationLockManager operationLocks;
+    private final com.codingreview.controlplane.review.ReviewExecutionGuard reviewGuard;
     private final ConcurrentHashMap<UUID, ExecutionHandle> running = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, String> executionBlocks = new ConcurrentHashMap<>();
     private final java.util.Set<UUID> resourceBlocks = ConcurrentHashMap.newKeySet();
@@ -59,7 +60,8 @@ public final class CodingTurnApplicationService {
                                         @Qualifier("codingTurnExecutor") TaskExecutor executor,
                                         RuntimeReadinessService readinessService,
                                         SessionWorkspaceGuard workspaceGuard,
-                                        SessionOperationLockManager operationLocks) {
+                                        SessionOperationLockManager operationLocks,
+                                        com.codingreview.controlplane.review.ReviewExecutionGuard reviewGuard) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.turns = Objects.requireNonNull(turns, "turns");
         this.orchestrator = Objects.requireNonNull(orchestrator, "orchestrator");
@@ -72,12 +74,14 @@ public final class CodingTurnApplicationService {
         );
         this.workspaceGuard = Objects.requireNonNull(workspaceGuard, "workspaceGuard");
         this.operationLocks = Objects.requireNonNull(operationLocks, "operationLocks");
+        this.reviewGuard = Objects.requireNonNull(reviewGuard, "reviewGuard");
     }
 
     /** 创建排队 Turn，并保证同一 Session 同时只有一轮运行。 */
     public CodingTurn submit(UUID sessionId, String prompt) {
         synchronized (lock(sessionId)) {
             CodingSession session = requireActive(sessionId);
+            reviewGuard.assertAvailable(sessionId);
             String executionBlock = executionBlocks.get(sessionId);
             if (executionBlock != null || resourceBlocks.contains(sessionId)) {
                 throw new CodingSessionConflictException(
@@ -150,7 +154,12 @@ public final class CodingTurnApplicationService {
 
     /** 在调用方持续持有 Session 操作锁时确认历史、句柄和执行保护均允许关闭。 */
     public void assertIdleAndSafeForClose(UUID sessionId) {
+        assertIdleAndSafe(sessionId);
+    }
+
+    @Override public void assertIdleAndSafe(UUID sessionId) {
         if (!Thread.holdsLock(lock(sessionId))) throw new IllegalStateException("Session operation lock required");
+        reviewGuard.assertAvailable(sessionId);
         List<CodingTurn> history = turns.findAll(sessionId);
         if (executionBlocks.containsKey(sessionId) || resourceBlocks.contains(sessionId)
                 || history.stream().anyMatch(turn -> "PROCESS_CLEANUP_FAILED".equals(turn.failureCode()))) {

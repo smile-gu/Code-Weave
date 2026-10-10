@@ -26,7 +26,11 @@ async def api(database, tmp_path):
     store = RunStore(database)
     service = RunService(store, HoldingScheduler())
     app = create_app(
-        Settings(internal_bearer_token="test-only-credential", snapshot_root=tmp_path),
+        Settings(
+            internal_bearer_token="test-only-credential",
+            snapshot_root=tmp_path / "snapshots",
+            execution_root=tmp_path / "executions",
+        ),
         service=service,
     )
     async with httpx.AsyncClient(

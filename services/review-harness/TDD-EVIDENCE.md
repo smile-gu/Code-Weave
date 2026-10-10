@@ -36,3 +36,7 @@ Session 门禁与创建门禁共享检查，在 `BEGIN IMMEDIATE` 事务内核�
 Recovery 全部扫描完成后才启动 Worker，取得执行权时再次验证 Session，因此正确性不依赖有效 PENDING 和损坏 Run 的 UUID 顺序。Schema 检查使用核心 SQLAlchemy Table 的全列投影和 `LIMIT 0`，验证访问能力而不读取数据行。
 
 修复后全量回归：105 passed；全新 Python 3.12 venv：105 passed in 19.73s，安装与 `pip check`、Ruff、空库迁移、启动及认证 Readiness 均通过。实现和回归保持未提交，等待复审。
+
+## 批次 2
+
+固定输入、真实文件资源与 Java 可靠导入的正式回归及红→绿记录见 [批次 2 开发交付](../../docs/review-harness-batch-2-development-handoff.md)。批次 1 的历史验收数字保留，不冒充本批证据。

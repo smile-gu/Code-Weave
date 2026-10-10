@@ -27,6 +27,22 @@ import java.util.UUID;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    @ExceptionHandler(com.codingreview.controlplane.review.ReviewException.class)
+    ResponseEntity<ApiErrorResponse> handleReview(com.codingreview.controlplane.review.ReviewException error, HttpServletRequest request) {
+        HttpStatus status = switch (error.code()) {
+            case "REVIEW_RUN_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "REVIEW_REQUEST_TOO_LARGE" -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case "REVIEW_REQUEST_INVALID", "REVIEW_SCOPE_EMPTY" -> HttpStatus.BAD_REQUEST;
+            default -> HttpStatus.SERVICE_UNAVAILABLE;
+        };
+        return response(status, error.code(), error.getMessage(), request, null, Map.of());
+    }
+
+    @ExceptionHandler(com.codingreview.controlplane.review.snapshot.SnapshotException.class)
+    ResponseEntity<ApiErrorResponse> handleSnapshot(com.codingreview.controlplane.review.snapshot.SnapshotException error, HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, error.code(), error.getMessage(), request, null, Map.of());
+    }
+
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     /** 将请求体字段校验失败转换为带字段详情的 400 响应。 */

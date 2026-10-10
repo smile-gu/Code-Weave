@@ -1,7 +1,9 @@
 import asyncio
 
+from review_harness.domain.snapshot import WorkCancelled
 
-class ExecutionCancelled(Exception):
+
+class ExecutionCancelled(WorkCancelled):
     pass
 
 

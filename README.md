@@ -12,7 +12,7 @@ Code Weave 是一个面向本地 Git 项目的 Coding–Review 一体化 Agent �
 | Maven 验证 | 已实现 | 当前只支持 Spring Boot 3.x + Maven 项目 |
 | SSE 可观测 | 已实现 | 支持历史补发、实时事件和游标恢复 |
 | 模块级基线推进 | 已实现 | 用户完成 Review、自测和正式 Commit 后确认推进 |
-| Review Harness Runtime | 批次 1 已实现，待独立审查 | FastAPI、SQLite、生命周期、取消、SSE、恢复与确定性模拟器；尚未接入真实 Review Agent、Java 与报告交互 |
+| Review Harness Runtime | 批次 2 开发完成，待独立审查 | 固定 Snapshot、独立执行副本、Java/Python 模拟闭环及资源门禁；尚未接入真实审查模型、工具和报告交互 |
 | 桌面端 | 待开发 | 当前先提供本机 Web 工作台 |
 
 当前正式业务流程：
@@ -42,7 +42,7 @@ flowchart LR
     J --> G[(真实 Git 工作区)]
     J --> M[Maven Verifier]
     J --> R[(JSON 与 NDJSON 运行事实)]
-    P[Python Review Harness<br/>下一阶段] -. HTTP 与 SSE .-> J
+    P[Python Review Harness<br/>模拟执行] -- HTTP 与 SSE --> J
 ```
 
 | 模块 | 技术 | 职责 |

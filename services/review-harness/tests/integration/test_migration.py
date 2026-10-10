@@ -22,7 +22,13 @@ async def test_empty_database_upgrade_enforces_constraints(tmp_path):
             for r in connection.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
             )
-        } == {"alembic_version", "review_runs", "review_run_events", "review_results"}
+        } == {
+            "alembic_version",
+            "execution_workspaces",
+            "review_runs",
+            "review_run_events",
+            "review_results",
+        }
         with pytest.raises(sqlite3.IntegrityError):
             connection.execute(
                 "INSERT INTO review_run_events VALUES ('missing',1,'REVIEW_RUN_ACCEPTED','x',x'7b7d')"

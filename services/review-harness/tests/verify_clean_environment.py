@@ -57,6 +57,8 @@ def verify():
         run([str(executable), "-m", "ruff", "format", "--check", "."], environment)
         snapshots = root / "snapshots"
         snapshots.mkdir()
+        executions = root / "executions"
+        executions.mkdir()
         credential = uuid4().hex + uuid4().hex
         with socket.socket() as reserve:
             reserve.bind(("127.0.0.1", 0))
@@ -66,6 +68,7 @@ def verify():
                 "CODE_WEAVE_REVIEW_DATABASE_URL": "sqlite+aiosqlite:///"
                 + (root / "smoke.sqlite").as_posix(),
                 "CODE_WEAVE_REVIEW_SNAPSHOT_ROOT": str(snapshots),
+                "CODE_WEAVE_REVIEW_EXECUTION_ROOT": str(executions),
                 "CODE_WEAVE_REVIEW_INTERNAL_BEARER_TOKEN": credential,
                 "CODE_WEAVE_REVIEW_PORT": str(port),
             }

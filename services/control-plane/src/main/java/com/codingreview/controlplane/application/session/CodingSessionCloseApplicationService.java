@@ -18,20 +18,24 @@ public final class CodingSessionCloseApplicationService {
     private final CodingTurnApplicationService turns;
     private final SessionOperationLockManager operations;
     private final RepositoryWriteLockManager repositories;
+    private final com.codingreview.controlplane.review.ReviewExecutionGuard reviewGuard;
 
     /** 复用 Turn 与基线的操作锁及仓库所有权管理器。 */
     public CodingSessionCloseApplicationService(CodingSessionRepository sessions,
             CodingTurnApplicationService turns, SessionOperationLockManager operations,
-            RepositoryWriteLockManager repositories) {
+            RepositoryWriteLockManager repositories,
+            com.codingreview.controlplane.review.ReviewExecutionGuard reviewGuard) {
         this.sessions = sessions;
         this.turns = turns;
         this.operations = operations;
         this.repositories = repositories;
+        this.reviewGuard = reviewGuard;
     }
 
     /** 只有状态保存与目标所有权释放均确认后才返回成功，重复调用仅补偿释放。 */
     public CodingSession close(UUID sessionId) {
         synchronized (operations.lock(sessionId)) {
+            reviewGuard.assertAvailable(sessionId);
             CodingSession session = sessions.find(sessionId)
                     .orElseThrow(() -> new CodingSessionNotFoundException(sessionId));
             if (!session.usesRealRepository() || (session.status() != CodingSessionStatus.ACTIVE

@@ -285,7 +285,7 @@ class CodingTurnReliabilityTest {
     void closeAndSubmitShareTheSameGateInBothOrders() {
         Fixture fixture = fixture(new CapturingExecutor(), completedOrchestrator());
         var repositoryLocks = mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class);
-        var close = new CodingSessionCloseApplicationService(fixture.sessions, fixture.service, fixture.locks, repositoryLocks);
+        var close = new CodingSessionCloseApplicationService(fixture.sessions, fixture.service, fixture.locks, repositoryLocks, ReviewTestSupport.emptyGuard());
         var queued = fixture.service.submit(fixture.session.sessionId(), "排队");
         assertThatThrownBy(() -> close.close(fixture.session.sessionId()))
                 .extracting("code").isEqualTo("TURN_IN_PROGRESS");
@@ -304,7 +304,7 @@ class CodingTurnReliabilityTest {
     void closeCannotClearUncertainPersistenceBlock() {
         Fixture fixture = fixture(new CapturingExecutor(), completedOrchestrator());
         var close = new CodingSessionCloseApplicationService(fixture.sessions, fixture.service, fixture.locks,
-                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class));
+                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class), ReviewTestSupport.emptyGuard());
         fixture.turns.failTerminalWrites = true;
         fixture.service.submit(fixture.session.sessionId(), "持久化故障");
         fixture.executor.tasks.getFirst().run();
@@ -316,7 +316,7 @@ class CodingTurnReliabilityTest {
     void terminalSavedButExecutionHandleStillPresentCannotClose() {
         Fixture fixture = fixture(new CapturingExecutor(), completedOrchestrator());
         var close = new CodingSessionCloseApplicationService(fixture.sessions, fixture.service, fixture.locks,
-                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class));
+                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class), ReviewTestSupport.emptyGuard());
         fixture.journal.beforeTerminalAppend = () -> assertThatThrownBy(() -> close.close(fixture.session.sessionId()))
                 .extracting("code").isEqualTo("TURN_IN_PROGRESS");
         fixture.service.submit(fixture.session.sessionId(), "完成");
@@ -365,7 +365,7 @@ class CodingTurnReliabilityTest {
             var sessions = new com.codingreview.controlplane.session.persistence.FileCodingSessionRepository(runtime, mapper);
             var turns = new com.codingreview.controlplane.session.persistence.FileCodingTurnRepository(runtime, mapper);
             try (var locks = new com.codingreview.controlplane.workspace.lock.FileRepositoryWriteLockManager(runtime)) {
-                new CodingSessionRecoveryService(sessions, locks).run(null);
+                new CodingSessionRecoveryService(sessions, locks, ReviewTestSupport.emptyGuard()).run(null);
                 new CodingTurnRecoveryService(sessions, turns, fixture.journal, mapper).run(null);
                 assertThat(sessions.find(fixture.session.sessionId()).orElseThrow().failureCode())
                         .isEqualTo("PROCESS_CLEANUP_FAILED");
@@ -439,7 +439,7 @@ class CodingTurnReliabilityTest {
                 JsonMapper.builder().findAndAddModules().build(), executor,
                 () -> RuntimeReadiness.from(Instant.now(), List.of()),
                 mock(SessionWorkspaceGuard.class), locks
-        );
+        , ReviewTestSupport.emptyGuard());
         return new Fixture(session, sessions, turns, journal,
                 executor instanceof CapturingExecutor capturing ? capturing : null, service, locks);
     }

@@ -23,6 +23,11 @@ public final class WorkspaceFingerprintCalculator {
 
     /** 对基准提交、规范化文件身份和最终内容摘要计算指纹。 */
     public String calculate(GitChangeSet changes) {
+        return calculate(changes, false);
+    }
+
+    /** 仅在调用方已确认 core.symlinks=false 时允许 Git 120000 的普通文本表示。 */
+    public String calculate(GitChangeSet changes, boolean allowSymlinkText) {
         Objects.requireNonNull(changes, "changes");
         Path workspaceRoot = requireReadableWorkspace(changes.workspaceRoot());
         try {
@@ -53,7 +58,7 @@ public final class WorkspaceFingerprintCalculator {
                 } else {
                     update(digest, "present");
                     update(digest, file.gitMode());
-                    update(digest, contentDigest(workspaceRoot, file));
+                    update(digest, contentDigest(workspaceRoot, file, allowSymlinkText));
                 }
             }
             return "sha256:" + HexFormat.of().formatHex(digest.digest());
@@ -63,12 +68,12 @@ public final class WorkspaceFingerprintCalculator {
     }
 
     /** 读取最终工作区文件或符号链接内容并计算摘要。 */
-    private String contentDigest(Path workspaceRoot, GitChangedFile file) {
+    private String contentDigest(Path workspaceRoot, GitChangedFile file, boolean allowSymlinkText) {
         Path path = resolvePath(workspaceRoot, file.path());
-        if ("120000".equals(file.gitMode())) {
+        if ("120000".equals(file.gitMode()) && (Files.isSymbolicLink(path) || !allowSymlinkText)) {
             return symlinkDigest(path, file.path());
         }
-        if (!Files.isRegularFile(path)) {
+        if (!Files.isRegularFile(path, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalStateException("无法读取变更文件内容：" + file.path());
         }
         try {

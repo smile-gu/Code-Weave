@@ -43,11 +43,11 @@ class ControlledExecutor:
 
 
 async def test_queue_is_bounded_and_duplicate_submission_executes_once(
-    database, payload
+    database, payload, workspaces
 ):
     store = RunStore(database)
     executor = ControlledExecutor()
-    worker = Supervisor(store, executor, capacity=1)
+    worker = Supervisor(store, executor, capacity=1, workspaces=workspaces)
     service = RunService(store, worker)
     worker.start()
     try:
@@ -73,10 +73,10 @@ async def test_queue_is_bounded_and_duplicate_submission_executes_once(
         await worker.stop(1)
 
 
-async def test_running_save_failure_never_calls_executor(database, payload):
+async def test_running_save_failure_never_calls_executor(database, payload, workspaces):
     store = RunStore(database)
     executor = ControlledExecutor()
-    worker = Supervisor(store, executor, capacity=1)
+    worker = Supervisor(store, executor, capacity=1, workspaces=workspaces)
     await store.create_run(payload)
 
     def reject_start(_, __, statement, *args):
@@ -103,11 +103,11 @@ async def test_running_save_failure_never_calls_executor(database, payload):
     ],
 )
 async def test_executor_converges_only_after_cleanup(
-    database, payload, failure, cleanup_failure, expected, resource
+    database, payload, failure, cleanup_failure, expected, resource, workspaces
 ):
     store = RunStore(database)
     executor = ControlledExecutor(failure=failure, cleanup_failure=cleanup_failure)
-    worker = Supervisor(store, executor, capacity=1)
+    worker = Supervisor(store, executor, capacity=1, workspaces=workspaces)
     service = RunService(store, worker)
     worker.start()
     try:
@@ -125,7 +125,9 @@ async def test_executor_converges_only_after_cleanup(
         await worker.stop(1)
 
 
-async def test_uncertain_create_stops_admission_and_never_schedules(database, payload):
+async def test_uncertain_create_stops_admission_and_never_schedules(
+    database, payload, workspaces
+):
     fail_confirmation = False
 
     async def commit_then_lose_confirmation(connection):
@@ -142,7 +144,7 @@ async def test_uncertain_create_stops_admission_and_never_schedules(database, pa
 
     store = RunStore(database, commit_transaction=commit_then_lose_confirmation)
     executor = ControlledExecutor()
-    worker = Supervisor(store, executor, capacity=1)
+    worker = Supervisor(store, executor, capacity=1, workspaces=workspaces)
     service = RunService(store, worker)
     worker.start()
     event.listen(
@@ -160,7 +162,9 @@ async def test_uncertain_create_stops_admission_and_never_schedules(database, pa
         await worker.stop(1)
 
 
-async def test_start_commit_unknown_never_enters_executor(database, payload):
+async def test_start_commit_unknown_never_enters_executor(
+    database, payload, workspaces
+):
     store = RunStore(database)
     await store.create_run(payload)
     fail_confirmation = False
@@ -177,7 +181,7 @@ async def test_start_commit_unknown_never_enters_executor(database, payload):
 
     store.commit_transaction = lose_confirmation
     executor = ControlledExecutor()
-    worker = Supervisor(store, executor, capacity=1)
+    worker = Supervisor(store, executor, capacity=1, workspaces=workspaces)
     event.listen(
         database.engine.sync_engine, "before_cursor_execute", reject_confirmation
     )
@@ -194,13 +198,17 @@ async def test_start_commit_unknown_never_enters_executor(database, payload):
 
 
 async def test_worker_skips_single_corrupt_pending_run_and_serves_next_session(
-    database, payload
+    database, payload, workspaces
 ):
     store = RunStore(database)
     await store.create_run(payload)
     valid = copy.deepcopy(payload)
     valid["runId"] = str(uuid4())
     valid["codingSessionId"] = str(uuid4())
+    from tests.snapshot_fixture import publish_snapshot
+
+    valid["snapshot"]["snapshotId"] = str(uuid4())
+    publish_snapshot(workspaces.settings.snapshot_root, valid)
     await store.create_run(valid)
     async with database.engine.begin() as connection:
         await connection.execute(
@@ -209,7 +217,7 @@ async def test_worker_skips_single_corrupt_pending_run_and_serves_next_session(
         )
     executor = ControlledExecutor()
     executor.release.set()
-    worker = Supervisor(store, executor, capacity=2)
+    worker = Supervisor(store, executor, capacity=2, workspaces=workspaces)
     worker.ensure_submitted(payload["runId"])
     worker.ensure_submitted(valid["runId"])
     worker.start()

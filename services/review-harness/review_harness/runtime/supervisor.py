@@ -3,14 +3,15 @@ import logging
 
 from review_harness.application.ports import RunStorePort
 from review_harness.domain.model import Failure, HarnessError, SessionBlocked
-from review_harness.runtime.executor import ExecutionCancelled
+from review_harness.domain.snapshot import WorkCancelled, WorkspaceError
 
 logger = logging.getLogger("review_harness")
 
 
 class Supervisor:
-    def __init__(self, store: RunStorePort, executor, capacity: int):
+    def __init__(self, store: RunStorePort, executor, capacity: int, workspaces):
         self.store, self.executor = store, executor
+        self.workspaces = workspaces
         self.queue: asyncio.Queue[str] = asyncio.Queue(maxsize=capacity)
         self.scheduled_run_ids: set[str] = set()
         self.signals: dict[str, asyncio.Event] = {}
@@ -63,6 +64,7 @@ class Supervisor:
                     if error.code == "REVIEW_RUN_INTEGRITY_ERROR":
                         # RunStore has quarantined this Run and its Session.
                         # One damaged record must not stop unrelated simulation runs.
+                        await self.store.isolate_run(run_id)
                         continue
                     self.accepting = False
                     logger.error('{"runId":"%s","errorCode":"%s"}', run_id, error.code)
@@ -103,19 +105,51 @@ class Supervisor:
         # A cancellation can commit while start_run is returning; reread before execution.
         if (await self.store.get_run(run_id)).status == "CANCELLING":
             signal.set()
-        cancelled, failure = False, None
+        cancelled, failure, context = False, None, None
         try:
-            await self.executor.execute(run, signal)
-        except ExecutionCancelled:
+            context = await self.workspaces.prepare(run, signal)
+            if (await self.store.get_run(run_id)).status == "CANCELLING":
+                signal.set()
+            if signal.is_set():
+                raise WorkCancelled()
+            await self.executor.execute(context, signal)
+            if not signal.is_set():
+                await self.workspaces.verify(context, signal)
+        except WorkCancelled:
             cancelled = True
+        except WorkspaceError as error:
+            failure = Failure.make(error.code)
+        except HarnessError as error:
+            if error.code in {
+                "REVIEW_RUN_STATE_WRITE_UNCERTAIN",
+                "REVIEW_RUN_INTEGRITY_ERROR",
+            }:
+                raise
+            failure = Failure.make("REVIEW_HARNESS_INTERNAL_ERROR")
         except Exception:
             failure = Failure.make("REVIEW_EXECUTION_FAILED")
         # CancelledError deliberately escapes: shutdown cannot invent cleanup evidence.
+        cleanup_failure = None
+        if context is not None:
+            try:
+                await self.executor.cleanup(context)
+            except Exception:
+                cleanup_failure = "REVIEW_RESOURCE_CLEANUP_FAILED"
         try:
-            await self.executor.cleanup(run)
-        except Exception:
+            await self.workspaces.cleanup(run)
+        except WorkspaceError:
+            cleanup_failure = "EXECUTION_WORKSPACE_CLEANUP_FAILED"
+        if cleanup_failure:
+            if failure is not None:
+                logger.warning(
+                    '{"runId":"%s","diagnosticId":"%s","originalFailureCode":"%s","cleanupFailureCode":"%s"}',
+                    run_id,
+                    failure.diagnostic_id,
+                    failure.code,
+                    cleanup_failure,
+                )
             await self.store.fail_cleanup_uncertain(
-                run_id, Failure.make("REVIEW_RESOURCE_CLEANUP_FAILED")
+                run_id, Failure.make(cleanup_failure)
             )
             return
         if failure:

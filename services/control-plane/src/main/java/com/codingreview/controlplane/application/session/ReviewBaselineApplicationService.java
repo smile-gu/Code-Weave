@@ -31,6 +31,8 @@ public final class ReviewBaselineApplicationService {
     private final GitChangeCollector changes;
     private final WorkspaceFingerprintCalculator fingerprints;
     private final SessionOperationLockManager operationLocks;
+    private final CodingIdleSafety codingSafety;
+    private final com.codingreview.controlplane.review.ReviewExecutionGuard reviewGuard;
 
     /** 装配 Session 事实、Git 检查器和共享互斥锁。 */
     public ReviewBaselineApplicationService(
@@ -38,7 +40,9 @@ public final class ReviewBaselineApplicationService {
             CodingTurnRepository turns,
             GitRepositoryInspector inspector,
             GitChangeCollector changes,
-            SessionOperationLockManager operationLocks
+            SessionOperationLockManager operationLocks,
+            CodingIdleSafety codingSafety,
+            com.codingreview.controlplane.review.ReviewExecutionGuard reviewGuard
     ) {
         this.sessions = Objects.requireNonNull(sessions, "sessions");
         this.turns = Objects.requireNonNull(turns, "turns");
@@ -46,6 +50,8 @@ public final class ReviewBaselineApplicationService {
         this.changes = Objects.requireNonNull(changes, "changes");
         this.operationLocks = Objects.requireNonNull(operationLocks, "operationLocks");
         this.fingerprints = new WorkspaceFingerprintCalculator();
+        this.codingSafety = codingSafety;
+        this.reviewGuard = reviewGuard;
     }
 
     /** 重新读取 Session、Turn 和 Git 事实并生成基线推进预览。 */
@@ -96,6 +102,8 @@ public final class ReviewBaselineApplicationService {
         if (!blockers.isEmpty()) {
             return unavailable(session, blockers);
         }
+        try { reviewGuard.assertAvailable(session.sessionId()); codingSafety.assertIdleAndSafe(session.sessionId()); }
+        catch (CodingSessionConflictException error) { return unavailable(session, List.of(error.code())); }
 
         List<CodingTurn> history = turns.findAll(session.sessionId());
         if (history.stream().anyMatch(this::active)) {

@@ -129,7 +129,7 @@ class ReviewBaselineApplicationServiceTest {
         fixture.service.advance(fixture.session.sessionId(), request);
         var close = new CodingSessionCloseApplicationService(fixture.sessions,
                 mock(CodingTurnApplicationService.class), fixture.locks,
-                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class));
+                mock(com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager.class), ReviewTestSupport.emptyGuard());
         assertThat(close.close(fixture.session.sessionId()).activeReviewBaselineCommit()).isEqualTo(NEW_COMMIT);
         assertThatThrownBy(() -> fixture.service.advance(fixture.session.sessionId(), request))
                 .hasMessageContaining("SESSION_NOT_ACTIVE");
@@ -185,7 +185,7 @@ class ReviewBaselineApplicationServiceTest {
         SessionOperationLockManager locks = new SessionOperationLockManager();
         ReviewBaselineApplicationService service = new ReviewBaselineApplicationService(
                 sessions, turns, inspector, changes, locks
-        );
+        , id -> {}, ReviewTestSupport.emptyGuard());
         return new Fixture(session, sessions, service, locks);
     }
 

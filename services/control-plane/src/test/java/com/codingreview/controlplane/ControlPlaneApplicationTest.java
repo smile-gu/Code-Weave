@@ -12,12 +12,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** 验证默认 Spring 上下文只装配正式 Session/Turn 链路。 */
 @SpringBootTest(properties = {
-        "code-weave.runtime-root=D:/code-weave-context-test",
         "code-weave.claude.executable=C:/code-weave-test/claude.cmd",
         "code-weave.run.concurrency=1",
         "code-weave.run.queue-capacity=10"
 })
 class ControlPlaneApplicationTest {
+    @org.junit.jupiter.api.io.TempDir
+    static java.nio.file.Path runtimeRoot;
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void runtime(org.springframework.test.context.DynamicPropertyRegistry registry) {
+        registry.add("code-weave.runtime-root", () -> runtimeRoot.toString());
+    }
 
     @Autowired
     private ApplicationContext context;

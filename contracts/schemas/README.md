@@ -13,6 +13,7 @@
 | `review-harness-health-v1.schema.json` | Readiness 响应 |
 | `review-harness-result-v1.schema.json` | 不可变 Review Result Envelope |
 | `review-harness-problem-v1.schema.json` | RFC 9457 Problem Details 扩展 |
+| `review-snapshot-manifest-v1.schema.json` | 批次 2 不可变 Snapshot Manifest，已冻结、尚未实现 |
 
 字段语义、HTTP 状态、事务和恢复规则以 ADR-0009 为准；Snapshot 身份以 ADR-0014 为准；Result 内部 Evidence/Finding 演进以 ADR-0015 为准。
 
@@ -24,3 +25,5 @@ JSON Schema 无法表达或不适合表达的规则由应用层和契约测试�
 - 时间先后关系；
 - Result/Run/Snapshot 身份完全一致；
 - 事件序号连续性和数据库事务原子性。
+- Snapshot 路径无空段/尾斜杠、可移植设备名约束、大小写/NFC 冲突、目录前缀冲突、列表排序及范围划分；Schema 的路径模式只做基础格式筛查。
+- Snapshot 内容集合、摘要、字节数、文件类型/mode、相对真实文件系统和 Run/Session 身份一致性。

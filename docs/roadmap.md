@@ -15,7 +15,7 @@
 | 阶段事实与事件协议 | 五阶段生命周期、持久诊断、共享 Agent 映射、历史适配 | 不再从 Agent 消息或任务终态推断阶段结果 |
 | Session 正常关闭 | 安全关闭、按所有者释放、失败补偿、历史只读 | 不操作代码，CLOSED 与释放确认分离 |
 | Harness 批次 0 设计冻结 | Snapshot、跨服务恢复、Context/Artifact/Evidence | ADR-0009/0014/0015 已成为开发依据，尚未实现 |
-| Harness 批次 1 Runtime（待独立审查） | FastAPI、SQLite 原子事实、有界模拟执行、认证、取消、SSE 与恢复 | 独立 Python 服务可运行，真实 Snapshot、模型与 Java 集成尚未接入 |
+| Harness 批次 1 Runtime（已独立复审） | FastAPI、SQLite 原子事实、有界模拟执行、认证、取消、SSE 与恢复 | 独立 Python 服务可运行，批次 1 运行底座已验证，固定输入和 Java 模拟接通见批次 2 |
 
 ## 下一阶段：Review Harness MVP
 
@@ -36,8 +36,8 @@ flowchart LR
 
 | 顺序 | 开发点 | 首版边界 | 验收条件 |
 |---:|---|---|---|
-| 1 | Python Review Harness 服务骨架（已实现，待独立审查） | FastAPI、认证、Readiness、SQLite Run/Event/Result、幂等、取消、SSE、恢复、确定性模拟器 | 独立服务测试与干净 Python 3.12 验收；Java 消费属于后续集成 |
-| 2 | Review Snapshot 与执行空间 | Java 捕获发布、Python 校验和每 Run 副本、产品门禁 | Agent 输入不可变，漂移和路径逃逸被拒绝 |
+| 1 | Python Review Harness 服务骨架（已独立复审） | FastAPI、认证、Readiness、SQLite Run/Event/Result、幂等、取消、SSE、恢复、确定性模拟器 | 独立服务测试与干净 Python 3.12 验收；Java 消费属于后续集成 |
+| 2 | Review Snapshot 与执行空间（开发完成，待独立审查） | Java 捕获发布、Python 校验和每 Run 副本、产品门禁 | Agent 输入不可变，漂移和路径逃逸被拒绝 |
 | 3 | Artifact 与基础只读 Tool | Artifact 完整性、有界读取、read/search/glob/diff | 长输出不挤爆 Context，权限入口不可绕过 |
 | 4 | LangGraph State 与 Context | Checkpoint、Token Meter、Context Manifest、Compaction | 锚点不丢、压缩有进展且可追溯 |
 | 5 | 单 Pass 真实闭环 | 正确性 Pass、真实模型、Evidence、Finding、Result、Java 报告草稿 | 首条端到端 Review 具有可核查证据 |

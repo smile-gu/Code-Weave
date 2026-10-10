@@ -8,6 +8,7 @@ from review_harness.application.hub import EventHub
 from review_harness.bootstrap import lifespan
 from review_harness.config import Settings
 from review_harness.domain.model import HarnessError
+from review_harness.infrastructure.paths import storage_accessible
 
 
 def create_app(
@@ -23,6 +24,9 @@ def create_app(
     app.state.database = None
     app.state.supervisor = None
     app.state.recovery_complete = False
+    app.state.storage_probe = lambda: storage_accessible(
+        settings.snapshot_root, settings.execution_root
+    )
 
     app.add_middleware(
         InternalAuthentication, token=settings.internal_bearer_token.get_secret_value()

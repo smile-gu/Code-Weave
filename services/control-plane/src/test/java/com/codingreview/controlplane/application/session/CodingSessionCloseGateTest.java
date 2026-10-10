@@ -22,7 +22,7 @@ class CodingSessionCloseGateTest {
     final CodingTurnApplicationService service = new CodingTurnApplicationService(
             mock(CodingSessionRepository.class), turns, mock(CodingTurnOrchestrator.class),
             mock(GitChangeCollector.class), mock(RunEventJournal.class), JsonMapper.builder().build(),
-            task -> {}, mock(RuntimeReadinessService.class), mock(SessionWorkspaceGuard.class), locks);
+            task -> {}, mock(RuntimeReadinessService.class), mock(SessionWorkspaceGuard.class), locks, ReviewTestSupport.emptyGuard());
 
     @Test void refusesQueuedAndRunningHistory() {
         var queued = CodingTurn.queued(UUID.randomUUID(), id, 1, "task", Instant.now());

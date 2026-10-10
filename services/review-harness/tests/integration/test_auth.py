@@ -19,7 +19,11 @@ from review_harness.config import Settings
 @pytest.mark.parametrize("token", [None, "Bearer wrong"])
 async def test_every_internal_route_requires_authentication(tmp_path, path, token):
     app = create_app(
-        Settings(internal_bearer_token="test-only-credential", snapshot_root=tmp_path)
+        Settings(
+            internal_bearer_token="test-only-credential",
+            snapshot_root=tmp_path / "snapshots",
+            execution_root=tmp_path / "executions",
+        )
     )
     headers = {} if token is None else {"Authorization": token}
     async with httpx.AsyncClient(

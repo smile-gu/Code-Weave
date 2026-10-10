@@ -1,17 +1,3 @@
-import os
-
-
-def snapshot_accessible(path):
-    try:
-        if not path.is_dir() or not os.access(path, os.R_OK):
-            return False
-        with os.scandir(path) as entries:
-            next(entries, None)
-        return True
-    except OSError:
-        return False
-
-
 async def readiness(app):
     db = app.state.database
     supervisor = app.state.supervisor
@@ -22,7 +8,7 @@ async def readiness(app):
         "schema": schema,
         "recovery": app.state.recovery_complete,
         "supervisor": supervisor.healthy if supervisor else False,
-        "snapshotStore": snapshot_accessible(app.state.settings.snapshot_root),
+        "snapshotStore": app.state.storage_probe(),
     }
     ready = all(checks.values())
     return {

@@ -15,6 +15,11 @@ public final class GitRepositoryException extends RuntimeException {
         this.diagnostic = diagnostic;
     }
 
-    public String code() { return code; }
-    public String diagnostic() { return diagnostic; }
+    public String code() {
+        return code;
+    }
+
+    public String diagnostic() {
+        return diagnostic;
+    }
 }

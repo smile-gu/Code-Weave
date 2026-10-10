@@ -23,23 +23,31 @@ class RecordingExecutor:
         pass
 
 
-def another_run(payload, *, same_session=True):
+def another_run(payload, *, same_session=True, snapshot_root=None):
     value = copy.deepcopy(payload)
     value["runId"] = str(uuid4())
     if not same_session:
         value["codingSessionId"] = str(uuid4())
+        value["snapshot"]["snapshotId"] = str(uuid4())
+        from tests.snapshot_fixture import publish_snapshot
+
+        publish_snapshot(snapshot_root, value)
     return value
 
 
 async def test_queued_run_cannot_start_under_uncertain_session_protection(
-    database, payload
+    database, payload, workspaces
 ):
     store = RunStore(database)
     first, _ = await store.create_run(payload)
     queued, _ = await store.create_run(another_run(payload))
-    independent, _ = await store.create_run(another_run(payload, same_session=False))
+    independent, _ = await store.create_run(
+        another_run(
+            payload, same_session=False, snapshot_root=workspaces.settings.snapshot_root
+        )
+    )
     executor = RecordingExecutor()
-    worker = Supervisor(store, executor, capacity=2)
+    worker = Supervisor(store, executor, capacity=2, workspaces=workspaces)
     worker.ensure_submitted(queued.run_id)
     worker.ensure_submitted(independent.run_id)
     await store.start_run(first.run_id)
@@ -69,7 +77,7 @@ async def test_queued_run_cannot_start_under_uncertain_session_protection(
 
 @pytest.mark.parametrize("pending_first", [False, True])
 async def test_recovery_blocks_whole_corrupt_session_in_either_scan_order(
-    database, tmp_path, payload, pending_first
+    database, tmp_path, payload, pending_first, workspaces
 ):
     store = RunStore(database)
     payload["runId"] = (
@@ -85,7 +93,11 @@ async def test_recovery_blocks_whole_corrupt_session_in_either_scan_order(
         else "00000000-0000-0000-0000-000000000002"
     )
     queued, _ = await store.create_run(pending)
-    independent, _ = await store.create_run(another_run(payload, same_session=False))
+    independent, _ = await store.create_run(
+        another_run(
+            payload, same_session=False, snapshot_root=workspaces.settings.snapshot_root
+        )
+    )
     async with database.engine.begin() as connection:
         await connection.execute(
             text("UPDATE review_runs SET created_at='bad' WHERE run_id=:id"),

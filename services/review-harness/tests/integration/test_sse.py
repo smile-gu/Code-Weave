@@ -18,7 +18,8 @@ async def sse_app(database, tmp_path):
     store = RunStore(database, notify=hub.notify)
     settings = Settings(
         internal_bearer_token="test-only-credential",
-        snapshot_root=tmp_path,
+        snapshot_root=tmp_path / "snapshots",
+        execution_root=tmp_path / "executions",
         sse_page_size=1,
         sse_heartbeat_seconds=0.05,
     )
