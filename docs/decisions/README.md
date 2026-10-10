@@ -52,3 +52,5 @@ flowchart LR
 ## Session 关闭
 
 [ADR-0013：Session 正常关闭与仓库所有权释放](0013-session-close-and-repository-release.md)：当前有效；明确 CLOSED 与释放完成的区别、失败重试和历史只读边界。
+
+[ADR-0016：图状态、独立 Checkpoint 与测试模型预算](0016-graph-checkpoint-and-test-context.md)：批次 4 实施子集，待复审；真实模型能力和跨 Run 继承未启用。

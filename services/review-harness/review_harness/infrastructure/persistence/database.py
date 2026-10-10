@@ -15,7 +15,7 @@ from review_harness.infrastructure.persistence.tables import (
     workspaces,
 )
 
-REVISION = "0003_artifacts"
+REVISION = "0004_context_artifacts"
 SERVICE_ROOT = Path(__file__).resolve().parents[3]
 
 

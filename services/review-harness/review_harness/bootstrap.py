@@ -1,10 +1,14 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from uuid import uuid4
+
+from sqlalchemy.engine import make_url
 
 from review_harness.application.recovery import recover_runs
 from review_harness.application.service import RunService
 from review_harness.infrastructure.artifacts import ArtifactService
+from review_harness.infrastructure.checkpoints import Checkpoints
 from review_harness.infrastructure.persistence.database import Database
 from review_harness.infrastructure.persistence.store import RunStore
 from review_harness.infrastructure.persistence.workspaces import WorkspaceStore
@@ -38,6 +42,17 @@ async def lifespan(app):
     app.state.service = RunService(store, supervisor)
     app.state.artifacts = ArtifactService(settings, database, store, workspaces)
     app.state.tools = ToolGateway(settings, store, workspaces, app.state.artifacts)
+    if settings.checkpoint_database_url is not None:
+        checkpoints = Checkpoints(
+            Path(make_url(settings.checkpoint_database_url).database)
+        )
+        try:
+            await checkpoints.open()
+            app.state.checkpoints = checkpoints
+            app.state.graph_capabilities["checkpoint"] = "READY"
+        except Exception:
+            app.state.graph_capabilities["checkpoint"] = "NOT_READY"
+            logger.warning('{"errorCode":"CHECKPOINT_UNAVAILABLE"}')
     try:
         if (
             await database.schema_ready()
@@ -58,4 +73,6 @@ async def lifespan(app):
     finally:
         await supervisor.stop(settings.shutdown_grace_seconds)
         await workspaces.close(settings.shutdown_grace_seconds)
+        if app.state.checkpoints is not None:
+            await app.state.checkpoints.close()
         await database.close()

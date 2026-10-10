@@ -33,3 +33,4 @@ flowchart TD
 
 - [Review Harness 批次 2 开发交付与复审入口](review-harness-batch-2-development-handoff.md)
 - [Review Harness 批次 3 开发交付与复审入口](review-harness-batch-3-development-handoff.md)
+- [Review Harness 批次 4 开发交付与复审入口](review-harness-batch-4-development-handoff.md)

@@ -116,4 +116,4 @@ npm run build
 - [开发路线图](docs/roadmap.md)
 - [架构决策记录](docs/decisions/README.md)
 
-Review Harness批次3已开发Artifact与五基础只读工具，待独立复审；本批不接真实模型/Evidence。交付见[批次3开发记录](docs/review-harness-batch-3-development-handoff.md)。
+Review Harness批次3已通过复审；批次4的State、独立Checkpoint、Context与Compaction已按假模型协议实施，待统一复审，不接真实模型/Evidence。见[批次4开发交付](docs/review-harness-batch-4-development-handoff.md)。

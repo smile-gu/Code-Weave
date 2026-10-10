@@ -32,7 +32,9 @@ class Artifact(BaseModel):
     snapshot_id: str = Field(
         pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     )
-    kind: Literal["SOURCE_EXCERPT", "TOOL_OUTPUT"]
+    kind: Literal[
+        "SOURCE_EXCERPT", "TOOL_OUTPUT", "CONTEXT_MANIFEST", "COMPACTION_SUMMARY"
+    ]
     producer_type: Literal["TOOL", "SYSTEM"]
     producer_id: str = Field(
         min_length=1, max_length=160, pattern=r"^[a-z_]{1,64}:[0-9a-f-]{36}$"

@@ -40,7 +40,10 @@ artifacts = Table(
     ],
     Column("byte_size", Integer, nullable=False),
     CheckConstraint("byte_size >= 0", name="artifact_size"),
-    CheckConstraint("kind IN ('SOURCE_EXCERPT','TOOL_OUTPUT')", name="artifact_kind"),
+    CheckConstraint(
+        "kind IN ('SOURCE_EXCERPT','TOOL_OUTPUT','CONTEXT_MANIFEST','COMPACTION_SUMMARY')",
+        name="artifact_kind",
+    ),
     CheckConstraint("producer_type IN ('TOOL','SYSTEM')", name="artifact_producer"),
     CheckConstraint(
         "coverage IN ('FULL','PARTIAL','SAMPLED')", name="artifact_coverage"

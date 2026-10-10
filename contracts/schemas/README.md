@@ -31,3 +31,7 @@ JSON Schema 无法表达或不适合表达的规则由应用层和契约测试�
 ## 批次 3
 
 review-artifact-metadata-v1、review-artifact-content-page-v1、review-tool-envelope-v1与五种review-tool-*-parameters-v1来自生产Pydantic严格模型，测试核对文件与模型生成结果一致。正反例在contracts/fixtures/review-tools-v1/examples.json；字节预算、文件身份/哈希、Cursor签名、权限和JSON中的状态一致性仍由应用层验证。
+
+## 批次 4
+
+review-graph-state-v1、review-context-manifest-v1、review-compaction-summary-v1来自生产严格模型，正反例见contracts/fixtures/review-context-v1/examples.json。Artifact metadata新增本批实际消费的CONTEXT_MANIFEST/COMPACTION_SUMMARY kind。模型接口没有公共HTTP端点；这些Schema用于内部状态及诊断Artifact，不提供恢复或继承权限。Tool配对、来源哈希/归属、连续范围、请求预算/摘要进展、字节上限与提交确认由应用层重复验证。test-only-utf8-units不是生产Token计量；Evidence/Candidate非空引用本批拒绝。

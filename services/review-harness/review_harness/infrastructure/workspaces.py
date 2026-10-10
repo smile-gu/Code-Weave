@@ -29,6 +29,7 @@ class FileJob:
 # An App recreation in the same process must not mistake a live old copy thread
 # for a completed process restart. No durable row is replaced by this registry.
 _live_jobs: dict[tuple[str, str], FileJob] = {}
+_runtime_tasks: dict[tuple[str, str], set[asyncio.Task]] = {}
 _jobs_lock = threading.Lock()
 # Per execution root, including jobs left by an earlier App instance.
 # Admission equals worker capacity: no hidden executor backlog is accepted.
@@ -357,10 +358,45 @@ class WorkspaceManager:
         if strict_json(raw) != self._owner(run):
             raise WorkspaceError("EXECUTION_WORKSPACE_CLEANUP_FAILED")
 
+    def register_runtime_task(self, run, task):
+        """Actual async model/checkpoint work survives same-process App recreation."""
+        key = self._key(run)
+        with _jobs_lock:
+            if (
+                sum(
+                    not other.done()
+                    for task_key, registered in _runtime_tasks.items()
+                    if task_key[0] == key[0]
+                    for other in registered
+                )
+                >= 2
+            ):
+                raise WorkspaceError("EXECUTION_WORKSPACE_BUSY")
+            tasks = _runtime_tasks.setdefault(key, set())
+            if any(not other.done() for other in tasks):
+                raise WorkspaceError("EXECUTION_WORKSPACE_BUSY")
+            tasks.add(task)
+
+        def finished(completed):
+            consume_completion(completed)
+            with _jobs_lock:
+                tasks.discard(completed)
+                if not tasks:
+                    _runtime_tasks.pop(key, None)
+
+        task.add_done_callback(finished)
+
     async def cleanup(self, run):
         record = await self.resources.get(run)
         with _jobs_lock:
             live = _live_jobs.get(self._key(run))
+            runtime_live = any(
+                not task.done() for task in _runtime_tasks.get(self._key(run), ())
+            )
+        if runtime_live:
+            if record:
+                await self.resources.retain(run, "EXECUTION_WORKSPACE_CLEANUP_FAILED")
+            raise WorkspaceError("EXECUTION_WORKSPACE_CLEANUP_FAILED")
         if live and not live.future.done():
             live.stop.set()
             if not live.future.cancel():

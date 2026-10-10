@@ -1,11 +1,11 @@
 # ADR-0015：Context、Artifact 与 Evidence 治理契约
 
-- 状态：已冻结；批次 3 Artifact/基础只读工具开发完成，待独立复审；Context/Evidence未实现
+- 状态：已冻结；批次 3 Artifact/只读工具已通过复审；批次 4 State/Context/Compaction 以假模型实现，待复审；真实模型/Evidence未实现
 - 日期：2026-09-09
 - 范围：Review Agent 模型请求、上下文压缩、长内容存储、证据形成与 Result Envelope
 - 上游：ADR-0009、ADR-0014
 
-批次 1 已实现本文的空 Result Envelope、原始字节保存与原子成功事务，待独立审查；Context、Artifact、Evidence 和 Finding 的真实能力仍未实现。
+批次 1 的空 Result Envelope、原始字节保存与原子成功事务已通过复审。批次 3 Artifact 与基础只读工具已通过复审并纳入基线 dc311d7。批次 4 实现受限 LangGraph State、独立 Checkpointer、Context 与 Compaction 的测试协议子集；实际能力及阶段限制见 ADR-0016。Evidence/Finding、真实 Provider 和生产 Token 治理仍未实现。
 
 ## 1. 问题与边界
 

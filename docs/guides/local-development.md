@@ -147,3 +147,8 @@ git status --short --branch
 ## 批次 3 Artifact 配置
 
 Python新增必填CODE_WEAVE_REVIEW_ARTIFACT_ROOT，必须是独立、可读写的绝对目录，不能嵌套另外两根或用户仓库。显式升级到0003_artifacts。Java不需要Artifact文件直读配置。默认模拟器不自动调用工具；确定性工具Probe仅用于正式回归。
+## Harness 批次 4 的可选图诊断
+
+按服务requirements.lock安装支持Python3.12的LangGraph及SQLite Checkpointer；产品库执行alembic upgrade head到0004_context_artifacts。可选CODE_WEAVE_REVIEW_CHECKPOINT_DATABASE_URL指向独立绝对SQLite文件，父目录必须存在，不能与产品库同文件/别名，也不能在三个材料根内；示例见services/review-harness/.env.example。缺省不会启用图Checkpoint，默认模拟执行器不变。
+
+认证GET /internal/v1/graph-capabilities查看独立Checkpoint能力；model=TEST_ONLY、productionGraphEnabled=false。FakeAdapter测试单位不能用于真实Provider Token治理。图探针只能通过Executor测试注入，禁止重启resume或跨Run自动继承。完整说明见[批次4交付](../review-harness-batch-4-development-handoff.md)。

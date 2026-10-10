@@ -1,0 +1,462 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Artifactid",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "byteSize": {
+          "minimum": 0,
+          "title": "Bytesize",
+          "type": "integer"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "redactionState": {
+          "enum": [
+            "NONE",
+            "APPLIED",
+            "NOT_APPLICABLE"
+          ],
+          "title": "Redactionstate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifactId",
+        "sha256",
+        "byteSize",
+        "coverage",
+        "redactionState"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "GraphMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "messageId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Messageid",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "assistant",
+            "tool",
+            "user"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 16384,
+          "title": "Content",
+          "type": "string"
+        },
+        "toolCalls": {
+          "items": {
+            "$ref": "#/$defs/ToolCall"
+          },
+          "maxItems": 8,
+          "title": "Toolcalls",
+          "type": "array"
+        },
+        "toolCallId": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Toolcallid"
+        },
+        "artifactRefs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "maxItems": 32,
+          "title": "Artifactrefs",
+          "type": "array"
+        },
+        "sourceRefs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "maxItems": 32,
+          "title": "Sourcerefs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "messageId",
+        "role",
+        "content"
+      ],
+      "title": "GraphMessage",
+      "type": "object"
+    },
+    "ModelUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "modelCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Modelcallid",
+          "type": "string"
+        },
+        "estimatedInputTokens": {
+          "minimum": 0,
+          "title": "Estimatedinputtokens",
+          "type": "integer"
+        },
+        "inputUnits": {
+          "minimum": 0,
+          "title": "Inputunits",
+          "type": "integer"
+        },
+        "outputUnits": {
+          "minimum": 0,
+          "title": "Outputunits",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "modelCallId",
+        "estimatedInputTokens",
+        "inputUnits",
+        "outputUnits"
+      ],
+      "title": "ModelUsage",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "contentSha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contentsha256"
+        },
+        "diffSha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diffsha256"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startline"
+        },
+        "endLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endline"
+        }
+      },
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "ToolCall": {
+      "additionalProperties": false,
+      "properties": {
+        "toolCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Toolcallid",
+          "type": "string"
+        },
+        "name": {
+          "enum": [
+            "read_file",
+            "search_code",
+            "glob_files",
+            "git_diff",
+            "read_artifact"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "arguments": {
+          "additionalProperties": true,
+          "title": "Arguments",
+          "type": "object"
+        }
+      },
+      "required": [
+        "toolCallId",
+        "name",
+        "arguments"
+      ],
+      "title": "ToolCall",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "stateVersion": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Stateversion",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "reviewThreadId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Reviewthreadid",
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Snapshotid",
+      "type": "string"
+    },
+    "manifestSha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Manifestsha256",
+      "type": "string"
+    },
+    "investigationId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Investigationid",
+      "type": "string"
+    },
+    "passId": {
+      "const": "correctness",
+      "default": "correctness",
+      "title": "Passid",
+      "type": "string"
+    },
+    "userGoalDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Usergoaldigest",
+      "type": "string"
+    },
+    "scopeDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Scopedigest",
+      "type": "string"
+    },
+    "toolSetDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Toolsetdigest",
+      "type": "string"
+    },
+    "revision": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "summaryVersion": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Summaryversion",
+      "type": "integer"
+    },
+    "summaryArtifactRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "messages": {
+      "items": {
+        "$ref": "#/$defs/GraphMessage"
+      },
+      "maxItems": 128,
+      "title": "Messages",
+      "type": "array"
+    },
+    "artifactRefs": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "maxItems": 64,
+      "title": "Artifactrefs",
+      "type": "array"
+    },
+    "sourceRefs": {
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "maxItems": 64,
+      "title": "Sourcerefs",
+      "type": "array"
+    },
+    "evidenceRefs": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 0,
+      "title": "Evidencerefs",
+      "type": "array"
+    },
+    "candidateRefs": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 0,
+      "title": "Candidaterefs",
+      "type": "array"
+    },
+    "sourceMessageIds": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Sourcemessageids",
+      "type": "array"
+    },
+    "sourceDigest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sourcedigest"
+    },
+    "pendingToolCalls": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Pendingtoolcalls",
+      "type": "array"
+    },
+    "modelCallCount": {
+      "default": 0,
+      "maximum": 16,
+      "minimum": 0,
+      "title": "Modelcallcount",
+      "type": "integer"
+    },
+    "compactionCount": {
+      "default": 0,
+      "maximum": 8,
+      "minimum": 0,
+      "title": "Compactioncount",
+      "type": "integer"
+    },
+    "graphStepCount": {
+      "default": 0,
+      "maximum": 16,
+      "minimum": 0,
+      "title": "Graphstepcount",
+      "type": "integer"
+    },
+    "lastContextManifestRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "modelUsages": {
+      "items": {
+        "$ref": "#/$defs/ModelUsage"
+      },
+      "maxItems": 16,
+      "title": "Modelusages",
+      "type": "array"
+    }
+  },
+  "required": [
+    "runId",
+    "reviewThreadId",
+    "snapshotId",
+    "manifestSha256",
+    "investigationId",
+    "userGoalDigest",
+    "scopeDigest",
+    "toolSetDigest"
+  ],
+  "title": "ReviewGraphState",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/contracts/review-graph-state-v1.schema.json"
+}

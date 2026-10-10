@@ -249,3 +249,9 @@ Agent 载荷使用 `agentProtocolVersion = 1`、`agentEventType`、`externalId`�
 每页先完整验证内容大小和 SHA-256，整个 JSON 默认最多 32 KiB；Cursor 绑定 Run、Artifact、摘要及字节偏移，不能跨身份复用。跨 Run/未知材料统一 404 ARTIFACT_NOT_FOUND，伪造 Cursor 为 422 ARTIFACT_CURSOR_INVALID，损坏为 503 ARTIFACT_INTEGRITY_FAILED，二进制内容为 415 ARTIFACT_CONTENT_UNSUPPORTED，认证错误为 401。PARTIAL 到末页仍不代表来源完整。无 Artifact 创建 HTTP 或工具执行 HTTP 入口，发布与工具身份均由受信 Runtime 注入。
 
 协议见 `contracts/schemas/review-artifact-metadata-v1.schema.json` 与 `review-artifact-content-page-v1.schema.json`；实现及资源失败边界见 [批次 3 交付](../review-harness-batch-3-development-handoff.md)。既有 Run/Event/Result v1 不变。
+
+## Harness 图能力诊断（批次 4）
+
+受内部Bearer认证的 `GET /internal/v1/graph-capabilities` 返回200：checkpoint为DISABLED/READY/NOT_READY，model为TEST_ONLY，productionGraphEnabled为false。Checkpoint表/列及写访问在查询时重新检查；默认模拟 `/health` READY不代表真实模型或图能力就绪。没有图执行、恢复、继承或完整Prompt读取HTTP入口。
+
+显式注入的测试图运行失败时，Run Failure保留CONTEXT_/COMPACTION_/CHECKPOINT_稳定码；模型调用前最低锚点/完整请求超限、Manifest不完整/存储失败、引用Checkpoint未确认等拒绝调用。摘要失败保持旧有效视图且旧请求超预算时不能继续调用。实际任务清理未知仍按既有FAILED+UNCERTAIN门禁处理，终态及Result v1未扩展。详情见[批次4交付](../review-harness-batch-4-development-handoff.md)及ADR-0016。

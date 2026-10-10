@@ -24,6 +24,12 @@ def create_app(
     app.state.database = None
     app.state.supervisor = None
     app.state.recovery_complete = False
+    app.state.checkpoints = None
+    app.state.graph_capabilities = {
+        "checkpoint": "DISABLED",
+        "model": "TEST_ONLY",
+        "productionGraphEnabled": False,
+    }
     app.state.storage_probe = lambda: storage_accessible(
         settings.snapshot_root, settings.execution_root, settings.artifact_root
     )

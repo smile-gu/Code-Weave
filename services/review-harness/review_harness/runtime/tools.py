@@ -81,13 +81,26 @@ class ToolGateway:
         self.workspaces, self.artifacts = workspaces, artifacts
         self.allowed = frozenset(PARAMETERS if allowed is None else allowed)
 
-    async def call(self, context, name, arguments, signal):
+    async def call(self, context, name, arguments, signal, *, output_budget=None):
+        # Consumer budget is platform input, never a model parameter. Gateway
+        # owns both Spill and page sizing before State sees the complete envelope.
+        if output_budget is not None and (
+            type(output_budget) is not int or not 1024 <= output_budget <= 32768
+        ):
+            raise ValueError("Invalid platform tool output budget")
+        output_bytes = (
+            min(self.settings.tool_output_bytes, output_budget)
+            if output_budget is not None
+            else self.settings.tool_output_bytes
+        )
         if not isinstance(name, str):
             name = "unknown"
         call_id, started = str(uuid4()), time.monotonic()
         code, size = "OK", 0
         try:
-            result = await self._execute(context, name, arguments, signal, call_id)
+            result = await self._execute(
+                context, name, arguments, signal, call_id, output_bytes
+            )
             code = result.error.code if result.error else "OK"
             size = len(canonical(result.model_dump()))
             return result
@@ -104,7 +117,7 @@ class ToolGateway:
                 code,
             )
 
-    async def _execute(self, context, name, arguments, signal, call_id):
+    async def _execute(self, context, name, arguments, signal, call_id, output_bytes):
         deadline = time.monotonic() + self.settings.tool_timeout_seconds
         safe_name = name if name in PARAMETERS else "unknown"
 
@@ -159,12 +172,18 @@ class ToolGateway:
             ):
                 raise tool_error("TOOL_ACCESS_DENIED")
             if name == "read_artifact":
+                # Size the page against the actual consumer envelope overhead;
+                # PARTIAL and false are the longest coverage/bool spellings.
+                overhead = (
+                    len(canonical(envelope("OK", {}, coverage="PARTIAL").model_dump()))
+                    - 2
+                )
                 page = await self.artifacts.content(
                     current.run_id,
                     params.artifactId,
                     params.cursor,
                     signal=signal,
-                    page_budget=self.settings.tool_output_bytes - 512,
+                    page_budget=output_bytes - overhead,
                     seconds=remaining(),
                 )
                 output = envelope(
@@ -174,23 +193,20 @@ class ToolGateway:
                     truncated=page.hasMore,
                 )
                 # Content page and Tool envelope have different wrapper overhead.
-                if (
-                    len(canonical(output.model_dump()))
-                    > self.settings.tool_output_bytes
-                ):
+                if len(canonical(output.model_dump())) > output_bytes:
                     return envelope("ERROR", code="TOOL_LIMIT_EXCEEDED")
                 if signal.is_set():
                     raise WorkCancelled()
                 return output
             result = await self.workspaces.run_file_job(
                 current,
-                lambda budget: self._read(context, name, params, budget),
+                lambda budget: self._read(context, name, params, budget, output_bytes),
                 signal,
                 remaining(),
             )
             data, refs, coverage, truncated = result
             output = envelope("OK", data, refs, coverage, truncated)
-            if len(canonical(output.model_dump())) > self.settings.tool_output_bytes:
+            if len(canonical(output.model_dump())) > output_bytes:
                 if name == "git_diff":
                     raise tool_error("TOOL_LIMIT_EXCEEDED")
                 artifact = await self.artifacts.publish(
@@ -243,7 +259,7 @@ class ToolGateway:
             remaining()
             if signal.is_set() or latest.status == "CANCELLING":
                 raise WorkCancelled()
-            if len(canonical(output.model_dump())) > self.settings.tool_output_bytes:
+            if len(canonical(output.model_dump())) > output_bytes:
                 raise tool_error("TOOL_LIMIT_EXCEEDED")
             return output
         except WorkCancelled:
@@ -305,13 +321,14 @@ class ToolGateway:
             raise tool_error("TOOL_CONTENT_UNSUPPORTED") from None
         return text
 
-    def _read(self, context, name, params, budget):
+    def _read(self, context, name, params, budget, output_bytes):
         manifest = self._manifest(context, budget)
+        if name == "git_diff":
+            return self._git_diff(context, manifest, params, budget, output_bytes)
         handlers = {
             "glob_files": self._glob_files,
             "read_file": self._read_file,
             "search_code": self._search_code,
-            "git_diff": self._git_diff,
         }
         handler = handlers.get(name)
         if handler is None:
@@ -478,7 +495,7 @@ class ToolGateway:
             partial or excerpt_partial,
         )
 
-    def _git_diff(self, context, manifest, params, budget):
+    def _git_diff(self, context, manifest, params, budget, output_bytes):
         expected = manifest.changes.diff
         try:
             size, digest, raw = self.workspaces.read_bounded(
@@ -519,7 +536,7 @@ class ToolGateway:
             raise tool_error("TOOL_ARGUMENT_INVALID") from None
         # One code point can need six JSON bytes (e.g. a control character).
         # Reserve protocol/cursor/source wrappers separately from body bytes.
-        limit = (self.settings.tool_output_bytes - 1024) // 6
+        limit = (output_bytes - 1024) // 6
         if limit <= 0:
             raise tool_error("TOOL_LIMIT_EXCEEDED")
         selected = remaining[: max(1, limit)]

@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=8091, ge=1, le=65535)
     database_url: str = "sqlite+aiosqlite:///review-harness.sqlite"
+    checkpoint_database_url: str | None = None
+    graph_max_steps: int = Field(default=16, ge=1, le=16)
+    graph_max_model_calls: int = Field(default=16, ge=1, le=16)
+    compaction_attempts: int = Field(default=2, ge=1, le=2)
+    compaction_max_successes: int = Field(default=8, ge=1, le=8)
+    model_timeout_seconds: float = Field(default=10, gt=0, le=120)
     internal_bearer_token: SecretStr
     snapshot_root: Path
     artifact_root: Path
@@ -53,6 +59,26 @@ class Settings(BaseSettings):
             for other in roots[index + 1 :]:
                 if root.is_relative_to(other) or other.is_relative_to(root):
                     raise ValueError("Managed roots must not contain each other")
+        if self.checkpoint_database_url is not None:
+            self.require_file_sqlite(self.checkpoint_database_url)
+            from review_harness.infrastructure.paths import safe_file
+
+            path = Path(make_url(self.checkpoint_database_url).database)
+            if not path.is_absolute():
+                raise ValueError("Checkpoint database must be absolute")
+            safe_directory(path.parent, must_exist=False)
+            if os.path.lexists(path):
+                safe_file(path.parent, path.name)
+            path = path.resolve(strict=False)
+            product = Path(make_url(self.database_url).database).resolve(strict=False)
+            if path == product or (
+                path.exists() and product.exists() and os.path.samefile(path, product)
+            ):
+                raise ValueError("Checkpoint database must be independent")
+            if any(path.is_relative_to(root) for root in roots):
+                raise ValueError(
+                    "Checkpoint database cannot live in managed material roots"
+                )
         return self
 
     @field_validator("internal_bearer_token")

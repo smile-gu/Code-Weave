@@ -127,7 +127,9 @@ class Supervisor:
                 raise
             failure = Failure.make(
                 error.code
-                if error.code.startswith("ARTIFACT_")
+                if error.code.startswith(
+                    ("ARTIFACT_", "CONTEXT_", "COMPACTION_", "CHECKPOINT_")
+                )
                 else "REVIEW_HARNESS_INTERNAL_ERROR"
             )
         except Exception:

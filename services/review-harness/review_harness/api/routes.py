@@ -110,6 +110,15 @@ async def health(request: Request):
     return json_response(value, 200 if ready else 503)
 
 
+@router.get("/graph-capabilities")
+async def graph_capabilities(request: Request):
+    value = dict(request.app.state.graph_capabilities)
+    checkpoints = request.app.state.checkpoints
+    if checkpoints is not None:
+        value["checkpoint"] = "READY" if await checkpoints.ready() else "NOT_READY"
+    return json_response(value)
+
+
 @router.get("/review-runs/{run_id}/artifacts/{artifact_id}")
 async def artifact_metadata(run_id: str, artifact_id: str, request: Request):
     value = await request.app.state.artifacts.metadata(

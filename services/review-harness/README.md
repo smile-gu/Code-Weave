@@ -1,6 +1,10 @@
-# Review Harness Runtime — 批次 3
+# Review Harness Runtime — 批次 4
 
 独立 Python 3.12 服务，提供确定性模拟执行。批次 1 已实现内部 HTTP、持久 Run/Event/Result、有界单 Worker、取消、SSE 和启动恢复。批次 2 增加真实 Snapshot 校验、独立执行副本、持久文件资源记录与 Java HTTP/SSE 模拟接通。批次 3 增加独立 Artifact 和五个基础只读工具，默认模拟器仍不自动调查；模型、Evidence 和前端 Review 属于后续批次。
+
+批次 4 提供显式注入的假模型 LangGraph 探针、独立 SQLite Checkpointer、完整请求测试计量/Context Manifest、闭合消息摘要压缩。默认 DeterministicExecutor 不变；没有真实模型、生产 Token 治理或 Evidence。完整约束与验收见 [批次 4 交付](../../docs/review-harness-batch-4-development-handoff.md)。
+
+图Tool信封使用8KiB平台消费者预算，由Gateway统一Spill/缩页，完整正文或可读Artifact引用及分页Cursor保留到State/下一模型请求。默认Gateway32KiB上限不变；output_budget不是模型参数。超限不能由图自行替换为空正文成功摘要。
 
 ## 安装与启动
 
@@ -83,7 +87,7 @@ RunStore 每个命令在 `BEGIN IMMEDIATE` 事务内执行条件状态更新、�
 
 模拟器只有三个有界阶段，结果中的 Pass/Evidence/Finding 与 Markdown 全为空，成功不代表代码审查通过。目录、复制线程和句柄现在是真实资源：后台任务未退出、owner 不符、链接替换或清理未知，必须保留 RETAINED 与 FAILED + UNCERTAIN。重启先建立 Session 隔离并验证资源归属，再可靠清理；无法归属的目录或资源行使全服务 NOT_READY，原始文件保留。
 
-升级旧库必须显式执行 `alembic upgrade head` 到 `0003_artifacts`。未升级的库不会启动 Worker；旧 0001 migration 和 Run/Event/Result Wire 不变。Snapshot 不自动 GC，Run 结束只清理自己的执行副本。
+升级旧库必须显式执行 `alembic upgrade head` 到 `0004_context_artifacts`。未升级的库不会启动 Worker；旧 0001 migration 和 Run/Event/Result Wire 不变。Snapshot 不自动 GC，Run 结束只清理自己的执行副本。
 
 ## 代码组织
 

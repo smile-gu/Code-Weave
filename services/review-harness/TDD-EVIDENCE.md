@@ -62,3 +62,34 @@ Python 全量 195 passed；干净 3.12 全量 195 passed，安装、pip check、
 修复后正式边界回归扩展至19项，覆盖闭合/未闭合单双引号、空格、转义、尾部反斜杠、多行、JSON截断文本回退、UTF-8边界、实际持久文件与应用读取无泄漏、普通文本不改。Artifact+Tools+生命周期+原始独立测试合计 **51 passed**；原始 `D:/agentlearning/batch3-independent-audit/test_b3_redaction_boundary.py` 未修改并通过。额外8MiB直接脱敏边界探针通过，不将它计为正式pytest项。
 
 新鲜全量 **214 passed in 68.25s**；干净Python3.12 **214 passed in 64.85s**，安装、pip check、Ruff、空库迁移、真实启动及认证Readiness通过；git diff --check通过。Java/Legacy/Schema本轮未重跑，前文数字保留为上次开发交付证据。B3-R01待独立复审，不提前关闭，未暂存、未提交、未推送。
+
+## 批次 4：4A → 4B → 4C（2026-10-10）
+
+基线 dc311d7，批次3及B3-R01已独立复审通过并提交。沿用冻结的 State/Checkpoint、模型请求、Compaction、Supervisor 与诊断HTTP接口进行TDD，不增加生产故障开关或真实Provider。
+
+| 小步/问题 | 本轮实际红测 | 实现与绿测 |
+|---|---|---|
+| 4A 精确Checkpoint隔离 | 首条真实保存/读取/同namespace跨Run/重复启动测试因graph模型尚不存在失败 | strict State、真实AsyncSqliteSaver及JSON-only Serializer、精确ID/摘要/独立读取确认；提交响应丢失、保存前失败、不同Snapshot/同Snapshot别Run、损坏/元数据漂移拒绝 |
+| 4B 最低集合与调用前诊断 | 最低输入预算拒绝调用测试因ContextEngine尚不存在失败 | 完整不可变请求整体计量、FULL Manifest、State引用提交确认、调用前重验证；最低/组合超限、未知capability/meter、Manifest失败/PARTIAL/损坏、Checkpoint不确认、模型配置/工具权限漂移均模型零调用 |
+| 4C 闭合范围与事务式替换 | Tool批次闭合前缀测试因Compactor尚不存在失败 | 保留最近闭合单元、连续有界前缀、摘要独立预算/Manifest、引用校验、最终请求严格下降、FULL Summary和候选Checkpoint确认后采用 |
+| 脱敏Tool JSON进入State误判 | 真Supervisor含password源码回归FAILED+RELEASED，原秘密已被Gateway遮蔽，但State纯文本二次扫描误读JSON转义 | JSON内容按字段/值比较复用现有redact_structure，明文按redact；绿测SUCCEEDED+RELEASED、秘密不进入State、安全后续文本保留；原始JSON/未闭合明文秘密注入仍拒绝 |
+| 同namespace其他Run损坏误阻断 | 将A的Checkpoint typed标签改为pickle后，B的assert_fresh错误失败 | 先核对持久Run归属，不反序列化/继承其他Run损坏payload；当前Run完整性和重复启动仍拒绝，不明归属保守失败；限定SELECT返回blob/metadata大小 |
+| Saver读取自动重建缺失表 | 已保存Checkpoint后删除writes，ready=false但aget_tuple经第三方setup仍成功并重建表 | 独立读取先投影必需writes列，缺表/列失败且不进入setup；读取失败后原缺表状态仍保留 |
+
+对抗式自查额外补：候选摘要无进展/非法引用/PARTIAL/提交未知保留旧视图；连续两次压缩保留真实可读Artifact；实际Task按Run登记，取消拒不退出则RETAINED/FAILED+UNCERTAIN，同进程新Manager仍识别保护，其他Session使用同一图Executor仍成功。FakeWindowExceeded只为假协议测试，恢复使用同一尝试预算，五次实际调用分别有唯一modelCallId/Manifest，包含一次已失败调用与一次摘要，不谎称首次调用零次。
+
+Java正式本轮clean test 280项，随后Legacy独立clean test39项，均0 failure/error/skipped、退出0；分别读取当前XML，未混旧报告。11份相关Schema Draft202012元校验及正反例通过，生产模型契约对照通过。Python最终完整验收结果见下方追加记录；前面批次的历史数字不冒充本批证据。
+
+首次干净安装全量通过后Ruff发现开发中新增测试的导入排序，已修正并重新完整验收；不将这次未完成静态检查的运行写成成功的干净验收。实现保持未暂存、未提交、未推送，待独立复审。跨平台/真实模型/业务证据限制见[批次4交付](../../docs/review-harness-batch-4-development-handoff.md)。
+
+最终本轮：Python全量 **257 passed in 78.79s**；干净Python3.12 **257 passed in 76.09s**，精确锁安装、pip check、Ruff check/format（83 files）、空库迁移、真实服务启动及认证Readiness全部通过，命令退出0。Java正式 **280**、Legacy **39**，均零失败/错误/跳过，退出0；11份相关Schema元校验及正反例、生产比对、UTF-8/no-BOM与git diff --check通过。新增43项正式测试，未计仓库外探针。HEAD仍dc311d7，暂存区为空；用户已有output及可视化未改动。未提交、未推送，待独立复审，不宣称真实模型或生产Token治理完成。
+
+## B4-R01 / B4-R02 修复证据
+
+B4-R01正式红测核对下一次模型请求：7KiB通过，10/30KiB两项失败，Tool信封无data且artifactRef=null（2 failed/1 passed）；测试辅助代码的首次import作用域错误已先修正，不将其作为产品缺陷证据。修复统一平台消费者预算到Gateway，图不再自行删正文。非分页Spill复用既有ArtifactService完整发布/确认；分页复用既有安全读取/Cursor并缩页，不递归Spill。
+
+正式图回归14项及未改原始D:/agentlearning/batch3-independent-audit/test_b4_mid_output.py合计15 passed in24.57s。覆盖8KiB附近、中间区间、32KiB以上、search_code、两种分页工具、下一实际Request内容、实际可读转存及中等Spill故障不继续调用模型。相关Artifact/Tool/生命周期/Compaction专项69 passed in37.23s。
+
+B4-R02仅调整测试：A entered/cancellation_seen/release事件控制真实Task，人工model_timeout=1、cleanup=0.5秒，A保护与B成功完整断言保留；生产默认预算不变。该用例在图专项、全量、干净安装分别通过，不声称旧时间敏感失败证明了生产隔离缺陷。
+
+最终本轮Python **267 passed in108.84s**；干净Python3.12 **267 passed in108.27s**，精确锁安装/pip check/Ruff（83files）/空库迁移/真实启动/认证Readiness通过。Ruff、格式、git diff --check通过。Java/Legacy/Schema无本轮改动，未重复原280/39及元校验，其数字是上轮交付证据；生产契约测试随全量通过。新增10项正式测试，独立探针不混入267。待独立复审，未暂存、未提交、未推送，不进入批次5。

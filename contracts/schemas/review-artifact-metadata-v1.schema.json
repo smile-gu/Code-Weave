@@ -19,7 +19,9 @@
     "kind": {
       "enum": [
         "SOURCE_EXCERPT",
-        "TOOL_OUTPUT"
+        "TOOL_OUTPUT",
+        "CONTEXT_MANIFEST",
+        "COMPACTION_SUMMARY"
       ],
       "title": "Kind",
       "type": "string"
@@ -117,5 +119,5 @@
   "title": "Artifact",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://code-weave.local/schemas/review-artifact-metadata-v1.schema.json"
+  "$id": "https://code-weave.local/contracts/review-artifact-metadata-v1.schema.json"
 }
