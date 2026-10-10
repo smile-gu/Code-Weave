@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "path": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "title": "Path",
+      "type": "string"
+    },
+    "startLine": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Startline",
+      "type": "integer"
+    },
+    "maxLines": {
+      "default": 200,
+      "maximum": 1000,
+      "minimum": 1,
+      "title": "Maxlines",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "path"
+  ],
+  "title": "ReadFile",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-tool-read-file-parameters-v1.schema.json"
+}

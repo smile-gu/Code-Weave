@@ -1,0 +1,127 @@
+{
+  "$defs": {
+    "ToolError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 256,
+          "title": "Message",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "title": "ToolError",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "toolProtocolVersion": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Toolprotocolversion",
+      "type": "string"
+    },
+    "toolCallId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Toolcallid",
+      "type": "string"
+    },
+    "toolName": {
+      "maxLength": 64,
+      "title": "Toolname",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "OK",
+        "ERROR",
+        "CANCELLED"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "data": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Data"
+    },
+    "sourceRefs": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Sourcerefs",
+      "type": "array"
+    },
+    "coverage": {
+      "enum": [
+        "FULL",
+        "PARTIAL",
+        "SAMPLED"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "truncated": {
+      "title": "Truncated",
+      "type": "boolean"
+    },
+    "artifactRef": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Artifactref"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolError"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "toolCallId",
+    "toolName",
+    "status",
+    "data",
+    "sourceRefs",
+    "coverage",
+    "truncated",
+    "artifactRef",
+    "error"
+  ],
+  "title": "ToolEnvelope",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-tool-envelope-v1.schema.json"
+}

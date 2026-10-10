@@ -25,7 +25,7 @@ def create_app(
     app.state.supervisor = None
     app.state.recovery_complete = False
     app.state.storage_probe = lambda: storage_accessible(
-        settings.snapshot_root, settings.execution_root
+        settings.snapshot_root, settings.execution_root, settings.artifact_root
     )
 
     app.add_middleware(

@@ -4,12 +4,14 @@ from uuid import uuid4
 
 from review_harness.application.recovery import recover_runs
 from review_harness.application.service import RunService
+from review_harness.infrastructure.artifacts import ArtifactService
 from review_harness.infrastructure.persistence.database import Database
 from review_harness.infrastructure.persistence.store import RunStore
 from review_harness.infrastructure.persistence.workspaces import WorkspaceStore
 from review_harness.infrastructure.workspaces import WorkspaceManager
 from review_harness.runtime.executor import DeterministicExecutor
 from review_harness.runtime.supervisor import Supervisor
+from review_harness.runtime.tools import ToolGateway
 
 logger = logging.getLogger("review_harness")
 
@@ -34,6 +36,8 @@ async def lifespan(app):
         workspaces,
     )
     app.state.service = RunService(store, supervisor)
+    app.state.artifacts = ArtifactService(settings, database, store, workspaces)
+    app.state.tools = ToolGateway(settings, store, workspaces, app.state.artifacts)
     try:
         if (
             await database.schema_ready()
@@ -41,6 +45,7 @@ async def lifespan(app):
             and app.state.storage_probe()
         ):
             await recover_runs(store, app.state.service, workspaces)
+            await app.state.artifacts.audit()
             app.state.recovery_complete = True
             supervisor.start()
     except Exception:

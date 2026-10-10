@@ -125,7 +125,11 @@ class Supervisor:
                 "REVIEW_RUN_INTEGRITY_ERROR",
             }:
                 raise
-            failure = Failure.make("REVIEW_HARNESS_INTERNAL_ERROR")
+            failure = Failure.make(
+                error.code
+                if error.code.startswith("ARTIFACT_")
+                else "REVIEW_HARNESS_INTERNAL_ERROR"
+            )
         except Exception:
             failure = Failure.make("REVIEW_EXECUTION_FAILED")
         # CancelledError deliberately escapes: shutdown cannot invent cleanup evidence.

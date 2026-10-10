@@ -9,15 +9,19 @@ from pathlib import Path
 from review_harness.domain.snapshot import WorkspaceError
 
 
-def storage_accessible(snapshot_root, execution_root):
+def storage_accessible(snapshot_root, execution_root, artifact_root):
     try:
         safe_directory(snapshot_root)
         safe_directory(execution_root)
+        safe_directory(artifact_root)
         if not os.access(snapshot_root, os.R_OK):
             return False
         with os.scandir(snapshot_root) as entries:
             next(entries, None)
-        return os.access(execution_root, os.R_OK | os.W_OK)
+        return all(
+            os.access(root, os.R_OK | os.W_OK)
+            for root in (execution_root, artifact_root)
+        )
     except (OSError, WorkspaceError):
         return False
 

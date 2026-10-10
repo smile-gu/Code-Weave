@@ -22,6 +22,7 @@ def payload(tmp_path):
     }
     publish_snapshot(tmp_path / "snapshots", value)
     (tmp_path / "executions").mkdir(exist_ok=True)
+    (tmp_path / "artifacts").mkdir(exist_ok=True)
     return value
 
 

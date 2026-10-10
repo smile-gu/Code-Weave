@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "pattern": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "title": "Pattern",
+      "type": "string"
+    },
+    "maxResults": {
+      "default": 100,
+      "maximum": 500,
+      "minimum": 1,
+      "title": "Maxresults",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "pattern"
+  ],
+  "title": "GlobFiles",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-tool-glob-files-parameters-v1.schema.json"
+}

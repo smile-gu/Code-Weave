@@ -108,3 +108,21 @@ async def get_events(run_id: str, request: Request):
 async def health(request: Request):
     value, ready = await readiness(request.app)
     return json_response(value, 200 if ready else 503)
+
+
+@router.get("/review-runs/{run_id}/artifacts/{artifact_id}")
+async def artifact_metadata(run_id: str, artifact_id: str, request: Request):
+    value = await request.app.state.artifacts.metadata(
+        run_identity(run_id), artifact_id
+    )
+    return json_response(value.wire())
+
+
+@router.get("/review-runs/{run_id}/artifacts/{artifact_id}/content")
+async def artifact_content(
+    run_id: str, artifact_id: str, request: Request, cursor: str | None = None
+):
+    value = await request.app.state.artifacts.content(
+        run_identity(run_id), artifact_id, cursor
+    )
+    return json_response(value.model_dump())

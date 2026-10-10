@@ -100,7 +100,7 @@ class WorkspaceManager:
 
         await self.resources.assert_attributable(identities())
 
-    async def _thread(self, run, operation, signal, seconds):
+    async def run_file_job(self, run, operation, signal, seconds):
         if signal.is_set():
             raise WorkCancelled()
         stop = threading.Event()
@@ -109,7 +109,7 @@ class WorkspaceManager:
         with _jobs_lock:
             previous = _live_jobs.get(key)
             if previous and not previous.future.done():
-                raise WorkspaceError("EXECUTION_WORKSPACE_CLEANUP_FAILED")
+                raise WorkspaceError("EXECUTION_WORKSPACE_BUSY")
             active = sum(
                 other_key[0] == key[0] and not other.future.done()
                 for other_key, other in _live_jobs.items()
@@ -171,7 +171,7 @@ class WorkspaceManager:
         if signal.is_set():
             raise WorkCancelled()
         await self.resources.prepare_intent(run)
-        context = await self._thread(
+        context = await self.run_file_job(
             run,
             lambda budget: self._prepare(run, budget),
             signal,
@@ -180,7 +180,9 @@ class WorkspaceManager:
         await self.resources.prepared(run)
         return context
 
-    def _read(self, root, relative, limit, budget, destination=None, *, collect=False):
+    def read_bounded(
+        self, root, relative, limit, budget, destination=None, *, collect=False
+    ):
         import hashlib
 
         digest = hashlib.sha256()
@@ -221,7 +223,7 @@ class WorkspaceManager:
     def _snapshot(self, run, budget):
         root = safe_directory(self.settings.snapshot_root) / run.snapshot_id
         safe_directory(root)
-        size, digest, raw = self._read(
+        size, digest, raw = self.read_bounded(
             root,
             "manifest.json",
             self.settings.snapshot_max_manifest_bytes,
@@ -257,7 +259,7 @@ class WorkspaceManager:
                 expected_executable = entry.gitMode == "100755"
                 if bool(mode & 0o111) != expected_executable:
                     raise WorkspaceError("EXECUTION_WORKSPACE_CONTAMINATED")
-            size, digest, _ = self._read(
+            size, digest, _ = self.read_bounded(
                 root / "content",
                 entry.path,
                 self.settings.snapshot_max_file_bytes,
@@ -265,7 +267,7 @@ class WorkspaceManager:
             )
             if (size, digest) != (entry.byteSize, entry.contentSha256):
                 raise WorkspaceError("SNAPSHOT_CONTENT_MISMATCH")
-        size, digest, _ = self._read(
+        size, digest, _ = self.read_bounded(
             root,
             "artifacts/changes.diff",
             self.settings.snapshot_max_diff_bytes,
@@ -297,7 +299,7 @@ class WorkspaceManager:
                 self.copy_hook(run, budget)
             for entry in manifest.entries:
                 budget.check()
-                size, digest, _ = self._read(
+                size, digest, _ = self.read_bounded(
                     source / "content",
                     entry.path,
                     self.settings.snapshot_max_file_bytes,
@@ -309,7 +311,7 @@ class WorkspaceManager:
                 if os.name != "nt":
                     destination = safe_file(staging / "content", entry.path)
                     destination.chmod(0o755 if entry.gitMode == "100755" else 0o644)
-            self._read(
+            self.read_bounded(
                 source,
                 "artifacts/changes.diff",
                 self.settings.snapshot_max_diff_bytes,
@@ -334,7 +336,7 @@ class WorkspaceManager:
         def verify(budget):
             try:
                 root = safe_directory(context.workspace_root)
-                self._verify_owner(root, context.run, budget)
+                self.assert_owner(root, context.run, budget)
                 if {p.name for p in root.iterdir()} != {
                     "owner.json",
                     "content",
@@ -346,12 +348,12 @@ class WorkspaceManager:
             except (WorkspaceError, OSError):
                 raise WorkspaceError("EXECUTION_WORKSPACE_CONTAMINATED") from None
 
-        await self._thread(
+        await self.run_file_job(
             context.run, verify, signal, self.settings.workspace_prepare_seconds
         )
 
-    def _verify_owner(self, root, run, budget):
-        _, _, raw = self._read(root, "owner.json", 4096, budget, collect=True)
+    def assert_owner(self, root, run, budget):
+        _, _, raw = self.read_bounded(root, "owner.json", 4096, budget, collect=True)
         if strict_json(raw) != self._owner(run):
             raise WorkspaceError("EXECUTION_WORKSPACE_CLEANUP_FAILED")
 
@@ -383,7 +385,7 @@ class WorkspaceManager:
                 # This also closes a rejected preparation intent under backpressure.
                 await self.resources.removed(run)
                 return
-            await self._thread(
+            await self.run_file_job(
                 run,
                 lambda budget: self._cleanup(run, budget),
                 asyncio.Event(),
@@ -400,7 +402,7 @@ class WorkspaceManager:
         existing = [path for path in (staging, target) if os.path.lexists(path)]
         # Validate every candidate owner before deleting anything.
         for path in existing:
-            self._verify_owner(safe_directory(path), run, budget)
+            self.assert_owner(safe_directory(path), run, budget)
         for path in existing:
             if self.remove_hook:
                 self.remove_hook(path)

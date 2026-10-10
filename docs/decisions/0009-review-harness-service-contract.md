@@ -624,3 +624,5 @@ Review 活动、提交未知、事件/Result 导入未知或 `resourceState=UNCE
 - Review 状态或资源未知时，Coding、基线推进、另一执行型 Review 和关闭释放均被拒绝。
 
 并发测试不得依赖概率性 `sleep`。批次 1 不接真实模型、LangGraph、Tool、Memory 或 MCP。
+
+2026-10-10批次3：Artifact元数据及内容认证读取接口已落地，Java不直读Artifact文件，浏览器不直接调用Python。Run/Event/Result/Health已有Wire不变；新增工具协议见contracts/schemas/review-tool-*.schema.json。

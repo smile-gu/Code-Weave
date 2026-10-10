@@ -28,6 +28,7 @@ async def test_empty_database_upgrade_enforces_constraints(tmp_path):
             "review_runs",
             "review_run_events",
             "review_results",
+            "review_artifacts",
         }
         with pytest.raises(sqlite3.IntegrityError):
             connection.execute(

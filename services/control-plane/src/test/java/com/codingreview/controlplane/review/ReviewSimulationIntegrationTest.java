@@ -322,6 +322,10 @@ class ReviewSimulationIntegrationTest {
                                     + temp.resolve("python.sqlite").toString().replace('\\', '/'));
             builder.environment().put("CODE_WEAVE_REVIEW_SNAPSHOT_ROOT", snapshots.toString());
             builder.environment().put("CODE_WEAVE_REVIEW_EXECUTION_ROOT", executions.toString());
+            builder.environment()
+                    .put(
+                            "CODE_WEAVE_REVIEW_ARTIFACT_ROOT",
+                            Files.createDirectories(temp.resolve("artifacts")).toString());
             builder.environment().put("CODE_WEAVE_REVIEW_INTERNAL_BEARER_TOKEN", credential);
             builder.environment().put("CODE_WEAVE_REVIEW_PORT", Integer.toString(port));
             CountDownLatch ready = new CountDownLatch(1);

@@ -8,13 +8,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 from review_harness.infrastructure.persistence.tables import (
+    artifacts,
     events,
     results,
     runs,
     workspaces,
 )
 
-REVISION = "0002_workspaces"
+REVISION = "0003_artifacts"
 SERVICE_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -61,7 +62,7 @@ class Database:
                 # Revision metadata alone cannot prove the schema still exists.
                 # Qualified projections validate every required column even on
                 # an empty database, without reading rows or repairing anything.
-                for table in (runs, events, results, workspaces):
+                for table in (runs, events, results, workspaces, artifacts):
                     await connection.execute(select(table).limit(0))
                 return True
         except Exception:

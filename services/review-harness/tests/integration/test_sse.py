@@ -20,6 +20,7 @@ async def sse_app(database, tmp_path):
         internal_bearer_token="test-only-credential",
         snapshot_root=tmp_path / "snapshots",
         execution_root=tmp_path / "executions",
+        artifact_root=tmp_path / "artifacts",
         sse_page_size=1,
         sse_heartbeat_seconds=0.05,
     )

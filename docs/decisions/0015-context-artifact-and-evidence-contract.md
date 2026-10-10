@@ -1,6 +1,6 @@
 # ADR-0015：Context、Artifact 与 Evidence 治理契约
 
-- 状态：已冻结，尚未实现
+- 状态：已冻结；批次 3 Artifact/基础只读工具开发完成，待独立复审；Context/Evidence未实现
 - 日期：2026-09-09
 - 范围：Review Agent 模型请求、上下文压缩、长内容存储、证据形成与 Result Envelope
 - 上游：ADR-0009、ADR-0014
@@ -273,3 +273,5 @@ Evidence/Finding 至少包括：`EVIDENCE_SOURCE_NOT_FOUND`、`EVIDENCE_SNAPSHOT
 - 不在本 ADR 实现 Memory、Skill、MCP、Maven 或 Analyzer；能力随第一个真实消费者逐批落地。
 
 本 ADR 冻结目标设计，不代表上述组件已经实现。
+
+2026-10-10批次3落地：独立Artifact根与0003_artifacts迁移、认证分页、五工具统一授权、脱敏/预算/Spill和实际Future收敛；当前无跨Run继承，默认空Result不变。实现与局限见docs/review-harness-batch-3-development-handoff.md。

@@ -236,3 +236,16 @@ Agent 载荷使用 `agentProtocolVersion = 1`、`agentEventType`、`externalId`�
 200 同时确认 CLOSED 已保存及目标仓库所有权释放。409：SESSION_NOT_CLOSABLE、TURN_IN_PROGRESS、SESSION_EXECUTION_BLOCKED 或历史错误；503：SESSION_CLOSE_STATE_WRITE_FAILED、SESSION_CLOSE_RELEASE_PENDING。超时可安全重试。CLOSED 查询结果不单独证明释放完成。
 
 关闭不取消任务、不修改代码、不提交、不回滚。关闭后的 Session changes 与 Turn changes 兼容入口返回 409 SESSION_CLOSED；历史、事件和助手回复仍可读取。
+
+## Harness Artifact 内部接口（批次 3）
+
+以下为 Python Harness 的受内部 Bearer 认证接口，前缀 `/internal/v1`，不经过 Java 公共 API：
+
+| 方法与路径 | 成功响应 |
+|---|---|
+| `GET /review-runs/{runId}/artifacts/{artifactId}` | 200，Artifact 元数据，无宿主路径 |
+| `GET /review-runs/{runId}/artifacts/{artifactId}/content?cursor=opaque` | 200，UTF-8 text、摘要、coverage、redactionState、nextCursor、hasMore |
+
+每页先完整验证内容大小和 SHA-256，整个 JSON 默认最多 32 KiB；Cursor 绑定 Run、Artifact、摘要及字节偏移，不能跨身份复用。跨 Run/未知材料统一 404 ARTIFACT_NOT_FOUND，伪造 Cursor 为 422 ARTIFACT_CURSOR_INVALID，损坏为 503 ARTIFACT_INTEGRITY_FAILED，二进制内容为 415 ARTIFACT_CONTENT_UNSUPPORTED，认证错误为 401。PARTIAL 到末页仍不代表来源完整。无 Artifact 创建 HTTP 或工具执行 HTTP 入口，发布与工具身份均由受信 Runtime 注入。
+
+协议见 `contracts/schemas/review-artifact-metadata-v1.schema.json` 与 `review-artifact-content-page-v1.schema.json`；实现及资源失败边界见 [批次 3 交付](../review-harness-batch-3-development-handoff.md)。既有 Run/Event/Result v1 不变。

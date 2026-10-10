@@ -40,3 +40,25 @@ Recovery 全部扫描完成后才启动 Worker，取得执行权时再次验证 
 ## 批次 2
 
 固定输入、真实文件资源与 Java 可靠导入的正式回归及红→绿记录见 [批次 2 开发交付](../../docs/review-harness-batch-2-development-handoff.md)。批次 1 的历史验收数字保留，不冒充本批证据。
+
+## 2026-10-10 批次 3
+
+测试入口沿用冻结的 Artifact 应用服务、统一 ToolGateway、真实 Supervisor/Workspace 与认证 HTTP，不增加生产故障开关。按 3A → 3B → 3C 实施。
+
+| 可核实红测 | 失败行为 | 最小修复及绿测 |
+|---|---|---|
+| stalled Artifact writer | 全根发布锁使 B 等待 A，A 线程尚未退出时 B 发布失败 | 按根+Run 弱引用锁隔离；A 持久 UNCERTAIN 保留，B 发布/读取通过 |
+| prefixed credentials | OPENAI_API_KEY、myApiKey、INTERNAL_BEARER_TOKEN 原文返回 | 共用 credential 后缀识别及可处理转义引号的赋值模式；文本和 JSON 正反例通过 |
+| JSON expansion truncation | 脱敏后超过捕获预算，PARTIAL 内容仍标 application/json | 所有实际截断明确 text/plain；回归通过 |
+
+新增真实网络存储故障验收：必需 Spill 写入失败时 FAILED+RELEASED、ARTIFACT_WRITE_FAILED，无响应引用、无 Result。坏 Artifact 重启后仍不可读，服务 READY，无关 Session 仍 SUCCEEDED+RELEASED；测试的第二 Run 使用自己的 Snapshot 身份，不能复用绑定旧 Run 的 Manifest。
+
+Python 全量 195 passed；干净 3.12 全量 195 passed，安装、pip check、静态检查、空库迁移、启动及认证 Readiness 通过。Java 正式 280 项、Legacy 39 项；分别 clean test，独立统计，不混旧 XML。8 份 Schema 元校验及正反例通过。最终生命周期补强专项 3 passed。实现/限制与复审入口见 [批次 3 交付](../../docs/review-harness-batch-3-development-handoff.md)。保持未提交、未推送，等待独立复审。
+
+## B3-R01 捕获边界脱敏修复（2026-10-10）
+
+独立复审指出捕获截断去掉 credential 结束引号后，旧正则回退为单词遮蔽，泄漏剩余秘密。沿用用户明确指定的真实 ArtifactService.publish → content 接口，新增正式回归首次 **13 failed**。修复为识别赋值后扫描引号值，转义字符跳过，缺闭合引号时遮蔽至捕获结尾（保留 LF 数量），不扩大捕获预算；非凭据赋值不消费值，既保留原文，也不吞掉后续凭据识别。
+
+修复后正式边界回归扩展至19项，覆盖闭合/未闭合单双引号、空格、转义、尾部反斜杠、多行、JSON截断文本回退、UTF-8边界、实际持久文件与应用读取无泄漏、普通文本不改。Artifact+Tools+生命周期+原始独立测试合计 **51 passed**；原始 `D:/agentlearning/batch3-independent-audit/test_b3_redaction_boundary.py` 未修改并通过。额外8MiB直接脱敏边界探针通过，不将它计为正式pytest项。
+
+新鲜全量 **214 passed in 68.25s**；干净Python3.12 **214 passed in 64.85s**，安装、pip check、Ruff、空库迁移、真实启动及认证Readiness通过；git diff --check通过。Java/Legacy/Schema本轮未重跑，前文数字保留为上次开发交付证据。B3-R01待独立复审，不提前关闭，未暂存、未提交、未推送。

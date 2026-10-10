@@ -30,6 +30,7 @@ async def api(database, tmp_path):
             internal_bearer_token="test-only-credential",
             snapshot_root=tmp_path / "snapshots",
             execution_root=tmp_path / "executions",
+            artifact_root=tmp_path / "artifacts",
         ),
         service=service,
     )

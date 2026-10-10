@@ -23,6 +23,7 @@ async def test_every_internal_route_requires_authentication(tmp_path, path, toke
             internal_bearer_token="test-only-credential",
             snapshot_root=tmp_path / "snapshots",
             execution_root=tmp_path / "executions",
+            artifact_root=tmp_path / "artifacts",
         )
     )
     headers = {} if token is None else {"Authorization": token}

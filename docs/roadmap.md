@@ -37,8 +37,8 @@ flowchart LR
 | 顺序 | 开发点 | 首版边界 | 验收条件 |
 |---:|---|---|---|
 | 1 | Python Review Harness 服务骨架（已独立复审） | FastAPI、认证、Readiness、SQLite Run/Event/Result、幂等、取消、SSE、恢复、确定性模拟器 | 独立服务测试与干净 Python 3.12 验收；Java 消费属于后续集成 |
-| 2 | Review Snapshot 与执行空间（开发完成，待独立审查） | Java 捕获发布、Python 校验和每 Run 副本、产品门禁 | Agent 输入不可变，漂移和路径逃逸被拒绝 |
-| 3 | Artifact 与基础只读 Tool | Artifact 完整性、有界读取、read/search/glob/diff | 长输出不挤爆 Context，权限入口不可绕过 |
+| 2 | Review Snapshot 与执行空间（已提交基线 b31dc62） | Java 捕获发布、Python 校验和每 Run 副本、产品门禁 | Agent 输入不可变，漂移和路径逃逸被拒绝 |
+| 3 | Artifact 与基础只读 Tool（开发完成，待独立复审） | Artifact 完整性、有界读取、read/search/glob/diff | 长输出不挤爆 Context，权限入口不可绕过 |
 | 4 | LangGraph State 与 Context | Checkpoint、Token Meter、Context Manifest、Compaction | 锚点不丢、压缩有进展且可追溯 |
 | 5 | 单 Pass 真实闭环 | 正确性 Pass、真实模型、Evidence、Finding、Result、Java 报告草稿 | 首条端到端 Review 具有可核查证据 |
 | 6 | 六 Pass、报告与 Handoff | 串行六 Pass、去重、用户批准、Coding 交接 | 用户可以审阅并驱动整改复审 |

@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///review-harness.sqlite"
     internal_bearer_token: SecretStr
     snapshot_root: Path
+    artifact_root: Path
+    artifact_max_bytes: int = Field(default=8 * 1024 * 1024, gt=0)
+    artifact_run_bytes: int = Field(default=64 * 1024 * 1024, gt=0)
+    artifact_run_count: int = Field(default=256, gt=0)
+    tool_output_bytes: int = Field(default=32768, ge=1024, le=32768)
+    tool_timeout_seconds: float = Field(default=10, gt=0, le=120)
+    tool_scan_bytes: int = Field(default=64 * 1024 * 1024, gt=0)
     execution_root: Path
     snapshot_max_files: int = Field(default=20_000, gt=0)
     snapshot_max_file_bytes: int = Field(default=64 * 1024 * 1024, gt=0)
@@ -29,17 +36,23 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def separate_absolute_roots(self):
-        if (
-            not self.snapshot_root.is_absolute()
-            or not self.execution_root.is_absolute()
-        ):
-            raise ValueError("Managed roots must be absolute")
-        self.snapshot_root = Path(os.path.abspath(self.snapshot_root))
-        self.execution_root = Path(os.path.abspath(self.execution_root))
-        if self.snapshot_root.is_relative_to(
-            self.execution_root
-        ) or self.execution_root.is_relative_to(self.snapshot_root):
-            raise ValueError("Managed roots must not contain each other")
+        from review_harness.infrastructure.paths import safe_directory
+
+        roots = []
+        for name in ("snapshot_root", "execution_root", "artifact_root"):
+            path = getattr(self, name)
+            if not path.is_absolute():
+                raise ValueError("Managed roots must be absolute")
+            path = safe_directory(Path(os.path.abspath(path)), must_exist=False)
+            path = path.resolve(strict=False)
+            setattr(self, name, path)
+            # Resolve existing ancestors as well, so aliases such as a mounted
+            # drive cannot make the same physical tree look independent.
+            roots.append(path.resolve(strict=False))
+        for index, root in enumerate(roots):
+            for other in roots[index + 1 :]:
+                if root.is_relative_to(other) or other.is_relative_to(root):
+                    raise ValueError("Managed roots must not contain each other")
         return self
 
     @field_validator("internal_bearer_token")

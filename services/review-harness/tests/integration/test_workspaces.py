@@ -145,13 +145,14 @@ async def test_replaced_content_junction_is_neither_read_nor_recursively_deleted
 
 
 def workspace_settings(database, tmp_path):
-    for name in ("snapshots", "executions"):
+    for name in ("snapshots", "executions", "artifacts"):
         (tmp_path / name).mkdir(exist_ok=True)
     return Settings(
         internal_bearer_token="test-only-credential",
         database_url=str(database.engine.url),
         snapshot_root=tmp_path / "snapshots",
         execution_root=tmp_path / "executions",
+        artifact_root=tmp_path / "artifacts",
     )
 
 

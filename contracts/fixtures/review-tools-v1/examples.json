@@ -1,0 +1,131 @@
+{
+  "review-artifact-metadata-v1": {
+    "positive": {
+      "artifactId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "kind": "SOURCE_EXCERPT",
+      "producerType": "TOOL",
+      "producerId": "read_file:11111111-1111-4111-8111-111111111111",
+      "mediaType": "text/plain",
+      "encoding": "UTF-8",
+      "byteSize": 1,
+      "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "coverage": "FULL",
+      "redactionState": "NONE",
+      "createdAt": "2026-10-10T08:00:00.000000Z",
+      "integrityState": "READY"
+    },
+    "negative": {
+      "artifactId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "kind": "SOURCE_EXCERPT",
+      "producerType": "TOOL",
+      "producerId": "read_file:11111111-1111-4111-8111-111111111111",
+      "mediaType": "text/plain",
+      "encoding": "UTF-8",
+      "byteSize": 1,
+      "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "coverage": "FULL",
+      "redactionState": "NONE",
+      "createdAt": "2026-10-10T08:00:00.000000Z",
+      "integrityState": "READY",
+      "extra": "forbidden"
+    }
+  },
+  "review-artifact-content-page-v1": {
+    "positive": {
+      "artifactId": "11111111-1111-4111-8111-111111111111",
+      "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "text": "sample",
+      "coverage": "FULL",
+      "redactionState": "NONE",
+      "nextCursor": null,
+      "hasMore": false
+    },
+    "negative": {
+      "artifactId": "11111111-1111-4111-8111-111111111111",
+      "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "text": "sample",
+      "coverage": "FULL",
+      "redactionState": "NONE",
+      "nextCursor": null,
+      "hasMore": false,
+      "extra": "forbidden"
+    }
+  },
+  "review-tool-envelope-v1": {
+    "positive": {
+      "toolProtocolVersion": "1.0",
+      "toolCallId": "11111111-1111-4111-8111-111111111111",
+      "toolName": "read_file",
+      "status": "OK",
+      "data": {
+        "text": "sample"
+      },
+      "sourceRefs": [],
+      "coverage": "FULL",
+      "truncated": false,
+      "artifactRef": null,
+      "error": null
+    },
+    "negative": {
+      "toolProtocolVersion": "1.0",
+      "toolCallId": "11111111-1111-4111-8111-111111111111",
+      "toolName": "read_file",
+      "status": "OK",
+      "data": {
+        "text": "sample"
+      },
+      "sourceRefs": [],
+      "coverage": "FULL",
+      "truncated": false,
+      "artifactRef": null,
+      "error": null,
+      "extra": "forbidden"
+    }
+  },
+  "review-tool-read-file-parameters-v1": {
+    "positive": {
+      "path": "src/Demo.java"
+    },
+    "negative": {
+      "path": "src/Demo.java",
+      "runId": "forged"
+    }
+  },
+  "review-tool-search-code-parameters-v1": {
+    "positive": {
+      "query": "literal.*"
+    },
+    "negative": {
+      "query": "literal.*",
+      "runId": "forged"
+    }
+  },
+  "review-tool-glob-files-parameters-v1": {
+    "positive": {
+      "pattern": "**/*.java"
+    },
+    "negative": {
+      "pattern": "**/*.java",
+      "runId": "forged"
+    }
+  },
+  "review-tool-git-diff-parameters-v1": {
+    "positive": {},
+    "negative": {
+      "runId": "forged"
+    }
+  },
+  "review-tool-read-artifact-parameters-v1": {
+    "positive": {
+      "artifactId": "11111111-1111-4111-8111-111111111111"
+    },
+    "negative": {
+      "artifactId": "11111111-1111-4111-8111-111111111111",
+      "runId": "forged"
+    }
+  }
+}

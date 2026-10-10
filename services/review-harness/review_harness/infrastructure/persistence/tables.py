@@ -11,6 +11,57 @@ from sqlalchemy import (
 )
 
 metadata = MetaData()
+
+artifacts = Table(
+    "review_artifacts",
+    metadata,
+    Column("artifact_id", Text, primary_key=True),
+    Column(
+        "run_id",
+        Text,
+        ForeignKey("review_runs.run_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    *[
+        Column(name, Text, nullable=False)
+        for name in (
+            "snapshot_id",
+            "kind",
+            "producer_type",
+            "producer_id",
+            "media_type",
+            "encoding",
+            "sha256",
+            "coverage",
+            "redaction_state",
+            "created_at",
+            "integrity_state",
+        )
+    ],
+    Column("byte_size", Integer, nullable=False),
+    CheckConstraint("byte_size >= 0", name="artifact_size"),
+    CheckConstraint("kind IN ('SOURCE_EXCERPT','TOOL_OUTPUT')", name="artifact_kind"),
+    CheckConstraint("producer_type IN ('TOOL','SYSTEM')", name="artifact_producer"),
+    CheckConstraint(
+        "coverage IN ('FULL','PARTIAL','SAMPLED')", name="artifact_coverage"
+    ),
+    CheckConstraint(
+        "integrity_state IN ('READY','CORRUPTED')", name="artifact_integrity"
+    ),
+    CheckConstraint(
+        "redaction_state IN ('NONE','APPLIED','NOT_APPLICABLE')",
+        name="artifact_redaction",
+    ),
+    CheckConstraint("encoding IN ('UTF-8','BINARY')", name="artifact_encoding"),
+    CheckConstraint(
+        "media_type IN ('text/plain','application/json','application/octet-stream')",
+        name="artifact_media",
+    ),
+    CheckConstraint(
+        "length(artifact_id)=36 AND length(run_id)=36 AND length(snapshot_id)=36 AND length(sha256)=71 AND length(producer_id)<=160",
+        name="artifact_identity_lengths",
+    ),
+)
 STATUSES = "'PENDING','RUNNING','CANCELLING','SUCCEEDED','FAILED','CANCELLED'"
 RESOURCES = "'NOT_ACQUIRED','ACTIVE','RELEASING','RELEASED','UNCERTAIN'"
 EVENTS = "'REVIEW_RUN_ACCEPTED','REVIEW_RUN_STARTED','REVIEW_RUN_CANCELLING','REVIEW_RUN_SUCCEEDED','REVIEW_RUN_FAILED','REVIEW_RUN_CANCELLED','REVIEW_RUN_RESOURCES_RELEASED'"

@@ -32,3 +32,4 @@ flowchart TD
 6. 架构、状态和时序关系使用 Mermaid；代码块只放真实命令、配置或协议示例。
 
 - [Review Harness 批次 2 开发交付与复审入口](review-harness-batch-2-development-handoff.md)
+- [Review Harness 批次 3 开发交付与复审入口](review-harness-batch-3-development-handoff.md)

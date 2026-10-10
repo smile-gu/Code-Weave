@@ -15,6 +15,8 @@ from tests.integration.test_lifecycle import client_for, settings_for
         "ALTER TABLE review_run_events DROP COLUMN payload",
         "ALTER TABLE review_results DROP COLUMN document_bytes",
         "DROP TABLE execution_workspaces",
+        "DROP TABLE review_artifacts",
+        "ALTER TABLE review_artifacts DROP COLUMN created_at",
         "ALTER TABLE execution_workspaces DROP COLUMN diagnostic_id",
     ],
 )

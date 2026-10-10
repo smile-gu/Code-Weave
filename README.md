@@ -115,3 +115,5 @@ npm run build
 - [本地开发指南](docs/guides/local-development.md)
 - [开发路线图](docs/roadmap.md)
 - [架构决策记录](docs/decisions/README.md)
+
+Review Harness批次3已开发Artifact与五基础只读工具，待独立复审；本批不接真实模型/Evidence。交付见[批次3开发记录](docs/review-harness-batch-3-development-handoff.md)。

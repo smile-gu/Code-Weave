@@ -14,12 +14,13 @@ from tests.integration.test_supervisor import ControlledExecutor
 
 
 def settings_for(database, tmp_path):
-    for name in ("snapshots", "executions"):
+    for name in ("snapshots", "executions", "artifacts"):
         (tmp_path / name).mkdir(exist_ok=True)
     return Settings(
         internal_bearer_token="test-only-credential",
         snapshot_root=tmp_path / "snapshots",
         execution_root=tmp_path / "executions",
+        artifact_root=tmp_path / "artifacts",
         database_url=str(database.engine.url),
         shutdown_grace_seconds=0.05,
     )
