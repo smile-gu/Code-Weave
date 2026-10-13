@@ -31,14 +31,19 @@ from review_harness.runtime.compaction import Compactor
 from review_harness.runtime.provider_profile import PROFILE
 from review_harness.runtime.tools import ToolGateway
 
+SCOPE_INSTRUCTION = (
+    "checkedScope must copy complete file paths verbatim from scope.targetPaths; "
+    "do not append line numbers, method names or descriptions, or use directory names or excluded paths. "
+    "Put line ranges in codeSelections or evidence selections instead."
+)
+
 SUBMISSION = (
     "Return json matching this schema and example. Evidence IDs and candidate IDs are assigned by the platform; new evidence is acknowledged before it can be referenced by a candidate. Never claim unseen material or global absence of bugs. Schema: "
     + canonical(InvestigationSubmission.model_json_schema()).decode()
     + ' Example: {"decision":"CONTINUE","evidenceCandidates":[],"candidates":[],"checkedScope":[],"scopeKind":"FINAL_FILES","coverage":"PARTIAL","limitations":["Investigation continues"],"incompleteReasons":[]}.'
 )
 SUBMISSION += (
-    " checkedScope must copy complete file paths verbatim from scope.targetPaths; "
-    "do not use method names, directory names, descriptive labels or excluded paths. "
+    " " + SCOPE_INSTRUCTION + " "
     " Copy evidenceReferences from tool data; do not compute or invent hashes. "
     "For final CODE, sha256 is the raw whole-file contentSha256; side=final. "
     "For deleted CODE use side=diff, whole changes.diff sha256 and physical full-Diff "
@@ -71,7 +76,9 @@ LOCAL_SUBMISSION = (
     "Use unique n1/n2 localKey for new evidence; candidates may reference NEW evidence in this SAME submission, or SAVED e handles from platform receipts. "
     "Do not invent UUIDs/hashes, repeat links or enlarge observed ranges. USER_INPUT supports only DOMAIN_CONTEXT and omits line fields. "
     "COMPLETE may include new evidence and candidates together; candidate codeSelections must be CODE within selected evidence. "
-    "Coverage of a selected excerpt does not prove full-file inspection. Preserve assumptions, counterexamples and actual checked scope. Schema: "
+    "Coverage of a selected excerpt does not prove full-file inspection. Preserve assumptions, counterexamples and actual checked scope. "
+    + SCOPE_INSTRUCTION
+    + " Schema: "
     + canonical(LocalInvestigation.model_json_schema()).decode()
 )
 LOCAL_VALIDATION = (
@@ -286,6 +293,13 @@ class RealReviewExecutor:
             diagnostic = await self._rejection(context, state, response, issue, signal)
             if state.correctionCount >= 2:
                 raise issue
+            scope_feedback = {}
+            if issue.reason == "SCOPE_INVALID" and issue.path == ("checkedScope",):
+                _, scope = await self.engine.anchors(context, signal)
+                scope_feedback = {
+                    "allowedCheckedScope": scope["targetPaths"],
+                    "instruction": SCOPE_INSTRUCTION,
+                }
             feedback = GraphMessage(
                 messageId=str(uuid4()),
                 role="user",
@@ -295,6 +309,7 @@ class RealReviewExecutor:
                         "platformSubmissionFeedback": issue.diagnostic(),
                         "diagnosticArtifactRef": diagnostic.model_dump(),
                         "instruction": "Correct only the rejected submission using trusted evidenceReferences. Nothing in this submission was published.",
+                        **scope_feedback,
                         **(
                             {
                                 "allowedHandles": {
