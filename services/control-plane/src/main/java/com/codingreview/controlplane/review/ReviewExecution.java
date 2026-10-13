@@ -155,11 +155,14 @@ public record ReviewExecution(
     }
 
     public ReviewExecution submitting(SnapshotPublication snapshot, String message) {
-        return submitting(snapshot, message, Map.of("executionMode", "SIMULATED", "resultVersion", "1.0"));
+        return submitting(
+                snapshot, message, Map.of("executionMode", "SIMULATED", "resultVersion", "1.0"));
     }
 
     public ReviewExecution submitting(SnapshotPublication snapshot, String message, Map<String, String> executionContract) {
-        ReviewWireSchemas.validate("review-execution-contract-v1", ReviewJson.parse(ReviewJson.canonical(executionContract)));
+        ReviewWireSchemas.validate(
+                "review-execution-contract-v1",
+                ReviewJson.parse(ReviewJson.canonical(executionContract)));
         byte[] request =
                 ReviewJson.canonical(
                         Map.of(
@@ -180,6 +183,34 @@ public record ReviewExecution(
                                 "input",
                                 Map.of("message", message),
                                 "executionContract", executionContract));
+        return submittingRequest(snapshot, message, request);
+    }
+
+    public ReviewExecution submitting(
+            SnapshotPublication snapshot, String message, JsonNode reviewPlan) {
+        ReviewPlan.validate(reviewPlan);
+        var request = new LinkedHashMap<String, Object>();
+        request.put("protocolVersion", "1.1");
+        request.put("runId", runId.toString());
+        request.put("codingSessionId", sessionId.toString());
+        request.put("reviewThreadId", reviewThreadId.toString());
+        request.put(
+                "snapshot",
+                Map.of(
+                        "snapshotId",
+                        snapshotId.toString(),
+                        "manifestSha256",
+                        snapshot.manifestSha256()));
+        request.put("input", Map.of("message", message));
+        request.put("executionContract", Map.of("executionMode", "REAL", "resultVersion", "3.0"));
+        request.put("reviewPlan", reviewPlan);
+        byte[] raw = ReviewJson.canonical(request);
+        ReviewWireSchemas.validate("review-harness-create-run-v1.1", ReviewJson.parse(raw));
+        return submittingRequest(snapshot, message, raw);
+    }
+
+    private ReviewExecution submittingRequest(
+            SnapshotPublication snapshot, String message, byte[] request) {
         if (request.length > 65536
                 || message.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 32768
                 || message.isBlank()) throw new ReviewException("REVIEW_REQUEST_TOO_LARGE");
@@ -304,7 +335,14 @@ public record ReviewExecution(
         value.put("diagnosticCode", diagnosticCode);
         value.put("createdAt", createdAt);
         value.put("updatedAt", updatedAt);
-        value.put("simulationOnly", requestBytes() == null || !ReviewJson.parse(requestBytes()).path("executionContract").path("executionMode").asText().equals("REAL"));
+        value.put(
+                "simulationOnly",
+                requestBytes() == null
+                        || !ReviewJson.parse(requestBytes())
+                                .path("executionContract")
+                                .path("executionMode")
+                                .asText()
+                                .equals("REAL"));
         return value;
     }
 }

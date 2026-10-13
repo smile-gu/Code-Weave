@@ -117,7 +117,9 @@ class Supervisor:
         review_package = None
         try:
             async with asyncio.timeout(
-                getattr(self.executor, "wallclock_seconds", None)
+                self.executor.timeout_for(run)
+                if hasattr(self.executor, "timeout_for")
+                else getattr(self.executor, "wallclock_seconds", None)
             ):
                 context = await self.workspaces.prepare(run, signal)
                 if (await self.store.get_run(run_id)).status == "CANCELLING":
@@ -153,6 +155,10 @@ class Supervisor:
                         "PROVIDER_",
                         "EVIDENCE_",
                         "FINDING_",
+                        "FEE_",
+                        "PASS_",
+                        "PRICE_",
+                        "RUN_",
                     )
                 )
                 else "REVIEW_HARNESS_INTERNAL_ERROR"

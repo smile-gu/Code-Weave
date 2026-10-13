@@ -91,7 +91,40 @@ async def lifespan(app):
                 evidence=evidence,
             )
             supervisor.executor = RealReviewExecutor(engine, evidence, app.state.tools)
+            from review_harness.domain.multipass_state import MultipassState
+            from review_harness.infrastructure.persistence.fees import FeeLedger
+            from review_harness.infrastructure.persistence.passes import PassStore
+            from review_harness.runtime.multipass import (
+                MultipassExecutor,
+                VersionedReviewExecutor,
+            )
+
+            multi_engine = ContextEngine(
+                settings,
+                store,
+                workspaces,
+                app.state.artifacts,
+                app.state.checkpoints,
+                adapter,
+                model_calls=ModelCallStore(
+                    database, price_catalog=PriceCatalog(settings.price_profile_path)
+                ),
+                state_type=MultipassState,
+                evidence=evidence,
+            )
+            multi = MultipassExecutor(
+                multi_engine,
+                evidence,
+                PassStore(database, store),
+                FeeLedger(
+                    database, price_catalog=PriceCatalog(settings.price_profile_path)
+                ),
+            )
+            supervisor.executor = VersionedReviewExecutor(
+                store, supervisor.executor, multi
+            )
             app.state.real_executor_ready = True
+            app.state.multipass_executor_ready = True
         except Exception as error:
             app.state.real_failure_code = getattr(
                 error, "code", "CHECKPOINT_UNAVAILABLE"

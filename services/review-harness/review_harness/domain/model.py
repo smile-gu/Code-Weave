@@ -252,7 +252,9 @@ class Run:
             )
             if self.descriptor:
                 _require(
-                    valid_uuid(self.result_id) and self.result_version in {"1.0", "2.0"}
+                    valid_uuid(self.result_id)
+                    and self.result_version
+                    in ({"3.0"} if self.protocol_version == "1.1" else {"1.0", "2.0"})
                 )
                 _require(
                     self.result_version == self.execution_contract["resultVersion"]

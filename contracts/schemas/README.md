@@ -111,3 +111,8 @@ Schema无法单独证明跨实体身份/时间/用量/谱系/权限，Python与J
 ## 批次6A2费用合同
 
 新增review-price-profile-v1、review-price-profile-view-v1、review-model-call-v2及内部review-fee-budget-v1/review-call-reservation-v1；严格DTO导出入口为服务目录python -m tests.export_fee_contracts。独立正反例位于contracts/fixtures/review-fee-v1。金额微元整数、价格定点字符串；旧Schema及fixtures不改。Profile来自操作员核实的文件，fixture不代表真实价格。ModelCall2.0绑定Pass及新费用账本；历史v1严格读取。费用READY不开放HTTP1.1，多Pass仍NOT_READY。交付及新鲜测试见docs/review-harness-batch-6a2-fee-ledger-handoff.md。
+
+
+## 批次6A3运行合同
+
+新增九份独立运行Schema：review-graph-state-v4、review-context-manifest-v1.3、review-pass-fact-v1、review-pass-progress-v1、review-harness-status/event-v1.1、review-local-investigation/validation-batch-v2及review-dedup-decision-v1。导出入口python -m tests.export_multipass_runtime_contracts；旧合同不改。State4为当前Pass视图和Run共享Registry，来源观察按Pass隔离；Pass事实由产品库持久保存，Checkpoint不是Run终态权威。Result3总集/字节限额保持；实际模型质量及真实多Pass未在离线测试证明。见docs/review-harness-batch-6a3-multipass-handoff.md。

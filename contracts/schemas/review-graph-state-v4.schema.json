@@ -1,0 +1,1889 @@
+{
+  "$defs": {
+    "ArtifactProgress": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Artifactid",
+          "type": "string"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nextcursor"
+        },
+        "completed": {
+          "default": false,
+          "title": "Completed",
+          "type": "boolean"
+        },
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 0,
+          "title": "Endline",
+          "type": "integer"
+        },
+        "finalPage": {
+          "title": "Finalpage",
+          "type": "boolean"
+        },
+        "readable": {
+          "title": "Readable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "artifactId",
+        "path",
+        "startLine",
+        "endLine",
+        "finalPage",
+        "readable"
+      ],
+      "title": "ArtifactProgress",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Artifactid",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "byteSize": {
+          "minimum": 0,
+          "title": "Bytesize",
+          "type": "integer"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "redactionState": {
+          "enum": [
+            "NONE",
+            "APPLIED",
+            "NOT_APPLICABLE"
+          ],
+          "title": "Redactionstate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifactId",
+        "sha256",
+        "byteSize",
+        "coverage",
+        "redactionState"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "ARTIFACT",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "artifactId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Artifactid",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceType",
+        "artifactId",
+        "sha256",
+        "startLine",
+        "endLine",
+        "coverage"
+      ],
+      "title": "ArtifactReference",
+      "type": "object"
+    },
+    "CandidateBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateHandle": {
+          "maxLength": 16,
+          "pattern": "^c[1-9][0-9]*$",
+          "title": "Candidatehandle",
+          "type": "string"
+        },
+        "candidateId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Candidateid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidateHandle",
+        "candidateId"
+      ],
+      "title": "CandidateBinding",
+      "type": "object"
+    },
+    "CodeReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "CODE",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "side": {
+          "enum": [
+            "base",
+            "final",
+            "diff"
+          ],
+          "title": "Side",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceType",
+        "path",
+        "side",
+        "sha256",
+        "startLine",
+        "endLine"
+      ],
+      "title": "CodeReference",
+      "type": "object"
+    },
+    "EvidenceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "evidenceHandle": {
+          "maxLength": 16,
+          "pattern": "^e[1-9][0-9]*$",
+          "title": "Evidencehandle",
+          "type": "string"
+        },
+        "evidenceId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Evidenceid",
+          "type": "string"
+        },
+        "selections": {
+          "items": {
+            "$ref": "#/$defs/SourceSelection"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Selections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evidenceHandle",
+        "evidenceId",
+        "selections"
+      ],
+      "title": "EvidenceBinding",
+      "type": "object"
+    },
+    "EvidenceReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "localKey": {
+          "maxLength": 16,
+          "pattern": "^n[1-9][0-9]*$",
+          "title": "Localkey",
+          "type": "string"
+        },
+        "evidenceHandle": {
+          "maxLength": 16,
+          "pattern": "^e[1-9][0-9]*$",
+          "title": "Evidencehandle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "localKey",
+        "evidenceHandle"
+      ],
+      "title": "EvidenceReceipt",
+      "type": "object"
+    },
+    "ExecutionBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "maxModelCallsPerPass": {
+          "const": 300,
+          "title": "Maxmodelcallsperpass",
+          "type": "integer"
+        },
+        "maxModelCallsPerRun": {
+          "const": 2000,
+          "title": "Maxmodelcallsperrun",
+          "type": "integer"
+        },
+        "maxDedupCalls": {
+          "const": 10,
+          "title": "Maxdedupcalls",
+          "type": "integer"
+        },
+        "requestTimeoutSeconds": {
+          "const": 120,
+          "title": "Requesttimeoutseconds",
+          "type": "integer"
+        },
+        "passTimeoutSeconds": {
+          "const": 1800,
+          "title": "Passtimeoutseconds",
+          "type": "integer"
+        },
+        "runTimeoutSeconds": {
+          "const": 10800,
+          "title": "Runtimeoutseconds",
+          "type": "integer"
+        },
+        "summaryTimeoutSeconds": {
+          "const": 600,
+          "title": "Summarytimeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "maxModelCallsPerPass",
+        "maxModelCallsPerRun",
+        "maxDedupCalls",
+        "requestTimeoutSeconds",
+        "passTimeoutSeconds",
+        "runTimeoutSeconds",
+        "summaryTimeoutSeconds"
+      ],
+      "title": "ExecutionBudget",
+      "type": "object"
+    },
+    "FeeAuthorization": {
+      "additionalProperties": false,
+      "properties": {
+        "authorizationId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Authorizationid",
+          "type": "string"
+        },
+        "currency": {
+          "const": "CNY",
+          "title": "Currency",
+          "type": "string"
+        },
+        "maxAmount": {
+          "maxLength": 20,
+          "pattern": "^(?:[1-9][0-9]{0,11}(?:\\.[0-9]{1,6})?|0\\.(?!0{1,6}$)[0-9]{1,6})$",
+          "title": "Maxamount",
+          "type": "string"
+        },
+        "confirmedAt": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "title": "Confirmedat",
+          "type": "string"
+        },
+        "priceProfileId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Priceprofileid",
+          "type": "string"
+        },
+        "priceProfileDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Priceprofiledigest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authorizationId",
+        "currency",
+        "maxAmount",
+        "confirmedAt",
+        "priceProfileId",
+        "priceProfileDigest"
+      ],
+      "title": "FeeAuthorization",
+      "type": "object"
+    },
+    "GraphMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "messageId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Messageid",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "assistant",
+            "tool",
+            "user"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 16384,
+          "title": "Content",
+          "type": "string"
+        },
+        "toolCalls": {
+          "items": {
+            "$ref": "#/$defs/ToolCall"
+          },
+          "maxItems": 8,
+          "title": "Toolcalls",
+          "type": "array"
+        },
+        "toolCallId": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Toolcallid"
+        },
+        "artifactRefs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "maxItems": 32,
+          "title": "Artifactrefs",
+          "type": "array"
+        },
+        "sourceRefs": {
+          "items": {
+            "$ref": "#/$defs/SourceRef"
+          },
+          "maxItems": 32,
+          "title": "Sourcerefs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "messageId",
+        "role",
+        "content"
+      ],
+      "title": "GraphMessage",
+      "type": "object"
+    },
+    "Inspection": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "ranges": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "maxItems": 32,
+          "title": "Ranges",
+          "type": "array"
+        },
+        "finalLine": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Finalline"
+        }
+      },
+      "required": [
+        "path",
+        "coverage"
+      ],
+      "title": "Inspection",
+      "type": "object"
+    },
+    "ModelUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "modelCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Modelcallid",
+          "type": "string"
+        },
+        "estimatedInputTokens": {
+          "minimum": 0,
+          "title": "Estimatedinputtokens",
+          "type": "integer"
+        },
+        "inputUnits": {
+          "minimum": 0,
+          "title": "Inputunits",
+          "type": "integer"
+        },
+        "outputUnits": {
+          "minimum": 0,
+          "title": "Outputunits",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "modelCallId",
+        "estimatedInputTokens",
+        "inputUnits",
+        "outputUnits"
+      ],
+      "title": "ModelUsage",
+      "type": "object"
+    },
+    "MultipassPassResult": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "selected": {
+          "title": "Selected",
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "COMPLETED",
+            "INCOMPLETE",
+            "SKIPPED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "scopeKind": {
+          "enum": [
+            "FINAL_FILES",
+            "FIXED_DIFF"
+          ],
+          "title": "Scopekind",
+          "type": "string"
+        },
+        "checkedScope": {
+          "items": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Checkedscope",
+          "type": "array"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "incompleteReasons": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Incompletereasons",
+          "type": "array"
+        },
+        "skipReason": {
+          "anyOf": [
+            {
+              "enum": [
+                "USER_NOT_SELECTED",
+                "RUN_BUDGET_EXHAUSTED"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Skipreason"
+        },
+        "unvalidatedCandidates": {
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Unvalidatedcandidates",
+          "type": "integer"
+        },
+        "findingIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Findingids",
+          "type": "array"
+        },
+        "usage": {
+          "$ref": "#/$defs/MultipassUsage"
+        }
+      },
+      "required": [
+        "passId",
+        "selected",
+        "status",
+        "scopeKind",
+        "checkedScope",
+        "coverage",
+        "limitations",
+        "incompleteReasons",
+        "skipReason",
+        "unvalidatedCandidates",
+        "findingIds",
+        "usage"
+      ],
+      "title": "MultipassPassResult",
+      "type": "object"
+    },
+    "MultipassRegistry": {
+      "additionalProperties": false,
+      "properties": {
+        "runId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Runid",
+          "type": "string"
+        },
+        "snapshotId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Snapshotid",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/PassSourceBinding"
+          },
+          "maxItems": 64,
+          "title": "Sources",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceBinding"
+          },
+          "maxItems": 128,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/CandidateBinding"
+          },
+          "maxItems": 32,
+          "title": "Candidates",
+          "type": "array"
+        },
+        "activePass": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Activepass",
+          "type": "string"
+        }
+      },
+      "required": [
+        "runId",
+        "snapshotId",
+        "activePass"
+      ],
+      "title": "MultipassRegistry",
+      "type": "object"
+    },
+    "MultipassUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "modelCalls": {
+          "maximum": 300,
+          "minimum": 0,
+          "title": "Modelcalls",
+          "type": "integer"
+        },
+        "inputTokens": {
+          "maximum": 78643200,
+          "minimum": 0,
+          "title": "Inputtokens",
+          "type": "integer"
+        },
+        "outputTokens": {
+          "maximum": 1228800,
+          "minimum": 0,
+          "title": "Outputtokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "modelCalls",
+        "inputTokens",
+        "outputTokens"
+      ],
+      "title": "MultipassUsage",
+      "type": "object"
+    },
+    "PassCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "category": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Category",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Title",
+          "type": "string"
+        },
+        "claim": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Claim",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reasoningSummary": {
+          "$ref": "#/$defs/ReasoningSummary"
+        },
+        "suggestion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "claimKind": {
+          "enum": [
+            "STATIC_CORRECTNESS",
+            "ENVIRONMENT_DEPENDENT",
+            "QUANTITATIVE"
+          ],
+          "title": "Claimkind",
+          "type": "string"
+        },
+        "evidenceIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Evidenceids",
+          "type": "array"
+        },
+        "codeReferences": {
+          "items": {
+            "$ref": "#/$defs/CodeReference"
+          },
+          "maxItems": 16,
+          "title": "Codereferences",
+          "type": "array"
+        },
+        "candidateId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Candidateid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "passId",
+        "category",
+        "title",
+        "claim",
+        "severity",
+        "confidence",
+        "reasoningSummary",
+        "suggestion",
+        "claimKind",
+        "evidenceIds",
+        "codeReferences",
+        "candidateId"
+      ],
+      "title": "PassCandidate",
+      "type": "object"
+    },
+    "PassFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "category": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Category",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Title",
+          "type": "string"
+        },
+        "claim": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Claim",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reasoningSummary": {
+          "$ref": "#/$defs/ReasoningSummary"
+        },
+        "suggestion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "claimKind": {
+          "enum": [
+            "STATIC_CORRECTNESS",
+            "ENVIRONMENT_DEPENDENT",
+            "QUANTITATIVE"
+          ],
+          "title": "Claimkind",
+          "type": "string"
+        },
+        "evidenceIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Evidenceids",
+          "type": "array"
+        },
+        "codeReferences": {
+          "items": {
+            "$ref": "#/$defs/CodeReference"
+          },
+          "maxItems": 16,
+          "title": "Codereferences",
+          "type": "array"
+        },
+        "candidateId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Candidateid",
+          "type": "string"
+        },
+        "findingId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Findingid",
+          "type": "string"
+        },
+        "validationModelCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Validationmodelcallid",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "VERIFIED",
+            "RISK",
+            "SUGGESTION"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "validationSummary": {
+          "$ref": "#/$defs/ValidationSummary"
+        }
+      },
+      "required": [
+        "passId",
+        "category",
+        "title",
+        "claim",
+        "severity",
+        "confidence",
+        "reasoningSummary",
+        "suggestion",
+        "claimKind",
+        "evidenceIds",
+        "codeReferences",
+        "candidateId",
+        "findingId",
+        "validationModelCallId",
+        "disposition",
+        "validationSummary"
+      ],
+      "title": "PassFinding",
+      "type": "object"
+    },
+    "PassOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "passResult": {
+          "$ref": "#/$defs/MultipassPassResult"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/PassFinding"
+          },
+          "maxItems": 32,
+          "title": "Findings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passResult",
+        "findings"
+      ],
+      "title": "PassOutcome",
+      "type": "object"
+    },
+    "PassSourceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceHandle": {
+          "maxLength": 16,
+          "pattern": "^s[1-9][0-9]*$",
+          "title": "Sourcehandle",
+          "type": "string"
+        },
+        "source": {
+          "discriminator": {
+            "mapping": {
+              "ARTIFACT": "#/$defs/ArtifactReference",
+              "CODE": "#/$defs/CodeReference",
+              "USER_INPUT": "#/$defs/UserInputReference"
+            },
+            "propertyName": "sourceType"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CodeReference"
+            },
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "$ref": "#/$defs/UserInputReference"
+            }
+          ],
+          "title": "Source"
+        },
+        "observedRanges": {
+          "items": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "maxItems": 32,
+          "title": "Observedranges",
+          "type": "array"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "redactionState": {
+          "enum": [
+            "NONE",
+            "APPLIED"
+          ],
+          "title": "Redactionstate",
+          "type": "string"
+        },
+        "expectedCursor": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expectedcursor"
+        },
+        "pendingLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pendingline"
+        },
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceHandle",
+        "source",
+        "observedRanges",
+        "coverage",
+        "redactionState",
+        "passId"
+      ],
+      "title": "PassSourceBinding",
+      "type": "object"
+    },
+    "ProviderCallMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "modelCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Modelcallid",
+          "type": "string"
+        },
+        "toolCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Toolcallid",
+          "type": "string"
+        },
+        "providerToolCallId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Providertoolcallid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "modelCallId",
+        "toolCallId",
+        "providerToolCallId"
+      ],
+      "title": "ProviderCallMapping",
+      "type": "object"
+    },
+    "ReasoningSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Rule",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Trigger",
+          "type": "string"
+        },
+        "executionPath": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Executionpath",
+          "type": "string"
+        },
+        "assumptions": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "counterexamples": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Counterexamples",
+          "type": "array"
+        },
+        "conclusion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Conclusion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "trigger",
+        "executionPath",
+        "assumptions",
+        "counterexamples",
+        "conclusion"
+      ],
+      "title": "ReasoningSummary",
+      "type": "object"
+    },
+    "ReviewPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "planVersion": {
+          "const": "1.0",
+          "title": "Planversion",
+          "type": "string"
+        },
+        "selectedPasses": {
+          "items": {
+            "enum": [
+              "correctness",
+              "consistency",
+              "security",
+              "performance",
+              "architecture",
+              "testing"
+            ],
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Selectedpasses",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "executionBudget": {
+          "$ref": "#/$defs/ExecutionBudget"
+        },
+        "feeAuthorization": {
+          "$ref": "#/$defs/FeeAuthorization"
+        }
+      },
+      "required": [
+        "planVersion",
+        "selectedPasses",
+        "executionBudget",
+        "feeAuthorization"
+      ],
+      "title": "ReviewPlan",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "contentSha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contentsha256"
+        },
+        "diffSha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diffsha256"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startline"
+        },
+        "endLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endline"
+        }
+      },
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "SourceSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceHandle": {
+          "maxLength": 16,
+          "pattern": "^s[1-9][0-9]*$",
+          "title": "Sourcehandle",
+          "type": "string"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startline"
+        },
+        "endLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endline"
+        }
+      },
+      "required": [
+        "sourceHandle"
+      ],
+      "title": "SourceSelection",
+      "type": "object"
+    },
+    "SubmissionReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "modelCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Modelcallid",
+          "type": "string"
+        },
+        "submissionDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Submissiondigest",
+          "type": "string"
+        },
+        "checkpointRevision": {
+          "minimum": 0,
+          "title": "Checkpointrevision",
+          "type": "integer"
+        },
+        "newEvidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceReceipt"
+          },
+          "maxItems": 16,
+          "title": "Newevidence",
+          "type": "array"
+        },
+        "candidateHandles": {
+          "items": {
+            "maxLength": 16,
+            "pattern": "^c[1-9][0-9]*$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Candidatehandles",
+          "type": "array"
+        }
+      },
+      "required": [
+        "modelCallId",
+        "submissionDigest",
+        "checkpointRevision",
+        "newEvidence",
+        "candidateHandles"
+      ],
+      "title": "SubmissionReceipt",
+      "type": "object"
+    },
+    "ToolCall": {
+      "additionalProperties": false,
+      "properties": {
+        "toolCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Toolcallid",
+          "type": "string"
+        },
+        "providerToolCallId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Providertoolcallid"
+        },
+        "name": {
+          "enum": [
+            "read_file",
+            "search_code",
+            "glob_files",
+            "git_diff",
+            "read_artifact"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "arguments": {
+          "additionalProperties": true,
+          "title": "Arguments",
+          "type": "object"
+        }
+      },
+      "required": [
+        "toolCallId",
+        "name",
+        "arguments"
+      ],
+      "title": "ToolCall",
+      "type": "object"
+    },
+    "UserInputReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "USER_INPUT",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceType",
+        "sha256"
+      ],
+      "title": "UserInputReference",
+      "type": "object"
+    },
+    "ValidationSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Basis",
+          "type": "string"
+        },
+        "counterexampleChecked": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Counterexamplechecked",
+          "type": "string"
+        },
+        "counterexampleHolds": {
+          "title": "Counterexampleholds",
+          "type": "boolean"
+        },
+        "assumptionsResolved": {
+          "title": "Assumptionsresolved",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "basis",
+        "counterexampleChecked",
+        "counterexampleHolds",
+        "assumptionsResolved"
+      ],
+      "title": "ValidationSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "stateVersion": {
+      "const": "4.0",
+      "default": "4.0",
+      "title": "Stateversion",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "reviewThreadId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Reviewthreadid",
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Snapshotid",
+      "type": "string"
+    },
+    "manifestSha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Manifestsha256",
+      "type": "string"
+    },
+    "investigationId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Investigationid",
+      "type": "string"
+    },
+    "passId": {
+      "enum": [
+        "correctness",
+        "consistency",
+        "security",
+        "performance",
+        "architecture",
+        "testing"
+      ],
+      "title": "Passid",
+      "type": "string"
+    },
+    "userGoalDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Usergoaldigest",
+      "type": "string"
+    },
+    "scopeDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Scopedigest",
+      "type": "string"
+    },
+    "toolSetDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Toolsetdigest",
+      "type": "string"
+    },
+    "revision": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "summaryVersion": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Summaryversion",
+      "type": "integer"
+    },
+    "summaryArtifactRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "messages": {
+      "items": {
+        "$ref": "#/$defs/GraphMessage"
+      },
+      "maxItems": 128,
+      "title": "Messages",
+      "type": "array"
+    },
+    "artifactRefs": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "maxItems": 64,
+      "title": "Artifactrefs",
+      "type": "array"
+    },
+    "sourceRefs": {
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "maxItems": 64,
+      "title": "Sourcerefs",
+      "type": "array"
+    },
+    "evidenceRefs": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Evidencerefs",
+      "type": "array"
+    },
+    "candidateRefs": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Candidaterefs",
+      "type": "array"
+    },
+    "sourceMessageIds": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Sourcemessageids",
+      "type": "array"
+    },
+    "sourceDigest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sourcedigest"
+    },
+    "pendingToolCalls": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 8,
+      "title": "Pendingtoolcalls",
+      "type": "array"
+    },
+    "modelCallCount": {
+      "default": 0,
+      "maximum": 300,
+      "minimum": 0,
+      "title": "Modelcallcount",
+      "type": "integer"
+    },
+    "compactionCount": {
+      "default": 0,
+      "maximum": 8,
+      "minimum": 0,
+      "title": "Compactioncount",
+      "type": "integer"
+    },
+    "graphStepCount": {
+      "default": 0,
+      "maximum": 1204,
+      "minimum": 0,
+      "title": "Graphstepcount",
+      "type": "integer"
+    },
+    "lastContextManifestRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "modelUsages": {
+      "items": {
+        "$ref": "#/$defs/ModelUsage"
+      },
+      "maxItems": 300,
+      "title": "Modelusages",
+      "type": "array"
+    },
+    "providerCallMappings": {
+      "items": {
+        "$ref": "#/$defs/ProviderCallMapping"
+      },
+      "title": "Providercallmappings",
+      "type": "array"
+    },
+    "toolCallCount": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Toolcallcount",
+      "type": "integer"
+    },
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/PassCandidate"
+      },
+      "maxItems": 32,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "inspections": {
+      "items": {
+        "$ref": "#/$defs/Inspection"
+      },
+      "maxItems": 128,
+      "title": "Inspections",
+      "type": "array"
+    },
+    "artifactProgress": {
+      "items": {
+        "$ref": "#/$defs/ArtifactProgress"
+      },
+      "maxItems": 32,
+      "title": "Artifactprogress",
+      "type": "array"
+    },
+    "diffNextCursor": {
+      "anyOf": [
+        {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Diffnextcursor"
+    },
+    "diffStarted": {
+      "default": false,
+      "title": "Diffstarted",
+      "type": "boolean"
+    },
+    "diffCompleted": {
+      "default": false,
+      "title": "Diffcompleted",
+      "type": "boolean"
+    },
+    "correctionCount": {
+      "default": 0,
+      "maximum": 2,
+      "minimum": 0,
+      "title": "Correctioncount",
+      "type": "integer"
+    },
+    "handleRegistry": {
+      "$ref": "#/$defs/MultipassRegistry"
+    },
+    "lastSubmissionReceipt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SubmissionReceipt"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "activePass": {
+      "enum": [
+        "correctness",
+        "consistency",
+        "security",
+        "performance",
+        "architecture",
+        "testing"
+      ],
+      "title": "Activepass",
+      "type": "string"
+    },
+    "reviewPlan": {
+      "$ref": "#/$defs/ReviewPlan"
+    },
+    "runStartedAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Runstartedat",
+      "type": "string"
+    },
+    "phaseStartedAt": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Phasestartedat"
+    },
+    "runModelCalls": {
+      "default": 0,
+      "maximum": 2000,
+      "minimum": 0,
+      "title": "Runmodelcalls",
+      "type": "integer"
+    },
+    "aggregating": {
+      "default": false,
+      "title": "Aggregating",
+      "type": "boolean"
+    },
+    "passLedger": {
+      "items": {
+        "$ref": "#/$defs/PassOutcome"
+      },
+      "maxItems": 6,
+      "title": "Passledger",
+      "type": "array"
+    }
+  },
+  "required": [
+    "runId",
+    "reviewThreadId",
+    "snapshotId",
+    "manifestSha256",
+    "investigationId",
+    "passId",
+    "userGoalDigest",
+    "scopeDigest",
+    "toolSetDigest",
+    "handleRegistry",
+    "activePass",
+    "reviewPlan",
+    "runStartedAt"
+  ],
+  "title": "MultipassState",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-graph-state-v4.schema.json"
+}

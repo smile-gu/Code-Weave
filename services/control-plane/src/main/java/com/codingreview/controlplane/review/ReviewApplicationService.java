@@ -80,12 +80,31 @@ public final class ReviewApplicationService {
     }
 
     public ReviewExecution start(UUID sessionId, ScopeConfirmation expected, String message) {
+        return start(sessionId, expected, message, null);
+    }
+
+    public ReviewExecution start(
+            UUID sessionId,
+            ScopeConfirmation expected,
+            String message,
+            com.fasterxml.jackson.databind.JsonNode reviewPlan) {
         ReviewJson.unicode(message);
         if (message.isBlank()
                 || message.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 32768)
             throw new ReviewException("REVIEW_REQUEST_TOO_LARGE");
         client.requireAvailable();
-        client.requireExecutionCompatibility();
+        if (reviewPlan == null) client.requireExecutionCompatibility();
+        else {
+            ReviewPlan.validate(reviewPlan);
+            client.requireMultipassCompatibility();
+            var profile = client.priceProfile();
+            var authorization = reviewPlan.path("feeAuthorization");
+            if (!authorization
+                            .path("priceProfileId")
+                            .equals(profile.path("priceProfile").path("priceProfileId"))
+                    || !authorization.path("priceProfileDigest").equals(profile.path("digest")))
+                throw new ReviewException("PRICE_PROFILE_MISMATCH");
+        }
         ReviewExecution run;
         synchronized (locks.lock(sessionId)) {
             CodingSession session = active(sessionId);
@@ -115,7 +134,10 @@ public final class ReviewApplicationService {
                                 session.activeReviewBaselineCommit(),
                                 expected);
                 snapshots.save(publication);
-                run = run.submitting(publication, message, client.executionContract());
+                run =
+                        reviewPlan == null
+                                ? run.submitting(publication, message, client.executionContract())
+                                : run.submitting(publication, message, reviewPlan);
                 store.save(run);
             } catch (RuntimeException error) {
                 boolean safe =
@@ -158,11 +180,35 @@ public final class ReviewApplicationService {
         return store.list(session, limit);
     }
 
+    public com.fasterxml.jackson.databind.JsonNode priceProfile(UUID session) {
+        requireSession(session);
+        return client.priceProfile();
+    }
+
+    public Map<String, Object> view(ReviewExecution run) {
+        var view = run.wire();
+        if (ReviewProtocol.protocolVersion(run).equals("1.1")) {
+            view.put(
+                    "selectedPasses",
+                    ReviewJson.parse(run.requestBytes()).path("reviewPlan").path("selectedPasses"));
+            view.put("passProgress", List.of());
+            for (long sequence = run.eventCursor(); sequence > 0; sequence--) {
+                var event = ReviewProtocol.event(store.event(run, sequence), run.runId(), "1.1");
+                if (event.path("eventType").asText().equals("REVIEW_PASS_UPDATED")) {
+                    view.put("passProgress", event.path("payload").path("passes"));
+                    break;
+                }
+            }
+        }
+        return view;
+    }
+
     /** Reads already imported bytes without rescheduling or touching the live repository. */
     public byte[] result(UUID session, UUID run) {
         requireSession(session);
         ReviewExecution current = require(session, run);
-        if (!current.state().equals("COMPLETED")) throw new ReviewException("REVIEW_RESULT_NOT_AVAILABLE");
+        if (!current.state().equals("COMPLETED"))
+            throw new ReviewException("REVIEW_RESULT_NOT_AVAILABLE");
         ReviewProtocol.persisted(store, current);
         return store.result(current);
     }
@@ -170,27 +216,49 @@ public final class ReviewApplicationService {
     /** The owner-checked imported record controls which fixed materials may be viewed. */
     public byte[] evidenceMaterials(UUID session, UUID run, UUID evidenceId) {
         var result = ReviewJson.parse(result(session, run));
-        var record = java.util.stream.StreamSupport.stream(result.path("evidence").spliterator(), false)
-                .filter(item -> item.path("evidenceId").asText().equals(evidenceId.toString()))
-                .findFirst().orElseThrow(() -> new ReviewException("REVIEW_EVIDENCE_NOT_AVAILABLE"));
+        var record =
+                java.util.stream.StreamSupport.stream(result.path("evidence").spliterator(), false)
+                        .filter(
+                                item ->
+                                        item.path("evidenceId")
+                                                .asText()
+                                                .equals(evidenceId.toString()))
+                        .findFirst()
+                        .orElseThrow(() -> new ReviewException("REVIEW_EVIDENCE_NOT_AVAILABLE"));
         byte[] raw = client.evidenceMaterials(run, evidenceId);
         var value = ReviewJson.parse(raw);
         String code = "REVIEW_RESULT_INTEGRITY_ERROR";
-        ReviewProtocol.fields(value, Set.of("evidenceId", "runId", "snapshotId", "materials"), Set.of(), code);
+        ReviewProtocol.fields(
+                value, Set.of("evidenceId", "runId", "snapshotId", "materials"), Set.of(), code);
         if (!value.path("evidenceId").asText().equals(evidenceId.toString())
                 || !value.path("runId").asText().equals(run.toString())
                 || !value.path("snapshotId").equals(result.path("snapshotId"))
                 || !value.path("materials").isArray()
-                || value.path("materials").size() != record.path("sourceRefs").size()) throw new ReviewException(code);
+                || value.path("materials").size() != record.path("sourceRefs").size())
+            throw new ReviewException(code);
         for (int i = 0; i < value.path("materials").size(); i++) {
             var material = value.path("materials").get(i);
-            int textLimit = material.path("sourceRef").path("sourceType").asText().equals("USER_INPUT") ? 32768 : 16384;
-            ReviewProtocol.fields(material, Set.of("sourceRef", "text", "coverage", "redactionState"), Set.of(), code);
+            int textLimit =
+                    material.path("sourceRef").path("sourceType").asText().equals("USER_INPUT")
+                            ? 32768
+                            : 16384;
+            ReviewProtocol.fields(
+                    material,
+                    Set.of("sourceRef", "text", "coverage", "redactionState"),
+                    Set.of(),
+                    code);
             if (!material.path("sourceRef").equals(record.path("sourceRefs").get(i))
                     || !material.path("text").isTextual()
-                    || material.path("text").asText().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > textLimit
-                    || !Set.of("FULL", "PARTIAL", "SAMPLED").contains(material.path("coverage").asText())
-                    || !Set.of("NONE", "APPLIED").contains(material.path("redactionState").asText())) throw new ReviewException(code);
+                    || material.path("text")
+                                    .asText()
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                                    .length
+                            > textLimit
+                    || !Set.of("FULL", "PARTIAL", "SAMPLED")
+                            .contains(material.path("coverage").asText())
+                    || !Set.of("NONE", "APPLIED")
+                            .contains(material.path("redactionState").asText()))
+                throw new ReviewException(code);
         }
         return raw;
     }

@@ -52,13 +52,11 @@ async def create_run(request: Request):
             and value["protocolVersion"] not in {"1.0", "1.1"}
         ):
             raise HarnessError("PROTOCOL_VERSION_UNSUPPORTED", 400, "协议版本不受支持")
-        if isinstance(value, dict) and value.get("protocolVersion") == "1.1":
+        dto = (
             CreateRunV11.model_validate(value)
-            # Fee accounting exists; the multipass executor is not enabled yet.
-            raise HarnessError(
-                "EXECUTION_CONTRACT_UNSUPPORTED", 400, "多Pass运行尚未启用"
-            )
-        dto = CreateRun.model_validate(value)
+            if isinstance(value, dict) and value.get("protocolVersion") == "1.1"
+            else CreateRun.model_validate(value)
+        )
     except (ValidationError, ValueError, UnicodeError):
         raise HarnessError(
             "REQUEST_VALIDATION_FAILED", 422, "请求格式或字段不符合协议"
@@ -68,7 +66,27 @@ async def create_run(request: Request):
         if dto.executionContract
         else {"executionMode": "SIMULATED", "resultVersion": "1.0"}
     )
-    if requested_contract != request.app.state.settings.execution_contract:
+    configured = (
+        {"executionMode": "REAL", "resultVersion": "3.0"}
+        if isinstance(dto, CreateRunV11)
+        and request.app.state.settings.execution_mode == "REAL"
+        else request.app.state.settings.execution_contract
+    )
+    if isinstance(dto, CreateRunV11):
+        from review_harness.infrastructure.pricing import PriceCatalog
+
+        if not request.app.state.multipass_executor_ready:
+            raise HarnessError(
+                "EXECUTION_CONTRACT_UNSUPPORTED", 400, "多Pass运行尚未就绪"
+            )
+        profile = PriceCatalog(request.app.state.settings.price_profile_path).current()
+        authorization = dto.reviewPlan.feeAuthorization
+        if (authorization.priceProfileId, authorization.priceProfileDigest) != (
+            profile.priceProfile.priceProfileId,
+            profile.digest,
+        ):
+            raise HarnessError("PRICE_PROFILE_MISMATCH", 422, "费用授权价格不匹配")
+    if requested_contract != configured:
         raise HarnessError(
             "EXECUTION_CONTRACT_UNSUPPORTED",
             400,
@@ -160,6 +178,10 @@ async def review_capabilities(request: Request):
             )
         except HarnessError:
             pass
+        _, runtime_ready = await readiness(request.app)
+        multi_ready = (
+            fee_ready and runtime_ready and request.app.state.multipass_executor_ready
+        )
         value = MultipassCapabilities(
             protocolVersion="1.1",
             configuredContract={
@@ -168,8 +190,8 @@ async def review_capabilities(request: Request):
             },
             planVersions=["1.0"],
             feeReservation="READY" if fee_ready else "NOT_READY",
-            status="NOT_READY",
-            failureCodes=["MULTIPASS_RUNTIME_NOT_READY"],
+            status="READY" if multi_ready else "NOT_READY",
+            failureCodes=[] if multi_ready else ["MULTIPASS_RUNTIME_NOT_READY"],
         )
         return json_response(value.model_dump())
     if version != "1.0":

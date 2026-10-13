@@ -368,7 +368,10 @@ class FeeLedger:
             old = await self._load(connection, budgets, run_id)
             if old is None:
                 raise graph_error("FEE_AUTHORIZATION_REQUIRED")
-            if old.stopReason:
+            if old.stopReason and old.stopReason not in {
+                "PASS_TIME_BUDGET_EXHAUSTED",
+                "PASS_CALL_BUDGET_EXHAUSTED",
+            }:
                 raise graph_error(old.stopReason)
             self._deadline(old, phase=False)
             if old.reservedMicros:
@@ -386,7 +389,11 @@ class FeeLedger:
             if phase != expected:
                 raise graph_error("PASS_ORDER_INVALID")
             new = self._changed(
-                old, activePhase=phase, phaseStartedAt=self.clock(), phaseCalls=0
+                old,
+                activePhase=phase,
+                phaseStartedAt=self.clock(),
+                phaseCalls=0,
+                stopReason=None,
             )
             await self._persist(connection, budgets, new, old)
             return new, None, None
@@ -562,7 +569,16 @@ class FeeLedger:
                 changes.update(
                     reservedMicros=old.reservedMicros - reservation.reservedMicros,
                     reservedCalls=old.reservedCalls - 1,
-                    stopReason="PROVIDER_CALL_NOT_DISPATCHED",
+                    stopReason=failure_code
+                    if failure_code
+                    in {
+                        "PASS_TIME_BUDGET_EXHAUSTED",
+                        "PASS_CALL_BUDGET_EXHAUSTED",
+                        "RUN_TIME_BUDGET_EXHAUSTED",
+                        "RUN_CALL_BUDGET_EXHAUSTED",
+                        "FEE_BUDGET_EXHAUSTED",
+                    }
+                    else "PROVIDER_CALL_NOT_DISPATCHED",
                 )
             elif previous.status == "DISPATCHING":
                 state = "UNKNOWN"
@@ -585,6 +601,13 @@ class FeeLedger:
 
     async def request_timeout(self, run_id):
         budget = await self.get(run_id)
+        return min(
+            budget.reviewPlan.executionBudget.requestTimeoutSeconds,
+            await self.phase_timeout(run_id),
+        )
+
+    async def phase_timeout(self, run_id):
+        budget = await self.get(run_id)
         self._check_price(budget)
         self._deadline(budget)
         now = datetime.fromisoformat(self.clock())
@@ -606,7 +629,7 @@ class FeeLedger:
             + timedelta(seconds=phase_seconds)
             - now
         ).total_seconds()
-        return min(policy.requestTimeoutSeconds, run_left, phase_left)
+        return min(run_left, phase_left)
 
     async def audit(self):
         # Closed fee calls are also audited: recovery must not ignore an orphan.

@@ -38,9 +38,9 @@ class Event:
     occurred_at: str
     payload: bytes
 
-    def wire(self) -> dict:
+    def wire(self, protocol_version="1.0") -> dict:
         return {
-            "protocolVersion": "1.0",
+            "protocolVersion": protocol_version,
             "runId": self.run_id,
             "sequence": self.sequence,
             "eventType": self.event_type,
@@ -59,8 +59,12 @@ class HistoryValidator:
         self.status = None
         self.resource = None
         self.terminal_count = 0
+        self.passes = None
 
     def accept(self, event: Event) -> None:
+        if event.event_type == "REVIEW_PASS_UPDATED":
+            self._accept_passes(event)
+            return
         if (
             event.event_type not in EVENT_SOURCES
             or self.status not in EVENT_SOURCES[event.event_type]
@@ -139,6 +143,69 @@ class HistoryValidator:
             raise integrity_error()
         self.sequence, self.occurred_at = event.sequence, event.occurred_at
         self.status, self.resource = target, payload["resourceState"]
+
+    def _accept_passes(self, event):
+        from review_harness.domain.multipass import PASS_ORDER
+        from review_harness.domain.pass_fact import PassFact
+
+        try:
+            payload = json.loads(event.payload)
+            if any(
+                set(f) != set(PassFact.model_fields) - {"result"}
+                for f in payload["passes"]
+            ):
+                raise ValueError()
+            facts = [
+                PassFact.model_validate({**f, "result": None})
+                for f in payload["passes"]
+            ]
+            selected = json.loads(self.run.request_payload)["reviewPlan"][
+                "selectedPasses"
+            ]
+            if (
+                self.run.protocol_version != "1.1"
+                or self.status not in {"RUNNING", "CANCELLING"}
+                or event.run_id != self.run.run_id
+                or event.sequence != self.sequence + 1
+                or not valid_time(event.occurred_at)
+                or event.occurred_at < self.occurred_at
+                or canonical(payload) != event.payload
+                or set(payload) != {"status", "resourceState", "passes"}
+                or (payload["status"], payload["resourceState"])
+                != (self.status, self.resource)
+                or [f.passId for f in facts] != list(PASS_ORDER)
+                or any(f.runId != self.run.run_id for f in facts)
+                or any(f.selected != (f.passId in selected) for f in facts)
+                or sum(f.status == "RUNNING" for f in facts) > 1
+            ):
+                raise ValueError()
+            active = next((f for f in facts if f.status == "RUNNING"), None)
+            if active and any(
+                f.status == "READY" and f.ordinal < active.ordinal for f in facts
+            ):
+                raise ValueError()
+            if self.passes is not None:
+                for before, after in zip(self.passes, facts, strict=True):
+                    if before == after:
+                        continue
+                    allowed = {
+                        "READY": {"RUNNING", "SKIPPED"},
+                        "RUNNING": {"RUNNING", "COMPLETED", "INCOMPLETE"},
+                    }
+                    if (
+                        after.revision != before.revision + 1
+                        or after.status not in allowed.get(before.status, set())
+                        or after.selected != before.selected
+                    ):
+                        raise ValueError()
+            elif any(
+                f.revision != 1 or f.status not in {"READY", "SKIPPED"} for f in facts
+            ):
+                raise ValueError()
+        except (ValueError, TypeError, KeyError):
+            raise integrity_error() from None
+        self.passes = facts
+        self.sequence, self.occurred_at = event.sequence, event.occurred_at
 
     def finish(self) -> None:
         if (

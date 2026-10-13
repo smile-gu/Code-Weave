@@ -649,3 +649,8 @@ Result3.0具有独立Python/Java严格读取器与六维顺序/选择/引用/用
 ## 2026-10-13 批次6A2：认证价格与持久费用能力
 
 显式迁移0007_fee_ledger新增run_fee_budget/model_call_reservations，Readiness验证九张核心表列。认证GET review-price-profile返回操作员核实Profile及摘要，Java严格读取并核验；1.1能力仅费用可READY，总体仍NOT_READY，POST仍拒绝。PREPARED/预留、Usage/结算同SQLite事务，失确认精确读取全部参与事实；确认DISPATCHING后才发送，未知不重发、不退款。费用UNKNOWN不裁决Run资源状态。旧1.0兼容保留，新正式账本仅1.1；6A3之前不开放多Pass执行。详见6A2交付记录。
+
+
+## 2026-10-13 批次6A3：1.1运行与六维事实
+
+显式迁移0008_review_passes。HTTP1.1 Status/Event独立Schema，Pass事实与有序事件同产品事务；Java按计划和版本严格导入六维进度与原始Result3，幂等读取/hash/身份/引用/认证材料门禁保持。仅REAL配置、有效授权价格、独立Checkpoint、恢复和就绪门禁通过时启动多Pass；旧1.0保持旧模拟/单Pass。Result3原子保存原字节/hash、Run安全终态及事件；重启中断遗留Pass/Run，不续跑Checkpoint或复发收费请求。前端只投影Pass事实与原报告，不推断完成维度或启动Coding。新鲜证据见6A3交付记录，6B/6C未实施。

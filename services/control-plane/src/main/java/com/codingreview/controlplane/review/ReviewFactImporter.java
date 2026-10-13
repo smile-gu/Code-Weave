@@ -21,7 +21,9 @@ public final class ReviewFactImporter {
     }
 
     public ReviewExecution status(UUID session, UUID run, byte[] raw) {
-        JsonNode facts = ReviewProtocol.status(raw, run);
+        JsonNode facts =
+                ReviewProtocol.status(
+                        raw, run, ReviewProtocol.protocolVersion(require(session, run)));
         synchronized (locks.lock(session)) {
             ReviewExecution current = require(session, run);
             long last = facts.path("lastEventSequence").asLong();
@@ -46,7 +48,9 @@ public final class ReviewFactImporter {
     }
 
     public void event(UUID session, UUID run, byte[] raw) {
-        JsonNode event = ReviewProtocol.event(raw, run);
+        JsonNode event =
+                ReviewProtocol.event(
+                        raw, run, ReviewProtocol.protocolVersion(require(session, run)));
         synchronized (locks.lock(session)) {
             ReviewExecution current = require(session, run);
             long sequence = event.path("sequence").asLong();
@@ -60,8 +64,29 @@ public final class ReviewFactImporter {
             JsonNode previous =
                     sequence == 1
                             ? null
-                            : ReviewProtocol.event(store.event(current, sequence - 1), run);
+                            : ReviewProtocol.event(
+                                    store.event(current, sequence - 1),
+                                    run,
+                                    ReviewProtocol.protocolVersion(current));
             ReviewProtocol.follows(previous, event);
+            if (event.path("eventType").asText().equals("REVIEW_PASS_UPDATED")) {
+                JsonNode priorPass = null;
+                for (long oldSequence = sequence - 1; oldSequence > 0; oldSequence--) {
+                    var prior =
+                            ReviewProtocol.event(
+                                    store.event(current, oldSequence),
+                                    run,
+                                    ReviewProtocol.protocolVersion(current));
+                    if (prior.path("eventType").asText().equals("REVIEW_PASS_UPDATED")) {
+                        priorPass = prior.path("payload").path("passes");
+                        break;
+                    }
+                }
+                ReviewPassProgress.transition(
+                        priorPass,
+                        event.path("payload").path("passes"),
+                        ReviewJson.parse(current.requestBytes()).path("reviewPlan"));
+            }
             store.saveEvent(current, sequence, raw);
             ReviewExecution next;
             if (sequence < current.observedLastEventSequence()) {
@@ -96,7 +121,9 @@ public final class ReviewFactImporter {
 
     public ReviewExecution finish(
             UUID session, UUID run, byte[] rawStatus, ReviewHarnessClient.Result response) {
-        JsonNode facts = ReviewProtocol.status(rawStatus, run);
+        JsonNode facts =
+                ReviewProtocol.status(
+                        rawStatus, run, ReviewProtocol.protocolVersion(require(session, run)));
         synchronized (locks.lock(session)) {
             ReviewExecution current = require(session, run);
             if (!current.blocks()) return current;
@@ -111,7 +138,11 @@ public final class ReviewFactImporter {
                 save(next);
                 return next;
             }
-            JsonNode lastEvent = ReviewProtocol.event(store.event(current, last), run);
+            JsonNode lastEvent =
+                    ReviewProtocol.event(
+                            store.event(current, last),
+                            run,
+                            ReviewProtocol.protocolVersion(current));
             if (!lastEvent
                             .path("payload")
                             .path("status")

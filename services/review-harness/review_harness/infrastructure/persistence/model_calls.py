@@ -300,3 +300,18 @@ class ModelCallStore:
     async def request_timeout(self, run_id):
 
         return await self._fees().request_timeout(run_id)
+
+    async def dispatched_for_run(self, run_id):
+        """A confirmed refunded intent is retained, but is not a model invocation."""
+        values = await self.list_for_run(run_id)
+        ledger = self._fees()
+        async with self.database.engine.connect() as connection:
+            await connection.exec_driver_sql("BEGIN")
+            result = []
+            for value in values:
+                _, call, reservation = await ledger._pair(
+                    connection, run_id, value.modelCallId
+                )
+                if reservation.state != "REFUNDED":
+                    result.append(call)
+            return result

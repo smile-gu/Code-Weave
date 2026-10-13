@@ -1,3 +1,4 @@
+import json
 import logging
 from uuid import uuid4
 
@@ -102,6 +103,14 @@ class RunStore:
             for row in page:
                 history.accept(Event(**row))
         history.finish()
+        if run.protocol_version == "1.1":
+            from review_harness.infrastructure.persistence.passes import PassStore
+
+            facts = await PassStore(self.database, self)._list(connection, run.run_id)
+            if [f.progress() for f in facts] != [
+                f.progress() for f in (history.passes or [])
+            ]:
+                raise integrity_error()
 
     async def _validate_result(self, connection, run):
         row = (
@@ -141,7 +150,10 @@ class RunStore:
             from review_harness.domain.review import ReviewResult
 
             try:
-                result = ReviewResult.model_validate(strict_json(row["document_bytes"]))
+                from review_harness.domain.multipass import ReviewResultV3
+
+                model = ReviewResultV3 if run.result_version == "3.0" else ReviewResult
+                result = model.model_validate(strict_json(row["document_bytes"]))
                 if (
                     result.resultId,
                     result.runId,
@@ -162,7 +174,11 @@ class RunStore:
         return row
 
     async def _result_references(self, connection, run, result):
-        from review_harness.application.report import render_report
+        from review_harness.application.report import (
+            render_multipass_report,
+            render_report,
+        )
+        from review_harness.domain.multipass import ReviewResultV3
         from review_harness.infrastructure.persistence.evidence import EvidenceStore
         from review_harness.infrastructure.persistence.model_calls import ModelCallStore
         from review_harness.infrastructure.persistence.tables import (
@@ -171,7 +187,15 @@ class RunStore:
             model_calls,
         )
 
-        if result.reportDraft != render_report(result.passResults[0], result.findings):
+        multi = isinstance(result, ReviewResultV3)
+        expected_report = (
+            render_multipass_report(
+                result.passResults, result.findings, result.coverageStatus
+            )
+            if multi
+            else render_report(result.passResults[0], result.findings)
+        )
+        if result.reportDraft != expected_report:
             raise integrity_error()
         records = (
             (
@@ -196,16 +220,25 @@ class RunStore:
                 await connection.execute(
                     select(model_calls.c.model_call_id)
                     .where(model_calls.c.run_id == run.run_id)
-                    .limit(17)
+                    .limit(2001 if multi else 17)
                 )
             )
             .scalars()
             .all()
         )
-        if (
-            set(actual_calls) != set(result.diagnostics.modelCallIds)
-            or len(actual_calls) > 16
-        ):
+        if multi:
+            from review_harness.infrastructure.persistence.fees import FeeLedger
+
+            ledger = FeeLedger(self.database)
+            paid = []
+            for identity in actual_calls:
+                _, _, reservation = await ledger._pair(connection, run.run_id, identity)
+                if reservation.state != "REFUNDED":
+                    paid.append(identity)
+            actual_calls = paid
+        if set(actual_calls) != set(result.diagnostics.modelCallIds) or len(
+            actual_calls
+        ) > (2000 if multi else 16):
             raise integrity_error()
         for identity in result.diagnostics.modelCallIds:
             row = (
@@ -234,19 +267,74 @@ class RunStore:
             c.manifestRef.artifactId for c in calls.values()
         }:
             raise integrity_error()
-        usage = result.passResults[0].usage
-        if (usage.modelCalls, usage.inputTokens, usage.outputTokens) != (
-            len(calls),
-            sum(c.usage.prompt_tokens for c in calls.values()),
-            sum(c.usage.completion_tokens for c in calls.values()),
-        ):
-            raise integrity_error()
+        usages = (
+            [(p.passId, p.usage) for p in result.passResults]
+            if multi
+            else [(None, result.passResults[0].usage)]
+        )
+        if multi:
+            usages.append(("dedup", result.diagnostics.dedupUsage))
+        for phase, usage in usages:
+            phase_calls = [
+                c
+                for c in calls.values()
+                if not multi or getattr(c, "passId", None) == phase
+            ]
+            if (usage.modelCalls, usage.inputTokens, usage.outputTokens) != (
+                len(phase_calls),
+                sum(c.usage.prompt_tokens for c in phase_calls),
+                sum(c.usage.completion_tokens for c in phase_calls),
+            ):
+                raise integrity_error()
+        if multi:
+            from review_harness.api.dto import CreateRunV11
+            from review_harness.infrastructure.persistence.fees import FeeLedger
+            from review_harness.infrastructure.persistence.passes import PassStore
+            from review_harness.infrastructure.persistence.tables import run_fee_budget
+
+            plan = CreateRunV11.model_validate(
+                json.loads(run.request_payload)
+            ).reviewPlan
+            if result.reviewPlan != plan:
+                raise integrity_error()
+            ledger = FeeLedger(self.database)
+            budget = await ledger._load(connection, run_fee_budget, run.run_id)
+            if (
+                budget is None
+                or (
+                    result.diagnostics.feeSummary.spentMicros,
+                    result.diagnostics.feeSummary.reservedMicros,
+                    result.diagnostics.feeSummary.overrunMicros,
+                    result.diagnostics.feeSummary.unknownCalls,
+                )
+                != (budget.spentMicros, budget.reservedMicros, budget.overrunMicros, 0)
+                or budget.reservedMicros
+            ):
+                raise integrity_error()
+            for identity in calls:
+                await ledger._pair(connection, run.run_id, identity)
+            facts = await PassStore(self.database, self)._list(connection, run.run_id)
+            if len(facts) != 6:
+                raise integrity_error()
+            for fact, output in zip(facts, result.passResults, strict=True):
+                if fact.result:
+                    if fact.result.model_dump(
+                        exclude={"findingIds"}
+                    ) != output.model_dump(exclude={"findingIds"}):
+                        raise integrity_error()
+                elif (fact.status, fact.reason) != ("SKIPPED", output.skipReason):
+                    raise integrity_error()
         for record in result.evidence:
             if record.producerId not in calls or record.capturedAt > result.generatedAt:
                 raise integrity_error()
         for finding in result.findings:
-            if calls[finding.validationModelCallId].purpose != "VALIDATION":
-                raise integrity_error()
+            judgments = finding.contributions if multi else [finding]
+            for judgment in judgments:
+                call = calls[judgment.validationModelCallId]
+                if call.purpose != "VALIDATION" or (
+                    multi and call.passId != judgment.passId
+                ):
+                    raise integrity_error()
         refs = [c.manifestRef for c in calls.values()] + [
             ref
             for e in result.evidence
@@ -276,7 +364,7 @@ class RunStore:
                 raise integrity_error()
 
     async def read_events(self, run_id: str, after: int, limit: int) -> list[dict]:
-        await self.get_run(run_id)
+        run = await self.get_run(run_id)
         async with self.database.engine.connect() as connection:
             page = (
                 (
@@ -290,7 +378,7 @@ class RunStore:
                 .mappings()
                 .all()
             )
-        return [Event(**row).wire() for row in page]
+        return [Event(**row).wire(run.protocol_version) for row in page]
 
     async def get_result(self, run_id: str) -> tuple[bytes, str]:
         run = await self.get_run(run_id)
@@ -534,10 +622,27 @@ class RunStore:
                 result_id = str(uuid4())
                 version = current.execution_contract["resultVersion"]
                 if version == "3.0":
-                    raise HarnessError(
-                        "EXECUTION_CONTRACT_UNSUPPORTED", 400, "多Pass结果执行尚未接通"
+                    from review_harness.domain.multipass import ReviewResultV3
+
+                    if review_package is None:
+                        raise integrity_error()
+                    package = ReviewResultV3.model_validate(review_package.model_dump())
+                    if (package.runId, package.snapshotId, package.manifestSha256) != (
+                        current.run_id,
+                        current.snapshot_id,
+                        current.manifest_sha256,
+                    ):
+                        raise integrity_error()
+                    result = ReviewResultV3.model_validate(
+                        {
+                            **package.model_dump(),
+                            "resultId": result_id,
+                            "generatedAt": now,
+                        }
                     )
-                if version == "2.0":
+                    await self._result_references(connection, current, result)
+                    document = canonical(result.model_dump())
+                elif version == "2.0":
                     from review_harness.application.report import render_report
                     from review_harness.domain.review import ReviewPackage, ReviewResult
 

@@ -32,6 +32,7 @@ def create_app(
     app.state.checkpoints = None
     app.state.real_adapter = None
     app.state.real_executor_ready = False
+    app.state.multipass_executor_ready = False
     app.state.real_failure_code = None
     app.state.provider_transport = provider_transport
     app.state.graph_capabilities = {

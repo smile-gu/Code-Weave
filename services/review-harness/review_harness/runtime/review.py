@@ -16,6 +16,15 @@ from review_harness.domain.graph import (
 )
 from review_harness.domain.handles import LocalInvestigation, LocalValidationBatch
 from review_harness.domain.model import canonical, sha256
+from review_harness.domain.multipass_state import (
+    MultipassState,
+    PassCandidate,
+    PassFinding,
+    PassInvestigation,
+    PassLocalValidationBatch,
+    PassOutcome,
+    current_candidates,
+)
 from review_harness.domain.provider import strict_json
 from review_harness.domain.review import (
     EvidenceCandidate,
@@ -69,6 +78,11 @@ BUDGET_ERRORS = {
     "CONTEXT_REQUEST_EXCEEDS_BUDGET",
     "CONTEXT_GRAPH_STEP_LIMIT_EXCEEDED",
     "COMPACTION_LIMIT_EXCEEDED",
+    "PASS_CALL_BUDGET_EXHAUSTED",
+    "RUN_CALL_BUDGET_EXHAUSTED",
+    "FEE_BUDGET_EXHAUSTED",
+    "PASS_TIME_BUDGET_EXHAUSTED",
+    "RUN_TIME_BUDGET_EXHAUSTED",
 }
 
 LOCAL_SUBMISSION = (
@@ -215,7 +229,11 @@ class RealReviewExecutor:
         return state
 
     def _step(self, state):
-        if state.graphStepCount >= self.engine.settings.graph_max_steps:
+        if state.graphStepCount >= (
+            1204
+            if isinstance(state, MultipassState)
+            else self.engine.settings.graph_max_steps
+        ):
             raise graph_error("CONTEXT_GRAPH_STEP_LIMIT_EXCEEDED")
         return state.updated(graphStepCount=state.graphStepCount + 1)
 
@@ -231,12 +249,24 @@ class RealReviewExecutor:
         messages=None,
         apply_submission=False,
         validation_materials=None,
+        dedup_handles=None,
     ):
         if apply_submission and not hasattr(state, "handleRegistry"):
             instruction += (
                 " Submission phase: CANDIDATES_ALLOWED. Candidate evidenceIds must be UUIDs copied from acknowledged evidenceRecords; new evidence cannot be referenced in this same submission."
                 if state.evidenceRefs
                 else " Submission phase: EVIDENCE_FIRST. No evidence IDs have been acknowledged. To report a candidate, first submit decision=CONTINUE with evidenceCandidates and candidates=[] first. After the platform receipt, submit candidates using its evidenceIds. Do not invent IDs or submit a candidate with an empty evidenceIds list. COMPLETE with no candidates remains allowed when justified by the declared scope and coverage."
+            )
+        if isinstance(state, MultipassState):
+            instruction = (
+                instruction.split(" Schema: ")[0]
+                + " Schema: "
+                + canonical(model.model_json_schema()).decode()
+            )
+            instruction += (
+                " Active pass is "
+                + state.activePass
+                + "; all candidates must preserve that passId. New evidence selections require observedInPass matching the active pass. Previous pass conclusions are clues, never evidence. Saved evidence is revalidated against original material."
             )
         while True:
             state = await Compactor(self.engine).fit(
@@ -262,6 +292,18 @@ class RealReviewExecutor:
                 raise graph_error("PROVIDER_RESPONSE_INVALID")
             try:
                 submission = parse_submission(response.content, model)
+                if purpose == "DEDUP":
+                    if len(set(submission.candidateHandles)) != len(
+                        submission.candidateHandles
+                    ) or set(submission.candidateHandles) != set(dedup_handles):
+                        raise SubmissionIssue(
+                            "DEDUP_IDENTITY_MISMATCH",
+                            stage="DEDUP",
+                            code="PROVIDER_VALIDATION_INVALID",
+                        )
+                    state = await self._assistant(
+                        context, state, response, signal, structured=True
+                    )
                 if apply_submission:
                     state = await self._submission(
                         context, state, submission, response, signal
@@ -706,7 +748,7 @@ class RealReviewExecutor:
 
     def _validate_corrections(self, state, validation, materials, goal):
         """Allow factual revisions without changing acknowledged provenance."""
-        candidates = {c.candidateId: c for c in state.candidates}
+        candidates = {c.candidateId: c for c in current_candidates(state)}
         ids = [v.candidateId for v in validation.validations]
         if len(set(ids)) != len(ids) or set(ids) != set(candidates):
             raise SubmissionIssue(
@@ -831,8 +873,23 @@ class RealReviewExecutor:
             await self.evidence.get(context.run, identity)
             for identity in state.evidenceRefs
         ]
-        findings, unvalidated = [], len(state.candidates)
-        if state.candidates and budget_error is None:
+        candidate_pool = current_candidates(state)
+        calls = await (
+            self.engine.model_calls.dispatched_for_run(state.runId)
+            if isinstance(state, MultipassState)
+            else self.engine.model_calls.list_for_run(state.runId)
+        )
+        if isinstance(state, MultipassState):
+            calls = [c for c in calls if c.passId == state.activePass]
+            eligible = {c.modelCallId for c in calls}
+            candidate_evidence = {e for c in candidate_pool for e in c.evidenceIds}
+            evidence = [
+                e
+                for e in evidence
+                if e.producerId in eligible or e.evidenceId in candidate_evidence
+            ]
+        findings, unvalidated = [], len(candidate_pool)
+        if candidate_pool and budget_error is None:
             materials = []
             for record in evidence:
                 materials.append(
@@ -864,7 +921,7 @@ class RealReviewExecutor:
                                 if material["sourceRef"]["sourceType"]
                                 in {"CODE", "ARTIFACT"}
                             ]
-                            for candidate in state.candidates
+                            for candidate in candidate_pool
                         },
                     },
                 }
@@ -880,14 +937,18 @@ class RealReviewExecutor:
                 context,
                 state,
                 signal,
-                LocalValidationBatch if handle_protocol else ValidationBatch,
+                PassLocalValidationBatch
+                if isinstance(state, MultipassState)
+                else LocalValidationBatch
+                if handle_protocol
+                else ValidationBatch,
                 LOCAL_VALIDATION if handle_protocol else VALIDATION,
                 purpose="VALIDATION",
                 messages=extra,
                 validation_materials=materials,
             )
             results = {v.candidateId: v for v in validation.validations}
-            for candidate in state.candidates:
+            for candidate in candidate_pool:
                 result = results[candidate.candidateId]
                 if (
                     result.disposition == "REJECTED"
@@ -895,7 +956,11 @@ class RealReviewExecutor:
                 ):
                     continue
                 if result.correctedCandidate is not None:
-                    candidate = ReviewCandidate.model_validate(
+                    candidate = (
+                        PassCandidate
+                        if isinstance(state, MultipassState)
+                        else ReviewCandidate
+                    ).model_validate(
                         {
                             **result.correctedCandidate.model_dump(),
                             "candidateId": candidate.candidateId,
@@ -917,7 +982,9 @@ class RealReviewExecutor:
                 ):
                     disposition = "RISK"
                 findings.append(
-                    Finding.model_validate(
+                    (
+                        PassFinding if isinstance(state, MultipassState) else Finding
+                    ).model_validate(
                         {
                             **candidate.model_dump(),
                             "findingId": str(uuid4()),
@@ -943,7 +1010,7 @@ class RealReviewExecutor:
                     if ref.sourceType == "CODE" and ref.path in scope["targetPaths"]
                 }
             )
-        if not checked:
+        if not checked and not isinstance(state, MultipassState):
             raise graph_error("REVIEW_NO_DELIVERABLE")
         # Context references may lie outside target paths. Finding anchors in
         # confirmed targets still belong in the actual delivered finite scope.
@@ -971,57 +1038,79 @@ class RealReviewExecutor:
         ):
             coverage = "PARTIAL"
             reasons.append("SOURCE_COVERAGE_PARTIAL")
+        if not checked:
+            coverage = "PARTIAL"
+            reasons.append("NO_INSPECTED_MATERIAL")
+        if isinstance(state, MultipassState) and set(checked) != set(
+            scope["targetPaths"]
+        ):
+            coverage = "PARTIAL"
+            reasons.append("TARGET_SCOPE_PARTIAL")
         if unvalidated:
             reasons.append("CANDIDATE_VALIDATION_INCOMPLETE")
-        calls = await self.engine.model_calls.list_for_run(state.runId)
+        calls = await (
+            self.engine.model_calls.dispatched_for_run(state.runId)
+            if isinstance(state, MultipassState)
+            else self.engine.model_calls.list_for_run(state.runId)
+        )
+        if isinstance(state, MultipassState):
+            calls = [c for c in calls if c.passId == state.activePass]
         await self.engine.validate(context, state, signal)
         for call in calls:
             await self.engine.artifacts.metadata(
                 state.runId, call.manifestRef.artifactId
             )
-        if not calls or any(
+        if (not calls and not isinstance(state, MultipassState)) or any(
             call.status != "LOCAL_CLOSED" or call.usage is None for call in calls
         ):
             raise graph_error("PROVIDER_CALL_INTEGRITY_FAILED")
-        package = ReviewPackage.model_validate(
-            {
-                "passResult": {
-                    "passId": "correctness",
-                    "status": "INCOMPLETE" if reasons else "COMPLETED",
-                    "scopeKind": kind,
-                    "checkedScope": checked,
-                    "coverage": coverage,
-                    "limitations": submission.limitations
-                    if submission
-                    else ["Investigation stopped at the platform budget."],
-                    "incompleteReasons": sorted(set(reasons)),
-                    "unvalidatedCandidates": unvalidated,
-                    "findingIds": [f.findingId for f in findings],
-                    "usage": {
-                        "modelCalls": len(calls),
-                        "inputTokens": sum(c.usage.prompt_tokens for c in calls),
-                        "outputTokens": sum(c.usage.completion_tokens for c in calls),
-                    },
+        package_data = {
+            "passResult": {
+                "passId": state.passId,
+                "status": "INCOMPLETE" if reasons else "COMPLETED",
+                "scopeKind": kind,
+                "checkedScope": checked,
+                "coverage": coverage,
+                "limitations": submission.limitations
+                if submission
+                else ["Investigation stopped at the platform budget."],
+                "incompleteReasons": sorted(set(reasons)),
+                "unvalidatedCandidates": unvalidated,
+                "findingIds": [f.findingId for f in findings],
+                "usage": {
+                    "modelCalls": len(calls),
+                    "inputTokens": sum(c.usage.prompt_tokens for c in calls),
+                    "outputTokens": sum(c.usage.completion_tokens for c in calls),
                 },
-                "evidence": [e.model_dump() for e in evidence],
-                "findings": [f.model_dump() for f in findings],
-                "diagnostics": {
-                    "executionMode": "REAL",
-                    "contextManifestArtifactIds": [
-                        c.manifestRef.artifactId for c in calls
-                    ],
-                    "modelCallIds": [c.modelCallId for c in calls],
-                    "meterVersion": self.engine.adapter.capabilities.meter_version,
-                    "limitations": PROFILE["limitations"],
-                },
-            }
-        )
+            },
+            "evidence": [e.model_dump() for e in evidence],
+            "findings": [f.model_dump() for f in findings],
+            "diagnostics": {
+                "executionMode": "REAL",
+                "contextManifestArtifactIds": [c.manifestRef.artifactId for c in calls],
+                "modelCallIds": [c.modelCallId for c in calls],
+                "meterVersion": self.engine.adapter.capabilities.meter_version,
+                "limitations": PROFILE["limitations"],
+            },
+        }
         self.last_state = state
-        return package
+        if isinstance(state, MultipassState):
+            return PassOutcome.model_validate(
+                {
+                    "passResult": {
+                        **package_data["passResult"],
+                        "selected": True,
+                        "skipReason": None,
+                    },
+                    "findings": package_data["findings"],
+                }
+            )
+        return ReviewPackage.model_validate(package_data)
 
-    async def execute(self, context, signal):
-        state = await self.engine.initial(context, signal)
-        await self.engine.checkpoints.assert_fresh(state)
+    async def execute(self, context, signal, *, state=None):
+        if state is None:
+            state = await self.engine.initial(context, signal)
+            await self.engine.checkpoints.assert_fresh(state)
         await self._save(state, signal)
 
         async def model(channels):
@@ -1052,7 +1141,9 @@ class RealReviewExecutor:
                 context,
                 self._step(self.engine.state_type.model_validate(channels["state"])),
                 signal,
-                LocalInvestigation
+                PassInvestigation
+                if isinstance(self.last_state, MultipassState)
+                else LocalInvestigation
                 if "handleRegistry" in self.engine.state_type.model_fields
                 else InvestigationSubmission,
                 LOCAL_SUBMISSION
@@ -1085,15 +1176,28 @@ class RealReviewExecutor:
             result = await graph.compile().ainvoke(
                 {"state": state.model_dump(), "route": "model", "package": None},
                 config={
-                    "recursion_limit": self.engine.settings.graph_max_steps * 4 + 4
+                    "recursion_limit": (
+                        1204
+                        if isinstance(state, MultipassState)
+                        else self.engine.settings.graph_max_steps
+                    )
+                    * 4
+                    + 4
                 },
             )
-            return ReviewPackage.model_validate(result["package"])
+            return (
+                PassOutcome if isinstance(state, MultipassState) else ReviewPackage
+            ).model_validate(result["package"])
         except Exception as error:
             if (
                 getattr(error, "code", None) not in BUDGET_ERRORS
                 or self.last_state is None
-                or not (self.last_state.evidenceRefs or self.last_state.inspections)
+                or (
+                    not isinstance(state, MultipassState)
+                    and not (
+                        self.last_state.evidenceRefs or self.last_state.inspections
+                    )
+                )
             ):
                 raise
             return await self._finish(

@@ -177,14 +177,22 @@ class Compactor:
             can_compact = request_options.get("messages") is None and bool(
                 closed_prefixes(current.messages)
             )
-            if self.engine.input_cost(
-                request
-            ) <= self.engine.adapter.capabilities.input_budget * (
-                0.8
-                if self.engine.adapter.capabilities.meter_id
-                == "V41_REFERENCE_LOCAL_TOKENS"
+            count_pressure = (
+                getattr(current, "stateVersion", None) == "4.0"
+                and len(current.messages) >= 96
                 and can_compact
-                else 1
+            )
+            if (
+                self.engine.input_cost(request)
+                <= self.engine.adapter.capabilities.input_budget
+                * (
+                    0.8
+                    if self.engine.adapter.capabilities.meter_id
+                    == "V41_REFERENCE_LOCAL_TOKENS"
+                    and can_compact
+                    else 1
+                )
+                and not count_pressure
             ):
                 return current
             if attempt == self.engine.settings.compaction_attempts:

@@ -8,10 +8,17 @@ from review_harness.domain.graph import GraphMessage, graph_error
 from review_harness.domain.handles import (
     ConfirmedCandidate,
     EvidenceReceipt,
-    HandleRegistry,
     SubmissionReceipt,
 )
 from review_harness.domain.model import canonical, sha256
+from review_harness.domain.multipass_state import (
+    MultipassRegistry,
+    MultipassState,
+    PassCandidate,
+    PassConfirmedCandidate,
+    PassValidationBatch,
+    current_candidates,
+)
 from review_harness.domain.review import EvidenceCandidate, ReviewCandidate
 from review_harness.domain.submission import SubmissionIssue
 
@@ -22,7 +29,11 @@ def candidate_view(registry, candidate):
         for c in registry.candidates
         if c.candidateId == candidate.candidateId
     )
-    return ConfirmedCandidate.model_validate(
+    return (
+        PassConfirmedCandidate
+        if isinstance(registry, MultipassRegistry)
+        else ConfirmedCandidate
+    ).model_validate(
         {
             **candidate.model_dump(
                 exclude={"candidateId", "evidenceIds", "codeReferences"}
@@ -50,11 +61,20 @@ async def model_handle_view(state, evidence, run):
     """Current candidates and recent receipts; persistent registry is never pruned."""
     registry = state.handleRegistry
     wanted = {e.evidenceId for e in registry.evidence[-16:]} | {
-        e for c in state.candidates for e in c.evidenceIds
+        e for c in current_candidates(state) for e in c.evidenceIds
     }
-    sources = {s.sourceHandle for s in registry.sources[-16:]}
+    sources = {
+        s.sourceHandle
+        for s in registry.sources[-16:]
+        if not isinstance(registry, MultipassRegistry) or s.passId == state.activePass
+    }
     sources.update(
-        s.sourceHandle for s in registry.sources if s.source.sourceType == "USER_INPUT"
+        s.sourceHandle
+        for s in registry.sources
+        if s.source.sourceType == "USER_INPUT"
+        and (
+            not isinstance(registry, MultipassRegistry) or s.passId == state.activePass
+        )
     )
     records = []
     for binding in registry.evidence:
@@ -76,7 +96,7 @@ async def model_handle_view(state, evidence, run):
         )
     candidates = [
         candidate_view(registry, c).model_dump(exclude_none=True)
-        for c in state.candidates
+        for c in current_candidates(state)
     ]
     return {
         "sourceCatalog": [
@@ -107,6 +127,11 @@ async def prepare_local_submission(
     inputs = []
     for index, local in enumerate(submission.evidenceCandidates):
         try:
+            if isinstance(state, MultipassState) and any(
+                registry.source_binding(s.sourceHandle).passId != state.activePass
+                for s in local.selections
+            ):
+                raise SubmissionIssue("SOURCE_NOT_OBSERVED_IN_PASS")
             refs = [registry.resolve(s) for s in local.selections]
             if len({canonical(r.model_dump()) for r in refs}) != len(refs):
                 raise SubmissionIssue("SOURCE_SELECTION_DUPLICATE")
@@ -194,7 +219,13 @@ async def prepare_local_submission(
                 raise SubmissionIssue("SOURCE_SELECTION_DUPLICATE")
             if code and not any(r.path in scope["targetPaths"] for r in code):
                 raise SubmissionIssue("SCOPE_INVALID", code="FINDING_SCOPE_VIOLATION")
-            candidate = ReviewCandidate.model_validate(
+            if isinstance(state, MultipassState) and local.passId != state.activePass:
+                raise SubmissionIssue(
+                    "PASS_ID_MISMATCH", code="FINDING_SCOPE_VIOLATION"
+                )
+            candidate = (
+                PassCandidate if isinstance(state, MultipassState) else ReviewCandidate
+            ).model_validate(
                 {
                     **local.model_dump(exclude={"evidenceLinks", "codeSelections"}),
                     "candidateId": str(uuid4()),
@@ -228,7 +259,7 @@ async def prepare_local_submission(
             {"candidateHandle": handle, "candidateId": candidate.candidateId}
         )
         handles.append(handle)
-    registry = HandleRegistry.model_validate(
+    registry = type(registry).model_validate(
         {
             **registry.model_dump(),
             "evidence": evidence_bindings,
@@ -271,7 +302,7 @@ async def prepare_local_submission(
 def validation_handle_view(state, materials):
     registry = state.handleRegistry
     view, allowed = [], {}
-    for candidate in state.candidates:
+    for candidate in current_candidates(state):
         projected = candidate_view(registry, candidate)
         records = []
         handles = []
@@ -316,14 +347,17 @@ def resolve_validation(state, submitted, materials):
     values = []
     handles = [v.candidateHandle for v in submitted.validations]
     if len(set(handles)) != len(handles) or set(handles) != {
-        c.candidateHandle for c in registry.candidates
+        c.candidateHandle
+        for c in registry.candidates
+        if c.candidateId
+        in {candidate.candidateId for candidate in current_candidates(state)}
     }:
         raise SubmissionIssue(
             "CANDIDATE_ID_MISMATCH",
             stage="VALIDATION",
             code="PROVIDER_VALIDATION_INVALID",
         )
-    candidates = {c.candidateId: c for c in state.candidates}
+    candidates = {c.candidateId: c for c in current_candidates(state)}
     for index, local in enumerate(submitted.validations):
         original = candidates[registry.candidate_id(local.candidateHandle)]
 
@@ -407,4 +441,6 @@ def resolve_validation(state, submitted, materials):
                 "factChecks": checks,
             }
         )
-    return ValidationBatch.model_validate({"validations": values})
+    return (
+        PassValidationBatch if isinstance(state, MultipassState) else ValidationBatch
+    ).model_validate({"validations": values})

@@ -76,11 +76,12 @@ public final class ReviewProtocol {
         require(value.isTextual() && value.asText().matches("[A-Z][A-Z0-9_]{0,127}"), code);
     }
 
-    private static void descriptor(JsonNode value, String code) {
+    private static void descriptor(JsonNode value, String code, String protocol) {
         fields(value, Set.of("resultId", "resultVersion", "resultSha256"), Set.of(), code);
         require(
                 uuid(value.get("resultId"))
-                        && Set.of("1.0", "2.0").contains(value.path("resultVersion").asText())
+                        && (protocol.equals("1.1") ? Set.of("3.0") : Set.of("1.0", "2.0"))
+                                .contains(value.path("resultVersion").asText())
                         && hash(value.get("resultSha256")),
                 code);
     }
@@ -99,10 +100,25 @@ public final class ReviewProtocol {
         require(RESOURCES.containsKey(status) && RESOURCES.get(status).contains(resource), code);
     }
 
+    public static String protocolVersion(ReviewExecution run) {
+        String value =
+                run.requestBytes() == null
+                        ? "1.0"
+                        : ReviewJson.parse(run.requestBytes()).path("protocolVersion").asText();
+        if (!Set.of("1.0", "1.1").contains(value))
+            throw new ReviewException("REVIEW_HISTORY_CORRUPTED");
+        return value;
+    }
+
     public static JsonNode status(byte[] raw, UUID runId) {
+        return status(raw, runId, "1.0");
+    }
+
+    public static JsonNode status(byte[] raw, UUID runId, String protocol) {
         String code = "REVIEW_EVENT_INTEGRITY_ERROR";
         if (raw.length > 65536) throw new ReviewException(code);
         JsonNode value = parse(raw, code);
+        require(Set.of("1.0", "1.1").contains(protocol), code);
         fields(
                 value,
                 Set.of(
@@ -121,7 +137,7 @@ public final class ReviewProtocol {
                 Set.of(),
                 code);
         require(
-                value.path("protocolVersion").asText().equals("1.0")
+                value.path("protocolVersion").asText().equals(protocol)
                         && value.path("runId").asText().equals(runId.toString()),
                 code);
         combination(value, code);
@@ -158,7 +174,7 @@ public final class ReviewProtocol {
                     value.path("startedAt").asText().compareTo(value.path("finishedAt").asText())
                             <= 0,
                     code);
-        if (status.equals("SUCCEEDED")) descriptor(value.get("result"), code);
+        if (status.equals("SUCCEEDED")) descriptor(value.get("result"), code, protocol);
         else require(value.get("result").isNull(), code);
         if (status.equals("FAILED")) failure(value.get("failure"), code);
         else require(value.get("failure").isNull(), code);
@@ -167,9 +183,14 @@ public final class ReviewProtocol {
     }
 
     public static JsonNode event(byte[] raw, UUID runId) {
+        return event(raw, runId, "1.0");
+    }
+
+    public static JsonNode event(byte[] raw, UUID runId, String protocol) {
         String code = "REVIEW_EVENT_INTEGRITY_ERROR";
         if (raw.length > 65536) throw new ReviewException(code);
         JsonNode value = parse(raw, code);
+        require(Set.of("1.0", "1.1").contains(protocol), code);
         fields(
                 value,
                 Set.of(
@@ -182,7 +203,7 @@ public final class ReviewProtocol {
                 Set.of(),
                 code);
         require(
-                value.path("protocolVersion").asText().equals("1.0")
+                value.path("protocolVersion").asText().equals(protocol)
                         && value.path("runId").asText().equals(runId.toString()),
                 code);
         require(
@@ -193,6 +214,16 @@ public final class ReviewProtocol {
         timestamp(value.get("occurredAt"), code);
         String type = value.path("eventType").asText();
         JsonNode payload = value.get("payload");
+        if (type.equals("REVIEW_PASS_UPDATED")) {
+            require(protocol.equals("1.1"), code);
+            ReviewWireSchemas.validate("review-harness-event-v1.1", value);
+            ReviewPassProgress.validate(payload.path("passes"), runId);
+            combination(payload, code);
+            require(
+                    Set.of("RUNNING", "CANCELLING").contains(payload.path("status").asText()),
+                    code);
+            return value;
+        }
         Set<String> required = new HashSet<>(Set.of("status", "resourceState"));
         if (type.equals("REVIEW_RUN_SUCCEEDED")) required.add("result");
         if (type.equals("REVIEW_RUN_FAILED")) required.add("failure");
@@ -214,7 +245,7 @@ public final class ReviewProtocol {
                     default -> throw new ReviewException(code);
                 };
         require(target.equals(payload.path("status").asText()), code);
-        if (type.equals("REVIEW_RUN_SUCCEEDED")) descriptor(payload.get("result"), code);
+        if (type.equals("REVIEW_RUN_SUCCEEDED")) descriptor(payload.get("result"), code, protocol);
         if (type.equals("REVIEW_RUN_FAILED")) failure(payload.get("failure"), code);
         if (type.equals("REVIEW_RUN_RESOURCES_RELEASED")) {
             require(
@@ -244,6 +275,7 @@ public final class ReviewProtocol {
         String source = previous.path("payload").path("status").asText();
         Set<String> allowed =
                 switch (type) {
+                    case "REVIEW_PASS_UPDATED" -> Set.of("RUNNING", "CANCELLING");
                     case "REVIEW_RUN_STARTED" -> Set.of("PENDING");
                     case "REVIEW_RUN_CANCELLING", "REVIEW_RUN_SUCCEEDED" -> Set.of("RUNNING");
                     case "REVIEW_RUN_FAILED" -> Set.of("PENDING", "RUNNING", "CANCELLING");
@@ -252,6 +284,9 @@ public final class ReviewProtocol {
                     default -> Set.of();
                 };
         require(allowed.contains(source), code);
+        require(previous.path("protocolVersion").equals(current.path("protocolVersion")), code);
+        if (type.equals("REVIEW_PASS_UPDATED"))
+            require(current.path("payload").path("status").asText().equals(source), code);
         if (type.equals("REVIEW_RUN_RESOURCES_RELEASED"))
             require(
                     previous.path("payload").path("resourceState").asText().equals("UNCERTAIN"),
@@ -267,9 +302,17 @@ public final class ReviewProtocol {
     public static void persisted(ReviewExecutionStore store, ReviewExecution run) {
         if (run.requestBytes() == null) return;
         JsonNode last = null;
+        JsonNode lastPasses = null;
         for (long sequence = 1; sequence <= run.eventCursor(); sequence++) {
-            JsonNode item = event(store.event(run, sequence), run.runId());
+            JsonNode item = event(store.event(run, sequence), run.runId(), protocolVersion(run));
             follows(last, item);
+            if (item.path("eventType").asText().equals("REVIEW_PASS_UPDATED")) {
+                ReviewPassProgress.transition(
+                        lastPasses,
+                        item.path("payload").path("passes"),
+                        ReviewJson.parse(run.requestBytes()).path("reviewPlan"));
+                lastPasses = item.path("payload").path("passes");
+            }
             last = item;
         }
         if (Set.of("COMPLETED", "FAILED", "CANCELLED").contains(run.state())) {
@@ -303,6 +346,8 @@ public final class ReviewProtocol {
                                                 "finishedAt",
                                                 last.path("occurredAt").asText())));
                 result(original, digest, "\"" + digest + "\"", run, facts);
+                if (protocolVersion(run).equals("1.1"))
+                    ReviewPassProgress.matchesResult(lastPasses, ReviewJson.parse(original));
             }
         }
     }
@@ -318,6 +363,21 @@ public final class ReviewProtocol {
                         && hash.equals(status.path("result").path("resultSha256").asText()),
                 code);
         JsonNode value = parse(raw, code);
+        String expectedVersion =
+                ReviewJson.parse(run.requestBytes())
+                        .path("executionContract")
+                        .path("resultVersion")
+                        .asText("1.0");
+        if (expectedVersion.equals("3.0")) {
+            ReviewResultV3.validate(value);
+            require(
+                    protocolVersion(run).equals("1.1")
+                            && value.path("reviewPlan")
+                                    .equals(
+                                            ReviewJson.parse(run.requestBytes())
+                                                    .path("reviewPlan")),
+                    code);
+        }
         fields(
                 value,
                 Set.of(
@@ -332,13 +392,12 @@ public final class ReviewProtocol {
                         "findings",
                         "reportDraft",
                         "diagnostics"),
-                Set.of(),
+                expectedVersion.equals("3.0") ? Set.of("reviewPlan", "coverageStatus") : Set.of(),
                 code);
-        String expectedVersion = ReviewJson.parse(run.requestBytes())
-                .path("executionContract").path("resultVersion").asText("1.0");
         require(
                 value.path("resultVersion").asText().equals(expectedVersion)
-                        && value.path("resultVersion").equals(status.path("result").path("resultVersion"))
+                        && value.path("resultVersion")
+                                .equals(status.path("result").path("resultVersion"))
                         && value.path("resultId")
                                 .asText()
                                 .equals(status.path("result").path("resultId").asText())
@@ -350,6 +409,7 @@ public final class ReviewProtocol {
                                 .equals(status.path("finishedAt").asText()),
                 code);
         timestamp(value.get("generatedAt"), code);
+        if (expectedVersion.equals("3.0")) return;
         if (expectedVersion.equals("2.0")) {
             ReviewResultV2.validate(value);
             return;

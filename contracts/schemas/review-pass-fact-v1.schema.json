@@ -1,0 +1,338 @@
+{
+  "$defs": {
+    "MultipassPassResult": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "selected": {
+          "title": "Selected",
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "COMPLETED",
+            "INCOMPLETE",
+            "SKIPPED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "scopeKind": {
+          "enum": [
+            "FINAL_FILES",
+            "FIXED_DIFF"
+          ],
+          "title": "Scopekind",
+          "type": "string"
+        },
+        "checkedScope": {
+          "items": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Checkedscope",
+          "type": "array"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "incompleteReasons": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Incompletereasons",
+          "type": "array"
+        },
+        "skipReason": {
+          "anyOf": [
+            {
+              "enum": [
+                "USER_NOT_SELECTED",
+                "RUN_BUDGET_EXHAUSTED"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Skipreason"
+        },
+        "unvalidatedCandidates": {
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Unvalidatedcandidates",
+          "type": "integer"
+        },
+        "findingIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Findingids",
+          "type": "array"
+        },
+        "usage": {
+          "$ref": "#/$defs/MultipassUsage"
+        }
+      },
+      "required": [
+        "passId",
+        "selected",
+        "status",
+        "scopeKind",
+        "checkedScope",
+        "coverage",
+        "limitations",
+        "incompleteReasons",
+        "skipReason",
+        "unvalidatedCandidates",
+        "findingIds",
+        "usage"
+      ],
+      "title": "MultipassPassResult",
+      "type": "object"
+    },
+    "MultipassUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "modelCalls": {
+          "maximum": 300,
+          "minimum": 0,
+          "title": "Modelcalls",
+          "type": "integer"
+        },
+        "inputTokens": {
+          "maximum": 78643200,
+          "minimum": 0,
+          "title": "Inputtokens",
+          "type": "integer"
+        },
+        "outputTokens": {
+          "maximum": 1228800,
+          "minimum": 0,
+          "title": "Outputtokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "modelCalls",
+        "inputTokens",
+        "outputTokens"
+      ],
+      "title": "MultipassUsage",
+      "type": "object"
+    },
+    "ObservedPassUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "modelCalls": {
+          "maximum": 300,
+          "minimum": 0,
+          "title": "Modelcalls",
+          "type": "integer"
+        },
+        "inputTokens": {
+          "maximum": 644245094100,
+          "minimum": 0,
+          "title": "Inputtokens",
+          "type": "integer"
+        },
+        "outputTokens": {
+          "maximum": 1228800,
+          "minimum": 0,
+          "title": "Outputtokens",
+          "type": "integer"
+        },
+        "unknownCalls": {
+          "default": 0,
+          "maximum": 300,
+          "minimum": 0,
+          "title": "Unknowncalls",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "modelCalls",
+        "inputTokens",
+        "outputTokens"
+      ],
+      "title": "ObservedPassUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "passId": {
+      "enum": [
+        "correctness",
+        "consistency",
+        "security",
+        "performance",
+        "architecture",
+        "testing"
+      ],
+      "title": "Passid",
+      "type": "string"
+    },
+    "ordinal": {
+      "maximum": 5,
+      "minimum": 0,
+      "title": "Ordinal",
+      "type": "integer"
+    },
+    "selected": {
+      "title": "Selected",
+      "type": "boolean"
+    },
+    "status": {
+      "enum": [
+        "READY",
+        "RUNNING",
+        "COMPLETED",
+        "INCOMPLETE",
+        "SKIPPED"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "startedAt": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Startedat"
+    },
+    "finishedAt": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Finishedat"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Reason"
+    },
+    "stateRevision": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Staterevision"
+    },
+    "stateDigest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Statedigest"
+    },
+    "usage": {
+      "$ref": "#/$defs/ObservedPassUsage"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MultipassPassResult"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "runId",
+    "passId",
+    "ordinal",
+    "selected",
+    "status",
+    "revision",
+    "startedAt",
+    "finishedAt",
+    "reason",
+    "stateRevision",
+    "stateDigest",
+    "result"
+  ],
+  "title": "PassFact",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-pass-fact-v1.schema.json"
+}

@@ -182,7 +182,7 @@ class DeepSeekAdapter:
         return self.capabilities.input_budget
 
     def build_request(self, blocks, tools, purpose, call_id, *, structured=False):
-        if purpose not in {"INVESTIGATION", "COMPACTION", "VALIDATION"}:
+        if purpose not in {"INVESTIGATION", "COMPACTION", "VALIDATION", "DEDUP"}:
             raise graph_error("PROVIDER_PURPOSE_INVALID")
         messages, mappings = [], {}
         for block in blocks:

@@ -218,12 +218,7 @@ class HandleRegistry(StrictModel):
                 raise ValueError("Handle sequence must be platform assigned")
             if identity and len({getattr(v, identity) for v in values}) != len(values):
                 raise ValueError("Repeated handle identity")
-        if len(
-            {
-                source_identity(s.source, s.coverage, s.redactionState)
-                for s in self.sources
-            }
-        ) != len(self.sources):
+        if len({self.binding_identity(s) for s in self.sources}) != len(self.sources):
             raise ValueError("Repeated source identity")
         for evidence in self.evidence:
             for selection in evidence.selections:
@@ -235,17 +230,21 @@ class HandleRegistry(StrictModel):
                     ) from None
         return self
 
+    def binding_identity(self, binding):
+        return source_identity(binding.source, binding.coverage, binding.redactionState)
+
+    def source_matches(self, binding, identity):
+        return self.binding_identity(binding) == identity
+
+    def source_fields(self):
+        return {}
+
     def register_source(self, source, coverage, redaction, ranges):
         source = SOURCE.validate_python(source)
         identity = source_identity(source, coverage, redaction)
         values = [s.model_dump() for s in self.sources]
         for index, binding in enumerate(self.sources):
-            if (
-                source_identity(
-                    binding.source, binding.coverage, binding.redactionState
-                )
-                == identity
-            ):
+            if self.source_matches(binding, identity):
                 values[index]["observedRanges"] = merge_ranges(
                     [*binding.observedRanges, *ranges]
                 )
@@ -264,6 +263,7 @@ class HandleRegistry(StrictModel):
                 observedRanges=merge_ranges(ranges),
                 coverage=coverage,
                 redactionState=redaction,
+                **self.source_fields(),
             )
         )
         return self.model_validate({**self.model_dump(), "sources": values}), handle

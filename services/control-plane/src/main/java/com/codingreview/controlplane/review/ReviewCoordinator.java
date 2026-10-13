@@ -133,7 +133,9 @@ public final class ReviewCoordinator implements AutoCloseable {
         var finalStatus = client.status(run);
         if (finalStatus.status() != 200) throw new ReviewException("REVIEW_SUBMISSION_UNKNOWN");
         current = importer.status(session, run, finalStatus.bytes());
-        JsonNode facts = ReviewProtocol.status(finalStatus.bytes(), run);
+        JsonNode facts =
+                ReviewProtocol.status(
+                        finalStatus.bytes(), run, ReviewProtocol.protocolVersion(current));
         if (current.eventCursor() < current.observedLastEventSequence()) return current;
         var result = facts.path("status").asText().equals("SUCCEEDED") ? client.result(run) : null;
         return importer.finish(session, run, finalStatus.bytes(), result);

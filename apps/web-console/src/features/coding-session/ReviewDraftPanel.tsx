@@ -4,6 +4,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { listReviewRuns, readEvidenceMaterials, readReviewResult } from '../../shared/api/reviewApi'
 
+const passNames: Record<string, string> = { correctness: '正确性', consistency: '一致性', security: '安全', performance: '性能', architecture: '架构', testing: '测试' }
+
 function EvidenceMaterial({ sessionId, runId, evidenceId }: { sessionId: string; runId: string; evidenceId: string }) {
   const [open, setOpen] = useState(false)
   const material = useQuery({ queryKey: ['review-evidence', sessionId, runId, evidenceId], queryFn: () => readEvidenceMaterials(sessionId, runId, evidenceId), enabled: open, retry: false })
@@ -31,20 +33,24 @@ export function ReviewDraftPanel({ sessionId }: { sessionId: string }) {
     {runs.data?.map(run => <p key={run.runId}>
       <button type="button" disabled={run.status !== 'COMPLETED'} onClick={() => setRunId(run.runId)}>{run.simulationOnly ? '模拟' : '真实'} · {run.status} · {run.runId}</button>
       {run.diagnosticCode && <span>{run.diagnosticCode}</span>}
+      {run.passProgress?.map(pass => <span key={pass.passId}> · {passNames[pass.passId] ?? pass.passId}：{pass.status}{pass.reason && ` (${pass.reason})`}</span>)}
     </p>)}
     {runId && report.isPending && <p>正在读取固定报告…</p>}
     {report.isError && <p role="alert">{report.error.message}</p>}
     {value && <article>
       <p>Snapshot：<code>{value.snapshotId}</code></p>
       {value.resultVersion === '1.0' ? <p>模拟执行结果，不代表代码审查通过。</p> : <>
+        {value.resultVersion === '3.0' && <p>所选维度：{value.reviewPlan?.selectedPasses.map(pass => passNames[pass] ?? pass).join('、')}。{value.coverageStatus === 'SELECTED_COMPLETE' ? '所选有限范围已完成，不代表六维或全项目无问题。' : '所选维度尚未完成。'}</p>}
         {value.passResults.map((pass, index) => <div key={index}>
-          <strong>{pass.status} / {pass.coverage}</strong>
+          <strong>{pass.passId && `${passNames[pass.passId] ?? pass.passId} · `}{pass.status} / {pass.coverage}</strong>
+          {pass.skipReason && <p>{pass.skipReason === 'USER_NOT_SELECTED' ? '用户未选择' : pass.skipReason === 'RUN_BUDGET_EXHAUSTED' ? '总预算耗尽，尚未执行' : pass.skipReason}</p>}
           <p>检查范围：{pass.checkedScope.join('、')}</p>
           <ul>{[...pass.limitations, ...pass.incompleteReasons].map((text, i) => <li key={i}>{text}</li>)}</ul>
         </div>)}
         {value.findings.map(finding => <div key={finding.findingId}>
           <h3>{finding.title}</h3><p>{finding.disposition} / {finding.severity} · 置信度 {finding.confidence}</p>
           <p>{finding.claim}</p><p>Evidence：{finding.evidenceIds.join('、')}</p>
+          {finding.contributions && <p>贡献维度：{finding.contributions.map(c => `${passNames[c.passId] ?? c.passId} (${c.disposition})`).join('、')}。保留原始等级和来源。</p>}
         </div>)}
         <details><summary>来源材料与覆盖</summary>{value.evidence.map(item => <div key={item.evidenceId}>
           <p><code>{item.evidenceId}</code> · {item.evidenceType} / {item.coverage}</p><p>{item.summary}</p>

@@ -12,6 +12,21 @@ from sqlalchemy import (
 
 metadata = MetaData()
 
+review_passes = Table(
+    "review_passes",
+    metadata,
+    Column(
+        "run_id",
+        Text,
+        ForeignKey("review_runs.run_id", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+    Column("pass_id", Text, primary_key=True),
+    Column("record_bytes", BLOB, nullable=False),
+    Column("sha256", Text, nullable=False),
+    CheckConstraint("length(record_bytes) <= 65536", name="pass_record_bytes"),
+)
+
 evidence_records = Table(
     "review_evidence",
     metadata,
@@ -106,7 +121,7 @@ artifacts = Table(
 )
 STATUSES = "'PENDING','RUNNING','CANCELLING','SUCCEEDED','FAILED','CANCELLED'"
 RESOURCES = "'NOT_ACQUIRED','ACTIVE','RELEASING','RELEASED','UNCERTAIN'"
-EVENTS = "'REVIEW_RUN_ACCEPTED','REVIEW_RUN_STARTED','REVIEW_RUN_CANCELLING','REVIEW_RUN_SUCCEEDED','REVIEW_RUN_FAILED','REVIEW_RUN_CANCELLED','REVIEW_RUN_RESOURCES_RELEASED'"
+EVENTS = "'REVIEW_RUN_ACCEPTED','REVIEW_RUN_STARTED','REVIEW_RUN_CANCELLING','REVIEW_RUN_SUCCEEDED','REVIEW_RUN_FAILED','REVIEW_RUN_CANCELLED','REVIEW_RUN_RESOURCES_RELEASED','REVIEW_PASS_UPDATED'"
 
 runs = Table(
     "review_runs",

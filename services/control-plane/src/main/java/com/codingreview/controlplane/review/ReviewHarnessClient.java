@@ -89,7 +89,8 @@ public final class ReviewHarnessClient implements AutoCloseable {
         if (response.status() != 200) throw new ReviewException("REVIEW_HARNESS_NOT_READY");
         var value = ReviewJson.parse(response.bytes());
         ReviewWireSchemas.validate("review-capabilities-v1", value);
-        if (!value.path("configuredContract").equals(ReviewJson.parse(ReviewJson.canonical(executionContract()))))
+        if (!value.path("configuredContract")
+                .equals(ReviewJson.parse(ReviewJson.canonical(executionContract()))))
             throw new ReviewException("EXECUTION_CONTRACT_UNSUPPORTED");
         if (!value.path("status").asText().equals("READY") || !value.path("failureCodes").isEmpty())
             throw new ReviewException("REVIEW_HARNESS_NOT_READY");
@@ -135,7 +136,12 @@ public final class ReviewHarnessClient implements AutoCloseable {
     }
 
     public byte[] evidenceMaterials(UUID run, UUID evidence) {
-        Response response = request("GET", "/review-runs/" + run + "/evidence/" + evidence + "/materials", null, 1024 * 1024);
+        Response response =
+                request(
+                        "GET",
+                        "/review-runs/" + run + "/evidence/" + evidence + "/materials",
+                        null,
+                        1024 * 1024);
         if (response.status() != 200) throw new ReviewException("REVIEW_EVIDENCE_NOT_AVAILABLE");
         return response.bytes();
     }
@@ -220,7 +226,11 @@ public final class ReviewHarnessClient implements AutoCloseable {
                         if (text.isEmpty()) {
                             if (data.size() > 0) {
                                 byte[] raw = data.toByteArray();
-                                var parsed = ReviewProtocol.event(raw, run.runId());
+                                var parsed =
+                                        ReviewProtocol.event(
+                                                raw,
+                                                run.runId(),
+                                                ReviewProtocol.protocolVersion(run));
                                 if (!"review-run-event".equals(event)
                                         || id == null
                                         || !id.equals(

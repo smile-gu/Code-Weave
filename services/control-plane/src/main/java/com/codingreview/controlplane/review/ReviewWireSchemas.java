@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.networknt.schema.JsonSchema;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
+
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
@@ -11,14 +12,28 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** 两端共用冻结 Schema；仅装载打包资源，不从 Schema ID 发起网络请求。 */
 public final class ReviewWireSchemas {
-    private static final Set<String> NAMES = Set.of(
-            "review-execution-contract-v1", "review-capabilities-v1",
-            "review-provider-request-v1", "review-provider-response-v1",
-            "review-provider-call-mapping-v1", "review-model-call-v1",
-            "review-harness-result-v2", "review-graph-state-v2",
-            "review-plan-v1", "review-pass-result-v3", "review-execution-contract-v2",
-            "review-capabilities-v2", "review-harness-create-run-v1.1", "review-harness-result-v3",
-            "review-price-profile-v1", "review-price-profile-view-v1", "review-model-call-v2");
+    private static final Set<String> NAMES =
+            Set.of(
+                    "review-execution-contract-v1",
+                    "review-capabilities-v1",
+                    "review-provider-request-v1",
+                    "review-provider-response-v1",
+                    "review-provider-call-mapping-v1",
+                    "review-model-call-v1",
+                    "review-harness-result-v2",
+                    "review-graph-state-v2",
+                    "review-plan-v1",
+                    "review-pass-result-v3",
+                    "review-execution-contract-v2",
+                    "review-capabilities-v2",
+                    "review-harness-create-run-v1.1",
+                    "review-harness-result-v3",
+                    "review-price-profile-v1",
+                    "review-price-profile-view-v1",
+                    "review-model-call-v2",
+                    "review-harness-status-v1.1",
+                    "review-harness-event-v1.1",
+                    "review-pass-progress-v1");
     private static final Map<String, JsonSchema> CACHE = new ConcurrentHashMap<>();
 
     private ReviewWireSchemas() {}
@@ -29,7 +44,9 @@ public final class ReviewWireSchemas {
     }
 
     private static JsonSchema load(String name) {
-        try (var input = ReviewWireSchemas.class.getResourceAsStream("/review-schemas/" + name + ".schema.json")) {
+        try (var input =
+                ReviewWireSchemas.class.getResourceAsStream(
+                        "/review-schemas/" + name + ".schema.json")) {
             if (input == null) throw new ReviewException("REVIEW_CONTRACT_UNAVAILABLE");
             // Batch 5 schemas are self-contained: all references resolve within $defs.
             return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)

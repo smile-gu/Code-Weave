@@ -6,14 +6,17 @@ export type ReviewRun = {
   status: string
   simulationOnly: boolean
   diagnosticCode: string | null
+  passProgress?: { passId: string; status: string; reason: string | null }[]
 }
 type CodeReference = { sourceType: 'CODE'; path: string; side: string; startLine: number; endLine: number }
 type MaterialReference = CodeReference | { sourceType: 'ARTIFACT'; artifactId: string; startLine: number; endLine: number } | { sourceType: 'USER_INPUT'; sha256: string }
 export type ReviewResult = {
-  resultVersion: '1.0' | '2.0'
+  resultVersion: '1.0' | '2.0' | '3.0'
+  reviewPlan?: { selectedPasses: string[] }
+  coverageStatus?: 'SELECTED_COMPLETE' | 'SELECTED_INCOMPLETE'
   snapshotId: string
-  passResults: { status: string; coverage: string; checkedScope: string[]; limitations: string[]; incompleteReasons: string[] }[]
-  findings: { findingId: string; title: string; claim: string; disposition: string; severity: string; confidence: number; evidenceIds: string[]; codeReferences: CodeReference[] }[]
+  passResults: { passId?: string; selected?: boolean; skipReason?: string | null; status: string; coverage: string; checkedScope: string[]; limitations: string[]; incompleteReasons: string[] }[]
+  findings: { findingId: string; title: string; claim: string; disposition: string; severity: string; confidence: number; evidenceIds: string[]; codeReferences: CodeReference[]; contributions?: { passId: string; disposition: string }[] }[]
   evidence: { evidenceId: string; evidenceType: string; summary: string; coverage: string; sourceRefs: MaterialReference[] }[]
   reportDraft: { markdown: string }
 }

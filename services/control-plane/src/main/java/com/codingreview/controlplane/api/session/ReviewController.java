@@ -40,7 +40,7 @@ public final class ReviewController {
                         "expectedWorkspaceFingerprint",
                         "targetPaths",
                         "input"),
-                Set.of(),
+                Set.of("reviewPlan", "selectedPasses", "feeAuthorization"),
                 "REVIEW_REQUEST_INVALID");
         for (String field :
                 List.of(
@@ -69,24 +69,43 @@ public final class ReviewController {
                         value.path("expectedBranch").asText(),
                         value.path("expectedWorkspaceFingerprint").asText(),
                         targets);
-        return ResponseEntity.accepted()
-                .body(
-                        service.start(
-                                        sessionId,
-                                        expected,
-                                        value.path("input").path("message").asText())
-                                .wire());
+        com.fasterxml.jackson.databind.JsonNode plan = null;
+        if (value.has("reviewPlan")) {
+            if (value.has("feeAuthorization") || value.has("selectedPasses"))
+                throw new ReviewException("REVIEW_REQUEST_INVALID");
+            plan = value.get("reviewPlan");
+            ReviewPlan.validate(plan);
+        } else if (value.has("feeAuthorization")) {
+            List<String> passes = null;
+            if (value.has("selectedPasses")) {
+                if (!value.path("selectedPasses").isArray())
+                    throw new ReviewException("REVIEW_REQUEST_INVALID");
+                passes = new ArrayList<>();
+                for (var pass : value.path("selectedPasses")) {
+                    if (!pass.isTextual()) throw new ReviewException("REVIEW_REQUEST_INVALID");
+                    passes.add(pass.asText());
+                }
+            }
+            plan = ReviewPlan.create(passes, value.get("feeAuthorization"));
+        } else if (value.has("selectedPasses"))
+            throw new ReviewException("FEE_AUTHORIZATION_REQUIRED");
+        String message = value.path("input").path("message").asText();
+        var started =
+                plan == null
+                        ? service.start(sessionId, expected, message)
+                        : service.start(sessionId, expected, message, plan);
+        return ResponseEntity.accepted().body(started.wire());
     }
 
     @GetMapping("/review-runs")
     public List<Map<String, Object>> list(
             @PathVariable UUID sessionId, @RequestParam(defaultValue = "50") int limit) {
-        return service.list(sessionId, limit).stream().map(ReviewExecution::wire).toList();
+        return service.list(sessionId, limit).stream().map(service::view).toList();
     }
 
     @GetMapping("/review-runs/{runId}")
     public Map<String, Object> get(@PathVariable UUID sessionId, @PathVariable UUID runId) {
-        return service.get(sessionId, runId).wire();
+        return service.view(service.get(sessionId, runId));
     }
 
     @PostMapping("/review-runs/{runId}/cancel")
@@ -103,9 +122,19 @@ public final class ReviewController {
                 .header("Cache-Control", "no-store").body(raw);
     }
 
-    @GetMapping(value = "/review-runs/{runId}/evidence/{evidenceId}/materials", produces = "application/json")
-    public ResponseEntity<byte[]> evidenceMaterials(@PathVariable UUID sessionId, @PathVariable UUID runId, @PathVariable UUID evidenceId) {
-        return ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .header("Cache-Control", "no-store").body(service.evidenceMaterials(sessionId, runId, evidenceId));
+    @GetMapping("/review-price-profile")
+    public com.fasterxml.jackson.databind.JsonNode priceProfile(@PathVariable UUID sessionId) {
+        return service.priceProfile(sessionId);
+    }
+
+    @GetMapping(
+            value = "/review-runs/{runId}/evidence/{evidenceId}/materials",
+            produces = "application/json")
+    public ResponseEntity<byte[]> evidenceMaterials(
+            @PathVariable UUID sessionId, @PathVariable UUID runId, @PathVariable UUID evidenceId) {
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .header("Cache-Control", "no-store")
+                .body(service.evidenceMaterials(sessionId, runId, evidenceId));
     }
 }

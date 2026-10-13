@@ -375,3 +375,8 @@ feeSummary为精确微元管理摘要，不是Provider账单。overrunMicros保�
 ## 2026-10-13 批次6A2：调用与费用同事实确认
 
 ModelCall2.0明确Pass与v2保守输入预算；费用按C与max_output预留，使用整数微元向上取整，实际Usage与结算原子保存。超预留先存真实Usage/overrun后阻断；只有确认未发送PREPARED可退款，DISPATCHING未知保留预留并停止该Run。Context新协议费用IO跟踪真实事务完成，取消不得假称回滚；HTTP期限取请求/Run/阶段剩余最小值，资源清理期限保持原义。价格快照绑定授权并发送前核实未变价，历史过期费用仍可审计。State4/串行Pass和Result3.0交付尚属6A3，不改变原Evidence、引用、Checkpoint及终态门禁。详见6A2交付记录。
+
+
+## 2026-10-13 批次6A3：State4与Pass隔离
+
+当前Pass独立消息/摘要/inspection/计数；共享Registry保留稳定e/c真实身份，同材料在不同Pass重新观察并分配不同s，不自动把前Pass结论当Evidence。候选passId、专属来源/半行/事实核对/纠错额度门禁保持。全Run32候选/128Evidence不乘六，Checkpoint/Artifact/Result字节有限；State4临近消息集合上限可压缩闭合前缀。六Pass串行复用调查与独立验证，300/2000/10账本调用预算计入摘要/纠错；工具累计无新增上限。确定性召回后有界去重不造证据/改等级，贡献谱系与primary可核查。不确定保留重复；资源/存储/远端未知停止Run。见6A3交付，不以Mock成功声明六维质量。

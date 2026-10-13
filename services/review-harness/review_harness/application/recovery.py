@@ -30,6 +30,10 @@ async def recover_runs(store, service, workspaces):
         if run.status == "PENDING":
             await service.ensure_scheduled(run)
             continue
+        if run.protocol_version == "1.1" and run.status in {"RUNNING", "CANCELLING"}:
+            from review_harness.infrastructure.persistence.passes import PassStore
+
+            await PassStore(store.database, store).interrupt(run.run_id)
         try:
             await workspaces.cleanup(run)
         except Exception as error:

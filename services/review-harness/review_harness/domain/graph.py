@@ -290,6 +290,10 @@ def read_context_manifest(value):
         return CompatibleContextManifest.model_validate(value)
     if version == "1.2":
         return ExpandedContextManifest.model_validate(value)
+    if version == "1.3":
+        from review_harness.domain.multipass_state import MultipassContextManifest
+
+        return MultipassContextManifest.model_validate(value)
     raise ValueError("Unsupported context manifest version")
 
 
