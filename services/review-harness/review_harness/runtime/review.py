@@ -341,6 +341,11 @@ class RealReviewExecutor:
                 feedback,
             ]
             instruction += " Previous submission was rejected; use the concrete platformSubmissionFeedback to correct the complete json object."
+            if issue.reason == "VALIDATION_CONTRADICTION":
+                instruction += (
+                    " A counterexample refutes the candidate claim; a bug-triggering example supporting the claim is not a counterexample."
+                    " VERIFIED cannot coexist with counterexampleHolds=true. Reassess the original materials and return a consistent judgment; do not mechanically flip the boolean."
+                )
 
     async def _rejection(self, context, state, response, issue, signal):
         diagnostic = {
@@ -706,6 +711,15 @@ class RealReviewExecutor:
                     code="PROVIDER_VALIDATION_INVALID",
                 )
 
+            if (
+                result.disposition == "VERIFIED"
+                and result.validationSummary.counterexampleHolds
+            ):
+                invalid(
+                    "VALIDATION_CONTRADICTION",
+                    "validationSummary",
+                    "counterexampleHolds",
+                )
             if result.disposition == "VERIFIED" and not result.factChecks:
                 invalid("FACT_CHECK_REQUIRED", "factChecks")
             sources = {

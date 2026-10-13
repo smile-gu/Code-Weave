@@ -36,6 +36,8 @@ from tests.snapshot_fixture import publish_snapshot
         (False, "unchanged-correction"),
         (False, "extra-evidence"),
         (False, "other-evidence"),
+        (False, "contradiction-recover"),
+        (False, "contradiction-persistent"),
     ],
 )
 async def test_conflicting_user_description_is_corrected_or_rejected(
@@ -199,6 +201,36 @@ async def test_conflicting_user_description_is_corrected_or_rejected(
                         0
                     ]["sourceHandle"]
                 message["content"] = json.dumps(reply)
+            if tamper in {"contradiction-recover", "contradiction-persistent"}:
+                validation_requests = [
+                    r
+                    for r in requests
+                    if "Validate candidates" in r["messages"][0]["content"]
+                ]
+                if len(validation_requests) > 1:
+                    assert "VALIDATION_CONTRADICTION" in json.dumps(data)
+                    assert "counterexample" in json.dumps(data)
+                    rejected = next(
+                        m
+                        for m in data["messages"]
+                        if m.get("kind") == "untrusted-rejected-submission"
+                        or (
+                            m["role"] == "assistant"
+                            and '"validations"' in (m.get("content") or "")
+                        )
+                    )
+                    assert (
+                        json.loads(rejected["content"])["validations"][0][
+                            "validationSummary"
+                        ]["counterexampleHolds"]
+                        is True
+                    )
+                reply = json.loads(message["content"])
+                reply["validations"][0]["validationSummary"]["counterexampleHolds"] = (
+                    tamper == "contradiction-persistent"
+                    or len(validation_requests) == 1
+                )
+                message["content"] = json.dumps(reply)
         elif len(requests) == 1:
             value["choices"][0].update(
                 finish_reason="tool_calls",
@@ -331,6 +363,7 @@ async def test_conflicting_user_description_is_corrected_or_rejected(
             "no-correction",
             "unchanged-correction",
             "other-evidence",
+            "contradiction-persistent",
         }:
             assert run["status"] == "FAILED", run
             assert run["failure"]["code"] in {
