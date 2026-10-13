@@ -12,7 +12,7 @@ from review_harness.domain.graph import (
     Summary,
     graph_error,
 )
-from review_harness.domain.model import canonical, sha256, utc_now
+from review_harness.domain.model import HarnessError, canonical, sha256, utc_now
 from review_harness.domain.model_call import ModelCall
 from review_harness.domain.snapshot import WorkCancelled
 from review_harness.domain.tools import PARAMETERS
@@ -351,7 +351,7 @@ class ContextEngine:
             structured=structured,
         )
 
-    async def tracked(self, awaitable, signal, run, *, cancel_task=True):
+    async def tracked(self, awaitable, signal, run, *, cancel_task=True, timeout=None):
         task = asyncio.create_task(awaitable)
         try:
             self.workspaces.register_runtime_task(run, task)
@@ -364,7 +364,9 @@ class ContextEngine:
         try:
             done, _ = await asyncio.wait(
                 {task, cancel},
-                timeout=self.settings.model_timeout_seconds,
+                timeout=self.settings.model_timeout_seconds
+                if timeout is None
+                else timeout,
                 return_when=asyncio.FIRST_COMPLETED,
             )
             if task in done:
@@ -419,6 +421,12 @@ class ContextEngine:
         return await self.tracked(
             self.checkpoints.save(state), signal, run, cancel_task=False
         )
+
+    async def call_fact(self, context, signal, operation):
+        if context.run.protocol_version == "1.1":
+            # A fee transaction is real owned IO; cancellation cannot pretend rollback.
+            return await self.tracked(operation, signal, context.run, cancel_task=False)
+        return await operation
 
     async def invoke(
         self,
@@ -518,12 +526,12 @@ class ContextEngine:
             ).model_dump(),
         )
         await self.persist(state, signal)
-        if caps.meter_id == "V41_REFERENCE_LOCAL_TOKENS":
-            if self.model_calls is None:
-                raise graph_error("PROVIDER_CALL_STORE_UNAVAILABLE")
-            at = utc_now()
-            await self.model_calls.prepare(
-                ModelCall.model_validate(
+        try:
+            if caps.meter_id == "V41_REFERENCE_LOCAL_TOKENS":
+                if self.model_calls is None:
+                    raise graph_error("PROVIDER_CALL_STORE_UNAVAILABLE")
+                at = utc_now()
+                intent = ModelCall.model_validate(
                     {
                         "modelCallId": call_id,
                         "runId": state.runId,
@@ -545,35 +553,41 @@ class ContextEngine:
                         **budget_fields,
                     }
                 )
+                await self.call_fact(context, signal, self.model_calls.prepare(intent))
+            await self.active(context, signal)
+            rebuilt = await self.build(
+                context,
+                state,
+                signal,
+                call_id=call_id,
+                purpose=purpose,
+                messages=messages,
+                instruction=instruction,
+                structured=structured,
             )
-        await self.active(context, signal)
-        rebuilt = await self.build(
-            context,
-            state,
-            signal,
-            call_id=call_id,
-            purpose=purpose,
-            messages=messages,
-            instruction=instruction,
-            structured=structured,
-        )
-        if (
-            request.wire != rebuilt.wire
-            or caps != self.adapter.capabilities
-            or count != self.adapter.count_request(request)
-            or (
-                real
-                and budget_fields["policyVersion"] != self.adapter.budget_policy.version
-            )
-        ):
-            raise graph_error("CONTEXT_REQUEST_CHANGED")
-        self.call_counts[state.runId] = used + 1
-        real = caps.meter_id == "V41_REFERENCE_LOCAL_TOKENS"
-        try:
+            if (
+                request.wire != rebuilt.wire
+                or caps != self.adapter.capabilities
+                or count != self.adapter.count_request(request)
+                or (
+                    real
+                    and budget_fields["policyVersion"]
+                    != self.adapter.budget_policy.version
+                )
+            ):
+                raise graph_error("CONTEXT_REQUEST_CHANGED")
+            self.call_counts[state.runId] = used + 1
             if real:
-                await self.model_calls.dispatch(state.runId, call_id)
+                await self.call_fact(
+                    context, signal, self.model_calls.dispatch(state.runId, call_id)
+                )
                 await self.active(context, signal)
                 self.adapter.ready()
+            call_timeout = (
+                await self.model_calls.request_timeout(state.runId)
+                if real and context.run.protocol_version == "1.1"
+                else None
+            )
             invocation = (
                 self.adapter.invoke(
                     request,
@@ -581,22 +595,33 @@ class ContextEngine:
                     on_cleanup_uncertain=lambda: self.workspaces.mark_runtime_uncertain(
                         context.run
                     ),
+                    **(
+                        {"timeout_seconds": call_timeout}
+                        if call_timeout is not None
+                        else {}
+                    ),
                 )
                 if real
                 else self.adapter.invoke(request, signal)
             )
-            value = await self.tracked(invocation, signal, context.run)
+            value = await self.tracked(
+                invocation, signal, context.run, timeout=call_timeout
+            )
             if real:
                 warning = (
                     self.adapter.usage_warning(request, value.usage.prompt_tokens)
                     if value.usage.prompt_tokens <= budget
                     else None
                 )
-                await self.model_calls.returned(
-                    state.runId,
-                    call_id,
-                    value.usage,
-                    warning,
+                await self.call_fact(
+                    context,
+                    signal,
+                    self.model_calls.returned(
+                        state.runId,
+                        call_id,
+                        value.usage,
+                        warning,
+                    ),
                 )
                 if warning:
                     diagnostic = await self.artifacts.publish(
@@ -618,20 +643,35 @@ class ContextEngine:
             # LOCAL_CLOSED requires the actual tracked invocation to have exited.
             if (
                 real
+                and self.model_calls is not None
                 and not self.workspaces.runtime_tasks_active(state.runId)
                 and not any(
                     not task.done() and owner == state.runId
                     for task, owner in self.tasks.items()
                 )
             ):
-                await self.model_calls.close(
-                    state.runId,
-                    call_id,
-                    getattr(error, "code", "PROVIDER_CALL_INTERRUPTED"),
-                )
+                # Prepare may fail before any fact exists. Once a fact exists,
+                # close uses its persisted state: PREPARED refunds, dispatch stays unknown.
+                try:
+                    await self.model_calls.get(state.runId, call_id)
+                except HarnessError as read_error:
+                    if read_error.code != "PROVIDER_CALL_NOT_FOUND":
+                        raise
+                else:
+                    await self.call_fact(
+                        context,
+                        asyncio.Event(),
+                        self.model_calls.close(
+                            state.runId,
+                            call_id,
+                            getattr(error, "code", "PROVIDER_CALL_INTERRUPTED"),
+                        ),
+                    )
             raise
         if real:
-            await self.model_calls.close(state.runId, call_id)
+            await self.call_fact(
+                context, signal, self.model_calls.close(state.runId, call_id)
+            )
             from review_harness.domain.real_graph import RealReviewGraphState
 
             if not isinstance(state, RealReviewGraphState):

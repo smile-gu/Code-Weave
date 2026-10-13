@@ -202,3 +202,45 @@ workspaces = Table(
         name="workspace_state",
     ),
 )
+
+
+run_fee_budget = Table(
+    "run_fee_budget",
+    metadata,
+    Column(
+        "run_id",
+        Text,
+        ForeignKey("review_runs.run_id", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+    Column("authorization_id", Text, nullable=False, unique=True),
+    Column("record_bytes", BLOB, nullable=False),
+    Column("sha256", Text, nullable=False),
+    CheckConstraint("length(record_bytes) <= 16384", name="fee_budget_bytes"),
+)
+
+model_call_reservations = Table(
+    "model_call_reservations",
+    metadata,
+    Column(
+        "model_call_id",
+        Text,
+        ForeignKey("review_model_calls.model_call_id", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+    Column(
+        "run_id",
+        Text,
+        ForeignKey("review_runs.run_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("state", Text, nullable=False),
+    Column("record_bytes", BLOB, nullable=False),
+    Column("sha256", Text, nullable=False),
+    CheckConstraint("length(record_bytes) <= 16384", name="reservation_bytes"),
+    CheckConstraint(
+        "state IN ('RESERVED','DISPATCHING','SETTLED','UNKNOWN','REFUNDED')",
+        name="reservation_state",
+    ),
+)
+Index("ix_call_reservations_run", model_call_reservations.c.run_id)

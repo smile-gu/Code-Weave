@@ -370,3 +370,8 @@ Provider档案仍引用已核对的官方1M容量来源，256K为本平台自定
 Finding贡献记录保留passId/candidateId/evidenceIds/codeReferences/原disposition/validationModelCallId，primary取固定Pass顺序后candidateId字典序，展示不将同一合并项重复生成多条Finding。引用与主判断一致性校验不是模型根因去重证明；可信候选比较与实际去重编排在6A3。报告按结构六维/primary Finding确定性生成，并对UTF-8大小和内容校验；没有模型润色调用。
 
 feeSummary为精确微元管理摘要，不是Provider账单。overrunMicros保留单次预留超额累积，即便尚未突破Run授权总額；有效Usage结算/预留可靠性由6A2账本证明，6A1仅字段与一致性约束。不因新协议改变Evidence/半行/来源身份/取消/资源释放/终态事务。历史public偏差、同模型局限、256K/POSIX未验与超窗恢复DISABLED仍保留。
+
+
+## 2026-10-13 批次6A2：调用与费用同事实确认
+
+ModelCall2.0明确Pass与v2保守输入预算；费用按C与max_output预留，使用整数微元向上取整，实际Usage与结算原子保存。超预留先存真实Usage/overrun后阻断；只有确认未发送PREPARED可退款，DISPATCHING未知保留预留并停止该Run。Context新协议费用IO跟踪真实事务完成，取消不得假称回滚；HTTP期限取请求/Run/阶段剩余最小值，资源清理期限保持原义。价格快照绑定授权并发送前核实未变价，历史过期费用仍可审计。State4/串行Pass和Result3.0交付尚属6A3，不改变原Evidence、引用、Checkpoint及终态门禁。详见6A2交付记录。

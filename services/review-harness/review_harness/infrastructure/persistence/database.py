@@ -11,13 +11,15 @@ from review_harness.infrastructure.persistence.tables import (
     artifacts,
     events,
     evidence_records,
+    model_call_reservations,
     model_calls,
     results,
+    run_fee_budget,
     runs,
     workspaces,
 )
 
-REVISION = "0006_evidence"
+REVISION = "0007_fee_ledger"
 SERVICE_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -72,6 +74,8 @@ class Database:
                     artifacts,
                     model_calls,
                     evidence_records,
+                    run_fee_budget,
+                    model_call_reservations,
                 ):
                     await connection.execute(select(table).limit(0))
                 return True

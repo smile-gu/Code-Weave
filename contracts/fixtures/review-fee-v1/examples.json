@@ -1,0 +1,129 @@
+{
+  "review-price-profile-v1": {
+    "positive": {
+      "profileVersion": "1.0",
+      "priceProfileId": "offline-deepseek-profile-v1",
+      "provider": "DEEPSEEK",
+      "model": "deepseek-flash",
+      "currency": "CNY",
+      "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+      "sourceDocumentSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "verifiedAt": "2026-10-13T00:00:00.000000Z",
+      "expiresAt": "2099-01-01T00:00:00.000000Z",
+      "inputCnyPerMillion": "2",
+      "outputCnyPerMillion": "8"
+    },
+    "negative": {
+      "profileVersion": "1.0",
+      "priceProfileId": "offline-deepseek-profile-v1",
+      "provider": "DEEPSEEK",
+      "model": "deepseek-flash",
+      "currency": "CNY",
+      "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+      "sourceDocumentSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "verifiedAt": "2026-10-13T00:00:00.000000Z",
+      "expiresAt": "2099-01-01T00:00:00.000000Z",
+      "inputCnyPerMillion": "2",
+      "outputCnyPerMillion": "8",
+      "unexpected": true
+    }
+  },
+  "review-price-profile-view-v1": {
+    "positive": {
+      "priceProfile": {
+        "profileVersion": "1.0",
+        "priceProfileId": "offline-deepseek-profile-v1",
+        "provider": "DEEPSEEK",
+        "model": "deepseek-flash",
+        "currency": "CNY",
+        "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+        "sourceDocumentSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "verifiedAt": "2026-10-13T00:00:00.000000Z",
+        "expiresAt": "2099-01-01T00:00:00.000000Z",
+        "inputCnyPerMillion": "2",
+        "outputCnyPerMillion": "8"
+      },
+      "digest": "sha256:c6792ede6b00c5881f2d15d2fbfde53fc439b1a1ccf7686fa41b8fe1f89fd47d"
+    },
+    "negative": {
+      "priceProfile": {
+        "profileVersion": "1.0",
+        "priceProfileId": "offline-deepseek-profile-v1",
+        "provider": "DEEPSEEK",
+        "model": "deepseek-flash",
+        "currency": "CNY",
+        "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+        "sourceDocumentSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "verifiedAt": "2026-10-13T00:00:00.000000Z",
+        "expiresAt": "2099-01-01T00:00:00.000000Z",
+        "inputCnyPerMillion": "2",
+        "outputCnyPerMillion": "8"
+      },
+      "digest": "sha256:c6792ede6b00c5881f2d15d2fbfde53fc439b1a1ccf7686fa41b8fe1f89fd47d",
+      "unexpected": true
+    }
+  },
+  "review-model-call-v2": {
+    "positive": {
+      "callVersion": "2.0",
+      "passId": "correctness",
+      "modelCallId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "purpose": "INVESTIGATION",
+      "provider": "DEEPSEEK",
+      "model": "deepseek-flash",
+      "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "manifestRef": {
+        "artifactId": "11111111-1111-4111-8111-111111111111",
+        "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "byteSize": 100,
+        "coverage": "FULL",
+        "redactionState": "NONE"
+      },
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "estimatedInputTokens": 17,
+      "reservedOutputTokens": 4096,
+      "createdAt": "2026-10-13T09:00:00.000000Z",
+      "updatedAt": "2026-10-13T09:00:00.000000Z",
+      "status": "PREPARED",
+      "usage": null,
+      "failureCode": null,
+      "remoteOutcomeUnknown": false,
+      "policyVersion": "deepseek-compatible-budget-v2",
+      "conservativeInputTokens": 1041,
+      "uncertaintyReserveTokens": 1024
+    },
+    "negative": {
+      "callVersion": "2.0",
+      "passId": "correctness",
+      "modelCallId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "purpose": "INVESTIGATION",
+      "provider": "DEEPSEEK",
+      "model": "deepseek-flash",
+      "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "manifestRef": {
+        "artifactId": "11111111-1111-4111-8111-111111111111",
+        "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "byteSize": 100,
+        "coverage": "FULL",
+        "redactionState": "NONE"
+      },
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "estimatedInputTokens": 17,
+      "reservedOutputTokens": 4096,
+      "createdAt": "2026-10-13T09:00:00.000000Z",
+      "updatedAt": "2026-10-13T09:00:00.000000Z",
+      "status": "PREPARED",
+      "usage": null,
+      "failureCode": null,
+      "remoteOutcomeUnknown": false,
+      "policyVersion": "deepseek-compatible-budget-v2",
+      "conservativeInputTokens": 1041,
+      "uncertaintyReserveTokens": 1024,
+      "unexpected": true
+    }
+  }
+}

@@ -168,3 +168,32 @@ class ReviewCapabilities(StrictModel):
     model: Literal["deepseek-flash"] | None
     meterVersion: Literal["v4.1-2cba9e42-v1"] | None
     failureCodes: list[AnnotatedCode] = Field(max_length=16)
+
+
+class FeeModelCall(ModelCall):
+    callVersion: Literal["2.0"]
+    passId: Literal[
+        "correctness",
+        "consistency",
+        "security",
+        "performance",
+        "architecture",
+        "testing",
+        "dedup",
+    ]
+    purpose: Literal["INVESTIGATION", "COMPACTION", "VALIDATION", "DEDUP"]
+    policyVersion: Literal["deepseek-compatible-budget-v2"]
+    conservativeInputTokens: int = Field(ge=0, le=CURRENT_INPUT_BUDGET)
+    uncertaintyReserveTokens: int = Field(ge=1024)
+
+    @model_validator(mode="after")
+    def phase(self):
+        if (self.passId == "dedup") != (self.purpose == "DEDUP"):
+            raise ValueError("Dedup has a separate phase quota")
+        return self
+
+
+def parse_call(value):
+    return (
+        FeeModelCall if value.get("callVersion") == "2.0" else ModelCall
+    ).model_validate(value)

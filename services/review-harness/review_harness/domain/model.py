@@ -209,7 +209,7 @@ class Run:
                     )
                 )
             )
-            _require(self.protocol_version == "1.0")
+            _require(self.protocol_version in {"1.0", "1.1"})
             _require(re.fullmatch(r"sha256:[0-9a-f]{64}", self.manifest_sha256))
             _require(self.last_event_sequence >= 1)
             _require(
@@ -268,7 +268,12 @@ class Run:
                 and sha256(self.request_payload) == self.request_fingerprint
             )
             _require(
-                set(request) - {"executionContract"}
+                set(request)
+                - (
+                    {"executionContract", "reviewPlan"}
+                    if self.protocol_version == "1.1"
+                    else {"executionContract"}
+                )
                 == {
                     "protocolVersion",
                     "runId",
@@ -278,10 +283,15 @@ class Run:
                     "input",
                 }
             )
+            if self.protocol_version == "1.1":
+                from review_harness.api.dto import CreateRunV11
+
+                CreateRunV11.model_validate(request)
             if "executionContract" in request:
                 from review_harness.domain.model_call import ExecutionContract
 
-                ExecutionContract.model_validate(request["executionContract"])
+                if self.protocol_version == "1.0":
+                    ExecutionContract.model_validate(request["executionContract"])
             _require(
                 request["protocolVersion"] == self.protocol_version
                 and request["runId"] == self.run_id

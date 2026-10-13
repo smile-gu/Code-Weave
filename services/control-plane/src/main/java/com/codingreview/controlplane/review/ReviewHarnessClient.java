@@ -95,6 +95,15 @@ public final class ReviewHarnessClient implements AutoCloseable {
             throw new ReviewException("REVIEW_HARNESS_NOT_READY");
     }
 
+    public com.fasterxml.jackson.databind.JsonNode priceProfile() {
+        requireAvailable();
+        Response response = request("GET", "/review-price-profile", null, 8192);
+        if (response.status() != 200) throw new ReviewException("PRICE_PROFILE_UNAVAILABLE");
+        var value = ReviewJson.parse(response.bytes());
+        ReviewPriceProfile.validate(value, java.time.Instant.now());
+        return value;
+    }
+
     public void requireMultipassCompatibility() {
         requireAvailable();
         Response response = request("GET", "/review-capabilities?protocolVersion=1.1", null, 65536);

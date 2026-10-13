@@ -106,3 +106,8 @@ Provider档案仍引用已核对的官方1M容量来源，256K为本平台自定
 executionBudget单位全部秒，冻结300/2000/10调用与120/1800/10800/600时限；Plan选择非空/唯一/固定顺序，无Python缺省选择。maxAmount为正的人民币十进制定点字符串（最多6位小数、12位整数，适配微元int64管理表示），金额摘要为整数微元；不接受float/指数/零/负数。授权时间UTC微秒，价格ID/digest只证明引用形状，价格资料有效性须6A2核实，不将fixture占位价格当生产认证。
 
 Schema无法单独证明跨实体身份/时间/用量/谱系/权限，Python与Java模型追加同一业务门禁。旧Result2.0读端拒绝3.0，不以单Pass约束松绑模拟新版本。1.1当前明确NOT_READY并拒绝创建，待费用与执行器完整接通才开放；不凭计划2000授权真实测试。
+
+
+## 批次6A2费用合同
+
+新增review-price-profile-v1、review-price-profile-view-v1、review-model-call-v2及内部review-fee-budget-v1/review-call-reservation-v1；严格DTO导出入口为服务目录python -m tests.export_fee_contracts。独立正反例位于contracts/fixtures/review-fee-v1。金额微元整数、价格定点字符串；旧Schema及fixtures不改。Profile来自操作员核实的文件，fixture不代表真实价格。ModelCall2.0绑定Pass及新费用账本；历史v1严格读取。费用READY不开放HTTP1.1，多Pass仍NOT_READY。交付及新鲜测试见docs/review-harness-batch-6a2-fee-ledger-handoff.md。

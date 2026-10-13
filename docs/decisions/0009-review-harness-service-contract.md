@@ -644,3 +644,8 @@ Review 活动、提交未知、事件/Result 导入未知或 `resourceState=UNCE
 GET review-capabilities缺省仍返回1.0；显式protocolVersion=1.1返回3.0目标契约与NOT_READY/feeReservation=NOT_READY。Java新协商入口先检查版本、模式、计划及持久费用能力，再判断可预留执行。6A1只完成协议基础，当前合法1.1创建也明确EXECUTION_CONTRACT_UNSUPPORTED，不能进入旧单Pass执行；非法新请求422，未知版本400。没有以Schema存在宣告多Pass可执行。
 
 Result3.0具有独立Python/Java严格读取器与六维顺序/选择/引用/用量/确定性报告校验；当前产品RunStore/Importer仍只有旧路径，3.0最终原子保存与导入接通在6A3。Pass生命周期表/事件、State4、费用账本不是本切片已实现能力。见docs/review-harness-batch-6a1-protocol-handoff.md；各步独立复审后另授权提交/推送。
+
+
+## 2026-10-13 批次6A2：认证价格与持久费用能力
+
+显式迁移0007_fee_ledger新增run_fee_budget/model_call_reservations，Readiness验证九张核心表列。认证GET review-price-profile返回操作员核实Profile及摘要，Java严格读取并核验；1.1能力仅费用可READY，总体仍NOT_READY，POST仍拒绝。PREPARED/预留、Usage/结算同SQLite事务，失确认精确读取全部参与事实；确认DISPATCHING后才发送，未知不重发、不退款。费用UNKNOWN不裁决Run资源状态。旧1.0兼容保留，新正式账本仅1.1；6A3之前不开放多Pass执行。详见6A2交付记录。

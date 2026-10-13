@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     compaction_attempts: int = Field(default=2, ge=1, le=2)
     compaction_max_successes: int = Field(default=8, ge=1, le=8)
     model_timeout_seconds: float = Field(default=45, gt=0, le=120)
+    price_profile_path: Path | None = None
     internal_bearer_token: SecretStr
     snapshot_root: Path
     artifact_root: Path
@@ -59,6 +60,11 @@ class Settings(BaseSettings):
     def separate_absolute_roots(self):
         from review_harness.infrastructure.paths import safe_directory
 
+        if (
+            self.price_profile_path is not None
+            and not self.price_profile_path.is_absolute()
+        ):
+            raise ValueError("Operator price profile path must be absolute")
         roots = []
         for name in ("snapshot_root", "execution_root", "artifact_root"):
             path = getattr(self, name)

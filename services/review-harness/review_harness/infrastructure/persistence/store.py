@@ -533,6 +533,10 @@ class RunStore:
             if status == "SUCCEEDED":
                 result_id = str(uuid4())
                 version = current.execution_contract["resultVersion"]
+                if version == "3.0":
+                    raise HarnessError(
+                        "EXECUTION_CONTRACT_UNSUPPORTED", 400, "多Pass结果执行尚未接通"
+                    )
                 if version == "2.0":
                     from review_harness.application.report import render_report
                     from review_harness.domain.review import ReviewPackage, ReviewResult

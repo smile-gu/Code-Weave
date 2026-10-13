@@ -54,7 +54,7 @@ async def create_run(request: Request):
             raise HarnessError("PROTOCOL_VERSION_UNSUPPORTED", 400, "协议版本不受支持")
         if isinstance(value, dict) and value.get("protocolVersion") == "1.1":
             CreateRunV11.model_validate(value)
-            # Contract-only slice: no fee ledger/multipass executor exists yet.
+            # Fee accounting exists; the multipass executor is not enabled yet.
             raise HarnessError(
                 "EXECUTION_CONTRACT_UNSUPPORTED", 400, "多Pass运行尚未启用"
             )
@@ -146,6 +146,20 @@ async def graph_capabilities(request: Request):
 async def review_capabilities(request: Request):
     version = request.query_params.get("protocolVersion", "1.0")
     if version == "1.1":
+        fee_ready = False
+        try:
+            from review_harness.infrastructure.pricing import PriceCatalog
+
+            PriceCatalog(request.app.state.settings.price_profile_path).current()
+            database = request.app.state.database
+            fee_ready = (
+                request.app.state.recovery_complete
+                and database is not None
+                and await database.schema_ready()
+                and await database.writable()
+            )
+        except HarnessError:
+            pass
         value = MultipassCapabilities(
             protocolVersion="1.1",
             configuredContract={
@@ -153,7 +167,7 @@ async def review_capabilities(request: Request):
                 "resultVersion": "3.0",
             },
             planVersions=["1.0"],
-            feeReservation="NOT_READY",
+            feeReservation="READY" if fee_ready else "NOT_READY",
             status="NOT_READY",
             failureCodes=["MULTIPASS_RUNTIME_NOT_READY"],
         )
@@ -214,3 +228,14 @@ async def evidence_materials(run_id: str, evidence_id: str, request: Request):
         "materials": await evidence.materials(run, record.sourceRefs, asyncio.Event()),
     }
     return json_response(value)
+
+
+@router.get("/review-price-profile")
+async def review_price_profile(request: Request):
+    from review_harness.infrastructure.pricing import PriceCatalog
+
+    return json_response(
+        PriceCatalog(request.app.state.settings.price_profile_path)
+        .current()
+        .model_dump()
+    )

@@ -302,9 +302,13 @@ class DeepSeekAdapter:
     def count_request(self, request):
         return self.meter.count(request)
 
-    async def invoke(self, request, signal, *, on_cleanup_uncertain=None):
+    async def invoke(
+        self, request, signal, *, on_cleanup_uncertain=None, timeout_seconds=45
+    ):
         self.response_diagnostic = None
         self.ready()
+        if not 0 < timeout_seconds <= 120:
+            raise graph_error("PROVIDER_REQUEST_TIMEOUT_INVALID")
         if signal.is_set():
             raise WorkCancelled()
         if self.conservative_input(request) > self.capabilities.input_budget:
@@ -313,7 +317,7 @@ class DeepSeekAdapter:
         # exited its response/client contexts. Repeated cancellation must not
         # interrupt cleanup and make a closed Task look like released IO.
         operation = asyncio.create_task(
-            self._exchange(request, signal, on_cleanup_uncertain)
+            self._exchange(request, signal, on_cleanup_uncertain, timeout_seconds)
         )
         try:
             return await asyncio.shield(operation)
@@ -345,14 +349,16 @@ class DeepSeekAdapter:
                     on_cleanup_uncertain()
                 raise graph_error("PROVIDER_LOCAL_CLEANUP_FAILED") from None
 
-    async def _exchange(self, request, signal, on_cleanup_uncertain):
+    async def _exchange(
+        self, request, signal, on_cleanup_uncertain, timeout_seconds=45
+    ):
         try:
             async with (
-                asyncio.timeout(45),
+                asyncio.timeout(timeout_seconds),
                 self._owned_http(
                     httpx.AsyncClient(
                         transport=self._transport,
-                        timeout=45,
+                        timeout=timeout_seconds,
                         follow_redirects=False,
                         trust_env=False,
                         limits=httpx.Limits(

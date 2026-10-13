@@ -4,15 +4,23 @@ from sqlalchemy import case, func, insert, select, text, update
 
 from review_harness.domain.graph import graph_error
 from review_harness.domain.model import sha256, utc_now
-from review_harness.domain.model_call import ModelCall
+from review_harness.domain.model_call import FeeModelCall, ModelCall, parse_call
 from review_harness.domain.provider import strict_json
 from review_harness.infrastructure.persistence.store import commit
 from review_harness.infrastructure.persistence.tables import model_calls, runs
 
 
 class ModelCallStore:
-    def __init__(self, database, commit_transaction=commit):
+    def __init__(self, database, commit_transaction=commit, *, price_catalog=None):
         self.database, self.commit_transaction = database, commit_transaction
+        self.price_catalog = price_catalog
+
+    def _fees(self):
+        from review_harness.infrastructure.persistence.fees import FeeLedger
+
+        return FeeLedger(
+            self.database, self.commit_transaction, price_catalog=self.price_catalog
+        )
 
     async def has_meter_drift(self):
         # Historical diagnostic query only; never a readiness gate.
@@ -43,7 +51,7 @@ class ModelCallStore:
     def _read(self, row):
         try:
             raw = bytes(row["record_bytes"])
-            value = ModelCall.model_validate(strict_json(raw, limit=16384))
+            value = parse_call(strict_json(raw, limit=16384))
             if (
                 value.modelCallId,
                 value.runId,
@@ -82,23 +90,51 @@ class ModelCallStore:
 
     async def list_for_run(self, run_id):
         async with self.database.engine.connect() as connection:
+            version = (
+                await connection.execute(
+                    select(runs.c.protocol_version).where(runs.c.run_id == run_id)
+                )
+            ).scalar_one_or_none()
+        if version not in {"1.0", "1.1"}:
+            raise graph_error("PROVIDER_CALL_INTEGRITY_FAILED")
+        limit = 2000 if version == "1.1" else 16
+        async with self.database.engine.connect() as connection:
             rows = (
                 (
                     await connection.execute(
                         self._projection()
                         .where(model_calls.c.run_id == run_id)
                         .order_by(model_calls.c.model_call_id)
-                        .limit(17)
+                        .limit(limit + 1)
                     )
                 )
                 .mappings()
                 .all()
             )
-        if len(rows) > 16:
+        if len(rows) > limit:
             raise graph_error("PROVIDER_CALL_LIMIT_EXCEEDED")
-        return [self._read(row) for row in rows]
+        values = [self._read(row) for row in rows]
+        if any(
+            (version == "1.1") != isinstance(value, FeeModelCall) for value in values
+        ):
+            raise graph_error("PROVIDER_CALL_INTEGRITY_FAILED")
+        return values
 
     async def _save(self, value, previous=None):
+        from review_harness.infrastructure.persistence.fees import FeeLedger
+
+        async with self.database.engine.connect() as connection:
+            owner_version = (
+                await connection.execute(
+                    select(runs.c.protocol_version).where(runs.c.run_id == value.runId)
+                )
+            ).scalar_one_or_none()
+        if (
+            owner_version == "1.1"
+            or isinstance(value, FeeModelCall)
+            or await FeeLedger(self.database).exists(value.runId)
+        ):
+            raise graph_error("FEE_GUARD_REQUIRED")
         raw = value.record_bytes()
         if len(raw) > 16384:
             raise graph_error("PROVIDER_CALL_LIMIT_EXCEEDED")
@@ -165,12 +201,26 @@ class ModelCallStore:
         return value
 
     async def prepare(self, value):
+
+        ledger = self._fees()
+        if await ledger.exists(value.runId):
+            return await ledger.prepare(value)
+        async with self.database.engine.connect() as connection:
+            version = (
+                await connection.execute(
+                    select(runs.c.protocol_version).where(runs.c.run_id == value.runId)
+                )
+            ).scalar_one_or_none()
+        if isinstance(value, FeeModelCall) or version == "1.1":
+            raise graph_error("FEE_AUTHORIZATION_REQUIRED")
         if value.status != "PREPARED":
             raise graph_error("PROVIDER_CALL_STATE_INVALID")
         return await self._save(value)
 
     async def dispatch(self, run_id, call_id):
         previous = await self.get(run_id, call_id)
+        if isinstance(previous, FeeModelCall):
+            return await self._fees().dispatch(run_id, call_id)
         if previous.status != "PREPARED":
             raise graph_error("PROVIDER_CALL_ALREADY_DISPATCHED")
         value = ModelCall.model_validate(
@@ -185,6 +235,8 @@ class ModelCallStore:
 
     async def returned(self, run_id, call_id, usage, warning=None):
         previous = await self.get(run_id, call_id)
+        if isinstance(previous, FeeModelCall):
+            return await self._fees().returned(run_id, call_id, usage, warning)
         if previous.status != "DISPATCHING":
             raise graph_error("PROVIDER_CALL_STATE_INVALID")
         value = ModelCall.model_validate(
@@ -201,6 +253,8 @@ class ModelCallStore:
 
     async def close(self, run_id, call_id, failure_code=None):
         previous = await self.get(run_id, call_id)
+        if isinstance(previous, FeeModelCall):
+            return await self._fees().close(run_id, call_id, failure_code)
         if previous.status == "LOCAL_CLOSED":
             return previous
         value = ModelCall.model_validate(
@@ -242,3 +296,7 @@ class ModelCallStore:
                     await self.close(
                         value.runId, value.modelCallId, "PROVIDER_CALL_INTERRUPTED"
                     )
+
+    async def request_timeout(self, run_id):
+
+        return await self._fees().request_timeout(run_id)

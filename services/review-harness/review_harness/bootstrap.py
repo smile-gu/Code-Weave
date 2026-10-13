@@ -15,6 +15,7 @@ from review_harness.infrastructure.persistence.database import Database
 from review_harness.infrastructure.persistence.model_calls import ModelCallStore
 from review_harness.infrastructure.persistence.store import RunStore
 from review_harness.infrastructure.persistence.workspaces import WorkspaceStore
+from review_harness.infrastructure.pricing import PriceCatalog
 from review_harness.infrastructure.workspaces import WorkspaceManager
 from review_harness.runtime.context import ContextEngine
 from review_harness.runtime.deepseek import DeepSeekAdapter
@@ -83,7 +84,9 @@ async def lifespan(app):
                 app.state.artifacts,
                 app.state.checkpoints,
                 adapter,
-                model_calls=ModelCallStore(database),
+                model_calls=ModelCallStore(
+                    database, price_catalog=PriceCatalog(settings.price_profile_path)
+                ),
                 state_type=HandleReviewGraphState,
                 evidence=evidence,
             )
@@ -105,6 +108,9 @@ async def lifespan(app):
                     not workspaces.runtime_tasks_active(run_id)
                 )
             )
+            from review_harness.infrastructure.persistence.fees import FeeLedger
+
+            await FeeLedger(database).audit()
             await app.state.artifacts.audit()
             app.state.recovery_complete = True
             from review_harness.application.readiness import real_failures
