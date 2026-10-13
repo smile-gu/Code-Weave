@@ -635,3 +635,12 @@ Review 活动、提交未知、事件/Result 导入未知或 `resourceState=UNCE
 产品 GET /api/v1/coding-sessions/{sessionId}/review-runs/{runId}/result 只读已导入历史；不触发重新采集或调度。Evidence materials 经 Session/Run 归属及结果引用校验后代理到 Python 认证、安全读取和脱敏，不由 Java 直接读源码。前端报告是只读草稿，成功交付不是审批或全项目无 Bug 保证。真实付费/质量小样另行授权，离线实现与新鲜验收见 docs/review-harness-batch-5-development-handoff.md。
 
 更新日期：2026-10-11（批次 5 离线实施）
+
+
+## 2026-10-13 批次6A1：显式计划与版本契约
+
+以冻结稿51及9ed189b为基线，新增独立ReviewPlan1.0、CreateRun1.1、执行契约v2（Result3.0）、能力v2与Result3.0。旧1.0/Result1.0、2.0保持原严格模型，不增加可选reviewPlan来碰运气兼容旧服务。Java明确写默认六维选择并规范化；Python要求请求已经显式唯一排序，不补默认选择。计划和费用授权引用纳入完整规范请求；实际1.1存储/指纹事务在后续执行接通切片落地。
+
+GET review-capabilities缺省仍返回1.0；显式protocolVersion=1.1返回3.0目标契约与NOT_READY/feeReservation=NOT_READY。Java新协商入口先检查版本、模式、计划及持久费用能力，再判断可预留执行。6A1只完成协议基础，当前合法1.1创建也明确EXECUTION_CONTRACT_UNSUPPORTED，不能进入旧单Pass执行；非法新请求422，未知版本400。没有以Schema存在宣告多Pass可执行。
+
+Result3.0具有独立Python/Java严格读取器与六维顺序/选择/引用/用量/确定性报告校验；当前产品RunStore/Importer仍只有旧路径，3.0最终原子保存与导入接通在6A3。Pass生命周期表/事件、State4、费用账本不是本切片已实现能力。见docs/review-harness-batch-6a1-protocol-handoff.md；各步独立复审后另授权提交/推送。

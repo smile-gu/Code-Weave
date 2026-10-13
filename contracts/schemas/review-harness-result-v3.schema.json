@@ -1,0 +1,1083 @@
+{
+  "$defs": {
+    "ArtifactReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "ARTIFACT",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "artifactId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Artifactid",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceType",
+        "artifactId",
+        "sha256",
+        "startLine",
+        "endLine",
+        "coverage"
+      ],
+      "title": "ArtifactReference",
+      "type": "object"
+    },
+    "CodeReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "CODE",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "side": {
+          "enum": [
+            "base",
+            "final",
+            "diff"
+          ],
+          "title": "Side",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceType",
+        "path",
+        "side",
+        "sha256",
+        "startLine",
+        "endLine"
+      ],
+      "title": "CodeReference",
+      "type": "object"
+    },
+    "EvidenceRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "evidenceType": {
+          "enum": [
+            "CODE",
+            "DOMAIN_CONTEXT"
+          ],
+          "title": "Evidencetype",
+          "type": "string"
+        },
+        "sourceRefs": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "ARTIFACT": "#/$defs/ArtifactReference",
+                "CODE": "#/$defs/CodeReference",
+                "USER_INPUT": "#/$defs/UserInputReference"
+              },
+              "propertyName": "sourceType"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/CodeReference"
+              },
+              {
+                "$ref": "#/$defs/ArtifactReference"
+              },
+              {
+                "$ref": "#/$defs/UserInputReference"
+              }
+            ]
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Sourcerefs",
+          "type": "array"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Summary",
+          "type": "string"
+        },
+        "evidenceId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Evidenceid",
+          "type": "string"
+        },
+        "runId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Runid",
+          "type": "string"
+        },
+        "snapshotId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Snapshotid",
+          "type": "string"
+        },
+        "producerType": {
+          "const": "MODEL_SUBMISSION",
+          "title": "Producertype",
+          "type": "string"
+        },
+        "producerId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Producerid",
+          "type": "string"
+        },
+        "capturedAt": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "title": "Capturedat",
+          "type": "string"
+        }
+      },
+      "required": [
+        "evidenceType",
+        "sourceRefs",
+        "coverage",
+        "summary",
+        "evidenceId",
+        "runId",
+        "snapshotId",
+        "producerType",
+        "producerId",
+        "capturedAt"
+      ],
+      "title": "EvidenceRecord",
+      "type": "object"
+    },
+    "ExecutionBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "maxModelCallsPerPass": {
+          "const": 300,
+          "title": "Maxmodelcallsperpass",
+          "type": "integer"
+        },
+        "maxModelCallsPerRun": {
+          "const": 2000,
+          "title": "Maxmodelcallsperrun",
+          "type": "integer"
+        },
+        "maxDedupCalls": {
+          "const": 10,
+          "title": "Maxdedupcalls",
+          "type": "integer"
+        },
+        "requestTimeoutSeconds": {
+          "const": 120,
+          "title": "Requesttimeoutseconds",
+          "type": "integer"
+        },
+        "passTimeoutSeconds": {
+          "const": 1800,
+          "title": "Passtimeoutseconds",
+          "type": "integer"
+        },
+        "runTimeoutSeconds": {
+          "const": 10800,
+          "title": "Runtimeoutseconds",
+          "type": "integer"
+        },
+        "summaryTimeoutSeconds": {
+          "const": 600,
+          "title": "Summarytimeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "maxModelCallsPerPass",
+        "maxModelCallsPerRun",
+        "maxDedupCalls",
+        "requestTimeoutSeconds",
+        "passTimeoutSeconds",
+        "runTimeoutSeconds",
+        "summaryTimeoutSeconds"
+      ],
+      "title": "ExecutionBudget",
+      "type": "object"
+    },
+    "FeeAuthorization": {
+      "additionalProperties": false,
+      "properties": {
+        "authorizationId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Authorizationid",
+          "type": "string"
+        },
+        "currency": {
+          "const": "CNY",
+          "title": "Currency",
+          "type": "string"
+        },
+        "maxAmount": {
+          "maxLength": 20,
+          "pattern": "^(?:[1-9][0-9]{0,11}(?:\\.[0-9]{1,6})?|0\\.(?!0{1,6}$)[0-9]{1,6})$",
+          "title": "Maxamount",
+          "type": "string"
+        },
+        "confirmedAt": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "title": "Confirmedat",
+          "type": "string"
+        },
+        "priceProfileId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Priceprofileid",
+          "type": "string"
+        },
+        "priceProfileDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Priceprofiledigest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authorizationId",
+        "currency",
+        "maxAmount",
+        "confirmedAt",
+        "priceProfileId",
+        "priceProfileDigest"
+      ],
+      "title": "FeeAuthorization",
+      "type": "object"
+    },
+    "FeeSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "authorizationId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Authorizationid",
+          "type": "string"
+        },
+        "currency": {
+          "const": "CNY",
+          "title": "Currency",
+          "type": "string"
+        },
+        "maxAmountMicros": {
+          "maximum": 999999999999999999,
+          "minimum": 1,
+          "title": "Maxamountmicros",
+          "type": "integer"
+        },
+        "spentMicros": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Spentmicros",
+          "type": "integer"
+        },
+        "reservedMicros": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Reservedmicros",
+          "type": "integer"
+        },
+        "overrunMicros": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Overrunmicros",
+          "type": "integer"
+        },
+        "unknownCalls": {
+          "maximum": 2000,
+          "minimum": 0,
+          "title": "Unknowncalls",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "authorizationId",
+        "currency",
+        "maxAmountMicros",
+        "spentMicros",
+        "reservedMicros",
+        "overrunMicros",
+        "unknownCalls"
+      ],
+      "title": "FeeSummary",
+      "type": "object"
+    },
+    "FindingContribution": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "candidateId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Candidateid",
+          "type": "string"
+        },
+        "evidenceIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Evidenceids",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "codeReferences": {
+          "items": {
+            "$ref": "#/$defs/CodeReference"
+          },
+          "maxItems": 16,
+          "title": "Codereferences",
+          "type": "array"
+        },
+        "disposition": {
+          "enum": [
+            "VERIFIED",
+            "RISK",
+            "SUGGESTION"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "validationModelCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Validationmodelcallid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "passId",
+        "candidateId",
+        "evidenceIds",
+        "codeReferences",
+        "disposition",
+        "validationModelCallId"
+      ],
+      "title": "FindingContribution",
+      "type": "object"
+    },
+    "MultipassDiagnostics": {
+      "additionalProperties": false,
+      "properties": {
+        "executionMode": {
+          "enum": [
+            "REAL",
+            "SIMULATED"
+          ],
+          "title": "Executionmode",
+          "type": "string"
+        },
+        "contextManifestArtifactIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "title": "Contextmanifestartifactids",
+          "type": "array"
+        },
+        "modelCallIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 2000,
+          "title": "Modelcallids",
+          "type": "array"
+        },
+        "meterVersion": {
+          "anyOf": [
+            {
+              "const": "v4.1-2cba9e42-v1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Meterversion"
+        },
+        "limitations": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "dedupUsage": {
+          "$ref": "#/$defs/MultipassUsage"
+        },
+        "feeSummary": {
+          "$ref": "#/$defs/FeeSummary"
+        }
+      },
+      "required": [
+        "executionMode",
+        "contextManifestArtifactIds",
+        "modelCallIds",
+        "meterVersion",
+        "limitations",
+        "dedupUsage",
+        "feeSummary"
+      ],
+      "title": "MultipassDiagnostics",
+      "type": "object"
+    },
+    "MultipassFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "category": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Category",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Title",
+          "type": "string"
+        },
+        "claim": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Claim",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reasoningSummary": {
+          "$ref": "#/$defs/ReasoningSummary"
+        },
+        "suggestion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "claimKind": {
+          "enum": [
+            "STATIC_CORRECTNESS",
+            "ENVIRONMENT_DEPENDENT",
+            "QUANTITATIVE"
+          ],
+          "title": "Claimkind",
+          "type": "string"
+        },
+        "evidenceIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Evidenceids",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "codeReferences": {
+          "items": {
+            "$ref": "#/$defs/CodeReference"
+          },
+          "maxItems": 16,
+          "title": "Codereferences",
+          "type": "array"
+        },
+        "candidateId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Candidateid",
+          "type": "string"
+        },
+        "findingId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Findingid",
+          "type": "string"
+        },
+        "validationModelCallId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Validationmodelcallid",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "VERIFIED",
+            "RISK",
+            "SUGGESTION"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "validationSummary": {
+          "$ref": "#/$defs/ValidationSummary"
+        },
+        "contributions": {
+          "items": {
+            "$ref": "#/$defs/FindingContribution"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Contributions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passId",
+        "category",
+        "title",
+        "claim",
+        "severity",
+        "confidence",
+        "reasoningSummary",
+        "suggestion",
+        "claimKind",
+        "evidenceIds",
+        "codeReferences",
+        "candidateId",
+        "findingId",
+        "validationModelCallId",
+        "disposition",
+        "validationSummary",
+        "contributions"
+      ],
+      "title": "MultipassFinding",
+      "type": "object"
+    },
+    "MultipassPassResult": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "selected": {
+          "title": "Selected",
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "COMPLETED",
+            "INCOMPLETE",
+            "SKIPPED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "scopeKind": {
+          "enum": [
+            "FINAL_FILES",
+            "FIXED_DIFF"
+          ],
+          "title": "Scopekind",
+          "type": "string"
+        },
+        "checkedScope": {
+          "items": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 128,
+          "title": "Checkedscope",
+          "type": "array"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "limitations": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Limitations",
+          "type": "array"
+        },
+        "incompleteReasons": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Incompletereasons",
+          "type": "array"
+        },
+        "skipReason": {
+          "anyOf": [
+            {
+              "enum": [
+                "USER_NOT_SELECTED",
+                "RUN_BUDGET_EXHAUSTED"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Skipreason"
+        },
+        "unvalidatedCandidates": {
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Unvalidatedcandidates",
+          "type": "integer"
+        },
+        "findingIds": {
+          "items": {
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Findingids",
+          "type": "array"
+        },
+        "usage": {
+          "$ref": "#/$defs/MultipassUsage"
+        }
+      },
+      "required": [
+        "passId",
+        "selected",
+        "status",
+        "scopeKind",
+        "checkedScope",
+        "coverage",
+        "limitations",
+        "incompleteReasons",
+        "skipReason",
+        "unvalidatedCandidates",
+        "findingIds",
+        "usage"
+      ],
+      "title": "MultipassPassResult",
+      "type": "object"
+    },
+    "MultipassUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "modelCalls": {
+          "maximum": 300,
+          "minimum": 0,
+          "title": "Modelcalls",
+          "type": "integer"
+        },
+        "inputTokens": {
+          "maximum": 78643200,
+          "minimum": 0,
+          "title": "Inputtokens",
+          "type": "integer"
+        },
+        "outputTokens": {
+          "maximum": 1228800,
+          "minimum": 0,
+          "title": "Outputtokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "modelCalls",
+        "inputTokens",
+        "outputTokens"
+      ],
+      "title": "MultipassUsage",
+      "type": "object"
+    },
+    "ReasoningSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Rule",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Trigger",
+          "type": "string"
+        },
+        "executionPath": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Executionpath",
+          "type": "string"
+        },
+        "assumptions": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "counterexamples": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Counterexamples",
+          "type": "array"
+        },
+        "conclusion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Conclusion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "trigger",
+        "executionPath",
+        "assumptions",
+        "counterexamples",
+        "conclusion"
+      ],
+      "title": "ReasoningSummary",
+      "type": "object"
+    },
+    "ReportDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "markdown": {
+          "maxLength": 65536,
+          "title": "Markdown",
+          "type": "string"
+        },
+        "byteSize": {
+          "maximum": 65536,
+          "minimum": 0,
+          "title": "Bytesize",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "markdown",
+        "byteSize"
+      ],
+      "title": "ReportDraft",
+      "type": "object"
+    },
+    "ReviewPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "planVersion": {
+          "const": "1.0",
+          "title": "Planversion",
+          "type": "string"
+        },
+        "selectedPasses": {
+          "items": {
+            "enum": [
+              "correctness",
+              "consistency",
+              "security",
+              "performance",
+              "architecture",
+              "testing"
+            ],
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Selectedpasses",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "executionBudget": {
+          "$ref": "#/$defs/ExecutionBudget"
+        },
+        "feeAuthorization": {
+          "$ref": "#/$defs/FeeAuthorization"
+        }
+      },
+      "required": [
+        "planVersion",
+        "selectedPasses",
+        "executionBudget",
+        "feeAuthorization"
+      ],
+      "title": "ReviewPlan",
+      "type": "object"
+    },
+    "UserInputReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "USER_INPUT",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceType",
+        "sha256"
+      ],
+      "title": "UserInputReference",
+      "type": "object"
+    },
+    "ValidationSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Basis",
+          "type": "string"
+        },
+        "counterexampleChecked": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Counterexamplechecked",
+          "type": "string"
+        },
+        "counterexampleHolds": {
+          "title": "Counterexampleholds",
+          "type": "boolean"
+        },
+        "assumptionsResolved": {
+          "title": "Assumptionsresolved",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "basis",
+        "counterexampleChecked",
+        "counterexampleHolds",
+        "assumptionsResolved"
+      ],
+      "title": "ValidationSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "resultVersion": {
+      "const": "3.0",
+      "title": "Resultversion",
+      "type": "string"
+    },
+    "resultId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Resultid",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Snapshotid",
+      "type": "string"
+    },
+    "manifestSha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Manifestsha256",
+      "type": "string"
+    },
+    "generatedAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Generatedat",
+      "type": "string"
+    },
+    "reviewPlan": {
+      "$ref": "#/$defs/ReviewPlan"
+    },
+    "coverageStatus": {
+      "enum": [
+        "SELECTED_COMPLETE",
+        "SELECTED_INCOMPLETE"
+      ],
+      "title": "Coveragestatus",
+      "type": "string"
+    },
+    "passResults": {
+      "items": {
+        "$ref": "#/$defs/MultipassPassResult"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "title": "Passresults",
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRecord"
+      },
+      "maxItems": 128,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/MultipassFinding"
+      },
+      "maxItems": 32,
+      "title": "Findings",
+      "type": "array"
+    },
+    "reportDraft": {
+      "$ref": "#/$defs/ReportDraft"
+    },
+    "diagnostics": {
+      "$ref": "#/$defs/MultipassDiagnostics"
+    }
+  },
+  "required": [
+    "resultVersion",
+    "resultId",
+    "runId",
+    "snapshotId",
+    "manifestSha256",
+    "generatedAt",
+    "reviewPlan",
+    "coverageStatus",
+    "passResults",
+    "evidence",
+    "findings",
+    "reportDraft",
+    "diagnostics"
+  ],
+  "title": "ReviewResultV3",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-result-v3.schema.json"
+}

@@ -361,3 +361,12 @@ Provider档案仍引用已核对的官方1M容量来源，256K为本平台自定
 ## 2026-10-13 局部句柄协议（冻结43）
 
 真实入口State3.0：平台s/e/c，模型n仅本批；同批新Evidence+Candidate可COMPLETE。Registry绑定Run/Snapshot且保存观察范围/原Source和UUID映射，模型用局部选择、验证c专属s原文，平台解析回既有内部UUID/FactCheck。Evidence批事务与Checkpoint独立，精确确认后才采用，失确认停止不重分配/重放。半行/未展示/转存预览/脱敏/候选专属与修正门禁保留；纯文本压缩不建映射。内部Schema及fixtures独立，外部Result2.0、Java/UI字段不变；256K与字节/集合限额不扩大。旧State2严格读取、Fake不迁移，生产无自动旧Run续跑。交付与新鲜证据见docs/review-harness-batch-5-local-handles.md；仅离线、未提交/推送、不进入批次6。
+
+
+## 2026-10-13 批次6A1：Result3.0独立协议
+
+多Pass结果保持Run/Snapshot/hash/UTC及1MiB Envelope边界，六维固定顺序；selected、SKIPPED理由和SELECTED_COMPLETE/INCOMPLETE显式保存。没有材料可INCOMPLETE但不伪造checkedScope/FULL。3.0不放宽2.0单correctness约束。全RunEvidence128/Candidate32仍共享；已交付贡献candidateIds加未验证计数不乘六。
+
+Finding贡献记录保留passId/candidateId/evidenceIds/codeReferences/原disposition/validationModelCallId，primary取固定Pass顺序后candidateId字典序，展示不将同一合并项重复生成多条Finding。引用与主判断一致性校验不是模型根因去重证明；可信候选比较与实际去重编排在6A3。报告按结构六维/primary Finding确定性生成，并对UTF-8大小和内容校验；没有模型润色调用。
+
+feeSummary为精确微元管理摘要，不是Provider账单。overrunMicros保留单次预留超额累积，即便尚未突破Run授权总額；有效Usage结算/预留可靠性由6A2账本证明，6A1仅字段与一致性约束。不因新协议改变Evidence/半行/来源身份/取消/资源释放/终态事务。历史public偏差、同模型局限、256K/POSIX未验与超窗恢复DISABLED仍保留。

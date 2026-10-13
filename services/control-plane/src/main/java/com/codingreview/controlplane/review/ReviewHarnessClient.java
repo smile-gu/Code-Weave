@@ -95,6 +95,14 @@ public final class ReviewHarnessClient implements AutoCloseable {
             throw new ReviewException("REVIEW_HARNESS_NOT_READY");
     }
 
+    public void requireMultipassCompatibility() {
+        requireAvailable();
+        Response response = request("GET", "/review-capabilities?protocolVersion=1.1", null, 65536);
+        if (response.status() != 200) throw new ReviewException("REVIEW_HARNESS_NOT_READY");
+        ReviewPlan.requireCompatibility(ReviewJson.parse(response.bytes()),
+                executionMode == null ? "SIMULATED" : executionMode);
+    }
+
     public Response status(UUID run) {
         return request("GET", "/review-runs/" + run, null, 65536);
     }

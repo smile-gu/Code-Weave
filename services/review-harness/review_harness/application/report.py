@@ -49,3 +49,22 @@ def render_report(pass_result, findings):
                 f"\n- {display(ref.path)} ({ref.side}, lines {ref.startLine}-{ref.endLine})\n"
             )
     return ReportDraft(markdown="".join(parts), byteSize=size)
+
+
+def render_multipass_report(pass_results, findings, coverage_status):
+    """Render each dimension, and each deduplicated finding at its primary pass."""
+    parts = ["# Multi-pass review draft\n\n", f"Coverage: {coverage_status}.\n\n"]
+    for result in pass_results:
+        parts.append(
+            f"Selected: {str(result.selected).lower()}; skipReason: {result.skipReason or 'NONE'}.\n\n"
+        )
+        section = render_report(
+            result, [f for f in findings if f.passId == result.passId]
+        ).markdown
+        parts.append(
+            section.replace("# Correctness review draft", "## " + result.passId, 1)
+        )
+    markdown = "".join(parts)
+    if len(markdown.encode("utf-8")) > 65536:
+        raise graph_error("REVIEW_REPORT_LIMIT_EXCEEDED")
+    return ReportDraft(markdown=markdown, byteSize=len(markdown.encode("utf-8")))

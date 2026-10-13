@@ -97,3 +97,12 @@ Provider档案仍引用已核对的官方1M容量来源，256K为本平台自定
 ## 2026-10-13 局部句柄协议（冻结43）
 
 真实入口State3.0：平台s/e/c，模型n仅本批；同批新Evidence+Candidate可COMPLETE。Registry绑定Run/Snapshot且保存观察范围/原Source和UUID映射，模型用局部选择、验证c专属s原文，平台解析回既有内部UUID/FactCheck。Evidence批事务与Checkpoint独立，精确确认后才采用，失确认停止不重分配/重放。半行/未展示/转存预览/脱敏/候选专属与修正门禁保留；纯文本压缩不建映射。内部Schema及fixtures独立，外部Result2.0、Java/UI字段不变；256K与字节/集合限额不扩大。旧State2严格读取、Fake不迁移，生产无自动旧Run续跑。交付与新鲜证据见docs/review-harness-batch-5-local-handles.md；仅离线、未提交/推送、不进入批次6。
+
+
+## 批次6A1增量（协议基础，运行尚未启用）
+
+新增自包含严格Schema：review-plan-v1、review-pass-result-v3、review-execution-contract-v2、review-capabilities-v2、review-harness-create-run-v1.1、review-harness-result-v3。生成入口为Python服务目录`python -m tests.export_multipass_contracts`；正反例独立位于contracts/fixtures/review-multipass-v1/examples.json，旧fixtures与Schema不改。
+
+executionBudget单位全部秒，冻结300/2000/10调用与120/1800/10800/600时限；Plan选择非空/唯一/固定顺序，无Python缺省选择。maxAmount为正的人民币十进制定点字符串（最多6位小数、12位整数，适配微元int64管理表示），金额摘要为整数微元；不接受float/指数/零/负数。授权时间UTC微秒，价格ID/digest只证明引用形状，价格资料有效性须6A2核实，不将fixture占位价格当生产认证。
+
+Schema无法单独证明跨实体身份/时间/用量/谱系/权限，Python与Java模型追加同一业务门禁。旧Result2.0读端拒绝3.0，不以单Pass约束松绑模拟新版本。1.1当前明确NOT_READY并拒绝创建，待费用与执行器完整接通才开放；不凭计划2000授权真实测试。

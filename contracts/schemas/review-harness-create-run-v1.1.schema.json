@@ -1,0 +1,253 @@
+{
+  "$defs": {
+    "ExecutionBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "maxModelCallsPerPass": {
+          "const": 300,
+          "title": "Maxmodelcallsperpass",
+          "type": "integer"
+        },
+        "maxModelCallsPerRun": {
+          "const": 2000,
+          "title": "Maxmodelcallsperrun",
+          "type": "integer"
+        },
+        "maxDedupCalls": {
+          "const": 10,
+          "title": "Maxdedupcalls",
+          "type": "integer"
+        },
+        "requestTimeoutSeconds": {
+          "const": 120,
+          "title": "Requesttimeoutseconds",
+          "type": "integer"
+        },
+        "passTimeoutSeconds": {
+          "const": 1800,
+          "title": "Passtimeoutseconds",
+          "type": "integer"
+        },
+        "runTimeoutSeconds": {
+          "const": 10800,
+          "title": "Runtimeoutseconds",
+          "type": "integer"
+        },
+        "summaryTimeoutSeconds": {
+          "const": 600,
+          "title": "Summarytimeoutseconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "maxModelCallsPerPass",
+        "maxModelCallsPerRun",
+        "maxDedupCalls",
+        "requestTimeoutSeconds",
+        "passTimeoutSeconds",
+        "runTimeoutSeconds",
+        "summaryTimeoutSeconds"
+      ],
+      "title": "ExecutionBudget",
+      "type": "object"
+    },
+    "FeeAuthorization": {
+      "additionalProperties": false,
+      "properties": {
+        "authorizationId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Authorizationid",
+          "type": "string"
+        },
+        "currency": {
+          "const": "CNY",
+          "title": "Currency",
+          "type": "string"
+        },
+        "maxAmount": {
+          "maxLength": 20,
+          "pattern": "^(?:[1-9][0-9]{0,11}(?:\\.[0-9]{1,6})?|0\\.(?!0{1,6}$)[0-9]{1,6})$",
+          "title": "Maxamount",
+          "type": "string"
+        },
+        "confirmedAt": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "title": "Confirmedat",
+          "type": "string"
+        },
+        "priceProfileId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Priceprofileid",
+          "type": "string"
+        },
+        "priceProfileDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Priceprofiledigest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authorizationId",
+        "currency",
+        "maxAmount",
+        "confirmedAt",
+        "priceProfileId",
+        "priceProfileDigest"
+      ],
+      "title": "FeeAuthorization",
+      "type": "object"
+    },
+    "Input": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "Input",
+      "type": "object"
+    },
+    "MultipassExecutionContract": {
+      "additionalProperties": false,
+      "properties": {
+        "executionMode": {
+          "enum": [
+            "REAL",
+            "SIMULATED"
+          ],
+          "title": "Executionmode",
+          "type": "string"
+        },
+        "resultVersion": {
+          "const": "3.0",
+          "title": "Resultversion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "executionMode",
+        "resultVersion"
+      ],
+      "title": "MultipassExecutionContract",
+      "type": "object"
+    },
+    "ReviewPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "planVersion": {
+          "const": "1.0",
+          "title": "Planversion",
+          "type": "string"
+        },
+        "selectedPasses": {
+          "items": {
+            "enum": [
+              "correctness",
+              "consistency",
+              "security",
+              "performance",
+              "architecture",
+              "testing"
+            ],
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Selectedpasses",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "executionBudget": {
+          "$ref": "#/$defs/ExecutionBudget"
+        },
+        "feeAuthorization": {
+          "$ref": "#/$defs/FeeAuthorization"
+        }
+      },
+      "required": [
+        "planVersion",
+        "selectedPasses",
+        "executionBudget",
+        "feeAuthorization"
+      ],
+      "title": "ReviewPlan",
+      "type": "object"
+    },
+    "Snapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "snapshotId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Snapshotid",
+          "type": "string"
+        },
+        "manifestSha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Manifestsha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "manifestSha256"
+      ],
+      "title": "Snapshot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "const": "1.1",
+      "title": "Protocolversion",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "codingSessionId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Codingsessionid",
+      "type": "string"
+    },
+    "reviewThreadId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Reviewthreadid",
+      "type": "string"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/Snapshot"
+    },
+    "input": {
+      "$ref": "#/$defs/Input"
+    },
+    "executionContract": {
+      "$ref": "#/$defs/MultipassExecutionContract"
+    },
+    "reviewPlan": {
+      "$ref": "#/$defs/ReviewPlan"
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "runId",
+    "codingSessionId",
+    "reviewThreadId",
+    "snapshot",
+    "input",
+    "executionContract",
+    "reviewPlan"
+  ],
+  "title": "CreateRunV11",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-create-run-v1.1.schema.json"
+}

@@ -15,7 +15,9 @@ public final class ReviewWireSchemas {
             "review-execution-contract-v1", "review-capabilities-v1",
             "review-provider-request-v1", "review-provider-response-v1",
             "review-provider-call-mapping-v1", "review-model-call-v1",
-            "review-harness-result-v2", "review-graph-state-v2");
+            "review-harness-result-v2", "review-graph-state-v2",
+            "review-plan-v1", "review-pass-result-v3", "review-execution-contract-v2",
+            "review-capabilities-v2", "review-harness-create-run-v1.1", "review-harness-result-v3");
     private static final Map<String, JsonSchema> CACHE = new ConcurrentHashMap<>();
 
     private ReviewWireSchemas() {}

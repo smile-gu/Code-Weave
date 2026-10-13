@@ -84,7 +84,7 @@ public final class ReviewResultV2 {
                 && markdown.equals(value.path("reportDraft").path("markdown").asText()));
     }
 
-    private static void source(JsonNode ref) {
+    static void source(JsonNode ref) {
         if (ref.has("path")) ReviewPaths.portable(ref.path("path").asText());
         if (ref.has("startLine")) require(ref.path("endLine").asLong() >= ref.path("startLine").asLong());
     }
@@ -97,7 +97,7 @@ public final class ReviewResultV2 {
         return text;
     }
 
-    private static String render(JsonNode pass, JsonNode findings) {
+    static String render(JsonNode pass, JsonNode findings) {
         StringBuilder text = new StringBuilder("# Correctness review draft\n\n");
         text.append("Status: ").append(pass.path("status").asText()).append("; scope: ")
                 .append(pass.path("scopeKind").asText("FINAL_FILES")).append("; coverage: ")

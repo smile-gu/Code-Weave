@@ -4,11 +4,12 @@ from fastapi import APIRouter, Request
 from pydantic import ValidationError
 from starlette.responses import Response
 
-from review_harness.api.dto import CreateRun
+from review_harness.api.dto import CreateRun, CreateRunV11
 from review_harness.api.sse import BoundedStreamingResponse, parse_cursor, stream_events
 from review_harness.application.readiness import readiness, real_failures
 from review_harness.domain.model import HarnessError, canonical, valid_uuid
 from review_harness.domain.model_call import ReviewCapabilities
+from review_harness.domain.multipass import MultipassCapabilities
 from review_harness.domain.provider import strict_json
 
 router = APIRouter(prefix="/internal/v1")
@@ -48,9 +49,15 @@ async def create_run(request: Request):
         if (
             isinstance(value, dict)
             and isinstance(value.get("protocolVersion"), str)
-            and value["protocolVersion"] != "1.0"
+            and value["protocolVersion"] not in {"1.0", "1.1"}
         ):
             raise HarnessError("PROTOCOL_VERSION_UNSUPPORTED", 400, "协议版本不受支持")
+        if isinstance(value, dict) and value.get("protocolVersion") == "1.1":
+            CreateRunV11.model_validate(value)
+            # Contract-only slice: no fee ledger/multipass executor exists yet.
+            raise HarnessError(
+                "EXECUTION_CONTRACT_UNSUPPORTED", 400, "多Pass运行尚未启用"
+            )
         dto = CreateRun.model_validate(value)
     except (ValidationError, ValueError, UnicodeError):
         raise HarnessError(
@@ -137,6 +144,22 @@ async def graph_capabilities(request: Request):
 
 @router.get("/review-capabilities")
 async def review_capabilities(request: Request):
+    version = request.query_params.get("protocolVersion", "1.0")
+    if version == "1.1":
+        value = MultipassCapabilities(
+            protocolVersion="1.1",
+            configuredContract={
+                "executionMode": request.app.state.settings.execution_mode,
+                "resultVersion": "3.0",
+            },
+            planVersions=["1.0"],
+            feeReservation="NOT_READY",
+            status="NOT_READY",
+            failureCodes=["MULTIPASS_RUNTIME_NOT_READY"],
+        )
+        return json_response(value.model_dump())
+    if version != "1.0":
+        raise HarnessError("PROTOCOL_VERSION_UNSUPPORTED", 400, "协议版本不受支持")
     _, ready = await readiness(request.app)
     value = ReviewCapabilities.model_validate(
         {

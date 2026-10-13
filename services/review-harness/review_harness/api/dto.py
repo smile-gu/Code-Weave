@@ -1,8 +1,9 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
 from review_harness.domain.model_call import ExecutionContract
+from review_harness.domain.multipass import MultipassExecutionContract, ReviewPlan
 
 UUIDString = Annotated[
     str,
@@ -41,3 +42,14 @@ class CreateRun(StrictDTO):
     snapshot: Snapshot
     input: Input
     executionContract: ExecutionContract | None = None
+
+
+class CreateRunV11(StrictDTO):
+    protocolVersion: Literal["1.1"]
+    runId: UUIDString
+    codingSessionId: UUIDString
+    reviewThreadId: UUIDString
+    snapshot: Snapshot
+    input: Input
+    executionContract: MultipassExecutionContract
+    reviewPlan: ReviewPlan
