@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "modelCallId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Modelcallid",
+      "type": "string"
+    },
+    "toolCallId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Toolcallid",
+      "type": "string"
+    },
+    "providerToolCallId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Providertoolcallid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "modelCallId",
+    "toolCallId",
+    "providerToolCallId"
+  ],
+  "title": "ProviderCallMapping",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-provider-call-mapping-v1.schema.json"
+}

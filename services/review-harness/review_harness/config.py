@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -13,11 +14,18 @@ class Settings(BaseSettings):
     port: int = Field(default=8091, ge=1, le=65535)
     database_url: str = "sqlite+aiosqlite:///review-harness.sqlite"
     checkpoint_database_url: str | None = None
-    graph_max_steps: int = Field(default=16, ge=1, le=16)
+    execution_mode: Literal["SIMULATED", "REAL"] = "SIMULATED"
+    budget_policy_version: Literal["deepseek-compatible-budget-v2"] = (
+        "deepseek-compatible-budget-v2"
+    )
+    deepseek_api_key: SecretStr | None = None
+    deepseek_asset_root: Path | None = None
+    run_timeout_seconds: float = Field(default=180, gt=0, le=180)
+    graph_max_steps: int = Field(default=64, ge=1, le=160)
     graph_max_model_calls: int = Field(default=16, ge=1, le=16)
     compaction_attempts: int = Field(default=2, ge=1, le=2)
     compaction_max_successes: int = Field(default=8, ge=1, le=8)
-    model_timeout_seconds: float = Field(default=10, gt=0, le=120)
+    model_timeout_seconds: float = Field(default=45, gt=0, le=120)
     internal_bearer_token: SecretStr
     snapshot_root: Path
     artifact_root: Path
@@ -39,6 +47,13 @@ class Settings(BaseSettings):
     sse_page_size: int = Field(default=100, ge=1, le=1000)
     sse_heartbeat_seconds: float = Field(default=5, gt=0, le=60)
     shutdown_grace_seconds: float = Field(default=5, gt=0, le=60)
+
+    @property
+    def execution_contract(self):
+        return {
+            "executionMode": self.execution_mode,
+            "resultVersion": "2.0" if self.execution_mode == "REAL" else "1.0",
+        }
 
     @model_validator(mode="after")
     def separate_absolute_roots(self):

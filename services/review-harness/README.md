@@ -33,7 +33,7 @@ $env:CODE_WEAVE_REVIEW_INTERNAL_BEARER_TOKEN = [System.Net.NetworkCredential]::n
 
 数据库目录必须已存在。Snapshot Root 必须可读，Execution Root 必须可读写；三个绝对根（含 Artifact Root）互不包含、拒绝链接/reparse别名，且位于真实仓库外。PENDING 不读取 Snapshot 内容；取得 RUNNING + ACTIVE 后先可靠保存执行空间意图，再校验原始 Manifest 摘要、内容并创建独立副本。数据库 Schema 缺失/不兼容、物理损坏、恢复失败时服务返回 NOT_READY，启动不会自动迁移或修补 Schema。
 
-Schema 检查同时验证 Alembic revision 和Run/Event/Result 与 execution_workspaces 和 review_artifacts 五张表的全部必需列，空库也执行检查。Session 保护在创建和取得执行权的写事务中核验：同 Session 存在损坏历史或 UNCERTAIN 资源时，已排队任务也不能启动。被阻断任务保留 PENDING/ACCEPTED；确认资源安全后通过同请求重试或下一次恢复重新排队，其他 Session 继续服务。
+Schema 检查同时验证 Alembic revision，以及 Run/Event/Result、execution_workspaces、review_artifacts、review_model_calls、review_evidence 七张表的全部必需列，空库也执行检查。Session 保护在创建和取得执行权的写事务中核验：同 Session 存在损坏历史或 UNCERTAIN 资源时，已排队任务也不能启动。被阻断任务保留 PENDING/ACCEPTED；确认资源安全后通过同请求重试或下一次恢复重新排队，其他 Session 继续服务。
 
 ## 配置
 
@@ -87,7 +87,7 @@ RunStore 每个命令在 `BEGIN IMMEDIATE` 事务内执行条件状态更新、�
 
 模拟器只有三个有界阶段，结果中的 Pass/Evidence/Finding 与 Markdown 全为空，成功不代表代码审查通过。目录、复制线程和句柄现在是真实资源：后台任务未退出、owner 不符、链接替换或清理未知，必须保留 RETAINED 与 FAILED + UNCERTAIN。重启先建立 Session 隔离并验证资源归属，再可靠清理；无法归属的目录或资源行使全服务 NOT_READY，原始文件保留。
 
-升级旧库必须显式执行 `alembic upgrade head` 到 `0004_context_artifacts`。未升级的库不会启动 Worker；旧 0001 migration 和 Run/Event/Result Wire 不变。Snapshot 不自动 GC，Run 结束只清理自己的执行副本。
+升级旧库必须显式执行 `alembic upgrade head` 到 `0006_evidence`。未升级的库不会启动 Worker；旧 0001 migration 不变，Result 1.0 仍仅为模拟空包，真实结果使用 2.0。Snapshot 不自动 GC，Run 结束只清理自己的执行副本。
 
 ## 代码组织
 
@@ -134,3 +134,63 @@ Java 采集当前拒绝 Git 可见文件的有效 filter 属性（clean/process�
 识别到credential引号值时，转义引号不结束值；缺少结束引号（原输入或捕获截断）会保守遮蔽剩余捕获内容并保留LF数量，可能连带隐藏后续普通文本。非credential赋值保持原样且不阻挡后续credential识别。不通过扩大捕获预算寻找结束引号。
 
 Artifact文件发布使用同卷CREATE_NEW目录和不覆盖hardlink内容发布，立即移除staging链接；不与Snapshot/执行副本共享inode，文件系统不支持该原语时失败，不降级覆盖。临时或发布失败的文件保留为不可查询诊断材料并继续计费；没有活动线程不等于文件被删除。线程/句柄未停止则Workspace清理不能声明资源安全。启动最多核验64条Artifact元数据且设10秒诊断窗口；每次请求仍完整校验材料，坏Artifact不阻断其他Run。
+
+## 批次 5 单 Pass 审查
+
+5A–5C 已接通显式真实模式、固定输入 correctness 调查及只读草稿，详细验收见
+[批次 5 开发记录](../../docs/review-harness-batch-5-development-handoff.md)。
+默认 `SIMULATED + resultVersion=1.0`。真实模式显式设置
+`CODE_WEAVE_REVIEW_EXECUTION_MODE=REAL`、独立
+`CODE_WEAVE_REVIEW_CHECKPOINT_DATABASE_URL` 与进程本地
+`CODE_WEAVE_REVIEW_DEEPSEEK_API_KEY`。Java 配置 `code-weave.review.execution-mode=REAL`。
+资产、能力、密钥、Checkpoint 缺失或存在持久计量漂移时，Readiness 为 NOT_READY，
+拒绝预留和模型请求；不自动降级。不要把密钥写进命令历史、文档或 Git。
+`GET /internal/v1/review-capabilities` 通过内部认证返回当前模式与版本。
+创建请求可显式携带 `executionContract`，不兼容的组合在预留 Run 前拒绝；
+旧请求省略该字段仍表示模拟。旧 Result 1.0 的三个数组严格为空。
+
+`0005_model_calls` 保存有界调用事实，`0006_evidence` 保存不可变来源事实。
+Readiness 检查全部七张核心表及必需列。重启不重发模型调用，也不从 Checkpoint 续跑。
+真实执行复用既有 ToolGateway；Evidence 实际重读固定材料，独立候选验证不能自报直通。
+Supervisor 确认本地资源释放后，RunStore 原子提交 Result 2.0、SUCCEEDED 与事件。
+COMPLETED 仅指明确的有限检查范围，INCOMPLETE 明示预算、覆盖和验证限制。
+
+Java `GET /api/v1/coding-sessions/{sessionId}/review-runs/{runId}/result` 读取可靠导入的原始结果，
+不重新采集实时 Diff 或调度模型。`.../evidence/{evidenceId}/materials` 经归属检查转发到
+Python 认证、完整性校验与脱敏读取接口。前端只显示草稿，没有审批/编辑/Handoff。
+
+本批离线回归使用脚本 Provider 与真实临时数据库、文件和 HTTP socket；这不能代替
+真实 DeepSeek 审查质量验证。真实付费小样必须单独授权；POSIX 尚未验收。
+
+
+## 2026-10-12 兼容型 Token 预算（冻结稿40）
+
+此项替代任何输入低估立即全局阻断的旧规则。DeepSeek 策略 deepseek-compatible-budget-v1：完整请求 E，U=max(1024,ceil(E/10))，C=E+U；C≤27648 才发送，软水位比较 C。所有真实调用目的共用策略，Run 内不按 Usage 学习或放宽。
+
+E<A≤C 告警 INPUT_ESTIMATE_UNDERCOUNT；C<A≤27648 告警 INPUT_ESTIMATE_RESERVE_EXCEEDED。告警绑定 ModelCall 并发布认证可读 SYSTEM Artifact，保存 E/C/A/差值/版本，不复制模型正文。A>27648 或实际总量>32768 时先保存 Usage，再停止，不执行返回工具。旧 PROVIDER_TOKEN_METER_DRIFT 字节保留，但不再毒化 Readiness；坏资产、资源 UNCERTAIN 等保护保留。
+
+真实 Context Manifest 写严格 1.1（新增 C/U/policyVersion），1.0 历史严格读取；ModelCall v1 新字段可选，历史缺省字段不补 null 重写。Result2.0 与 Java/UI 报告合同未变。没有已确认稳定结构化超窗错误码，生产恢复 DISABLED，仅严格分类接口 Mock；HTTP400/超时不自动重发。余量是工程策略，不保证误差最坏界；Tokenizer/DSML 不改。
+
+本轮只离线，具体新鲜证据见 docs/review-harness-batch-5-compatible-token-budget.md；旧全量、Java/UI 与真实验收不能代替本轮证据。
+
+
+## 2026-10-12 用户调整：取消工具累计硬上限，默认256K窗口
+
+用户明确取消所有工具累计次数的限制，并要求提高Token预算，随后指定默认256K与接近大窗口前压缩。此授权替代冻结25/40中的32次工具及32K操作窗口；不修改其他安全边界，不进入批次6。
+
+当前策略deepseek-compatible-budget-v2：W=262144（256×1024），O=4096，P=1024，B=257024。U仍max(1024,ceil(E/10))，C=E+U；C≤B才发送。已存在闭合可压缩历史且C>0.8B时自动压缩；80%为工程软水位，不等到耗尽窗口。边界C205619无需压缩，C205620触发；E233658+C余量可恰好放入B，E233659拒绝。摘要、调查、提交和验证共用，压缩须严格减少Token且最终预算内，平台锚点/配对/Checkpointer保护保留。
+
+Provider档案仍引用已核对的官方1M容量来源，256K为本平台自定操作窗口，不宣称重新认证Provider最大容量。本文不把用户Codex 500K/475K的5%显示差异当作已知实现依据；本次官方配置文档无法读取，原因未确认。余量不是数学保证，超窗恢复保持DISABLED。
+
+取消graph_max_tool_calls配置和Context的累计次数阻断；State2.0的toolCallCount与providerCallMappings去除总量数值约束，仍非负/唯一/实际计数一致。每响应最多8工具、模型调用16、图步/墙钟、Token、输出与Checkpoint字节等现有限制不变，故“不限制工具总数”不等于无限时长或无限模型请求。旧32/64配置不再支持，新启动不得继续使用旧参数。工具预算耗尽的既有分支不再从新生产入口触发，旧失败原事实保留。
+
+预算历史兼容：旧1.0/1.1 Manifest严格读取，新Manifest1.2绑定v2及B257024；旧ModelCall缺省字段/策略v1仍按旧B27648校验，不重写原字节。ModelCall新v2数值上限同步扩大。Result2.0结构不变，累计inputTokens最大范围扩大为16×262144，Python和共享Schema同步，Java仍使用同一Schema。旧真实Result保留，无手改不可变产物。Tokenizer、Evidence、候选、factChecks不改。
+
+真实烟测费用预留随新输入预算同步为每请求最坏0.546816元（现有峰值输入2、输出8元每百万的管理策略），16请求全量最坏8.749056元；不自动视作8元预算可承受全量最坏。本轮零API调用，下次付费必须基于最新价格、现有累计费用和逐请求预留重新核对，不重用旧1.409024元预留描述。
+
+离线回归新增超过64/80历史工具计数仍能规范续接与持久、40K输入及Usage、真正超预算先保存Usage再拒绝、Manifest版本/Schema、256K软水位、原ID配对和取消。最终新鲜矩阵结果完成后追加；中间64K运行不是最终256K证据。Java共享合同专项5通过，预算数值更改后已重跑。保持未提交、未推送，先离线复审。
+
+
+## 2026-10-13 局部句柄协议（冻结43）
+
+真实入口State3.0：平台s/e/c，模型n仅本批；同批新Evidence+Candidate可COMPLETE。Registry绑定Run/Snapshot且保存观察范围/原Source和UUID映射，模型用局部选择、验证c专属s原文，平台解析回既有内部UUID/FactCheck。Evidence批事务与Checkpoint独立，精确确认后才采用，失确认停止不重分配/重放。半行/未展示/转存预览/脱敏/候选专属与修正门禁保留；纯文本压缩不建映射。内部Schema及fixtures独立，外部Result2.0、Java/UI字段不变；256K与字节/集合限额不扩大。旧State2严格读取、Fake不迁移，生产无自动旧Run续跑。交付与新鲜证据见docs/review-harness-batch-5-local-handles.md；仅离线、未提交/推送、不进入批次6。

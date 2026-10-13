@@ -13,7 +13,9 @@
     "input"
   ],
   "properties": {
-    "protocolVersion": { "const": "1.0" },
+    "protocolVersion": {
+      "const": "1.0"
+    },
     "runId": {
       "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
     },
@@ -26,7 +28,10 @@
     "snapshot": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["snapshotId", "manifestSha256"],
+      "required": [
+        "snapshotId",
+        "manifestSha256"
+      ],
       "properties": {
         "snapshotId": {
           "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
@@ -39,10 +44,19 @@
     "input": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["message"],
+      "required": [
+        "message"
+      ],
       "properties": {
-        "message": { "type": "string", "minLength": 1, "maxLength": 32768 }
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768
+        }
       }
+    },
+    "executionContract": {
+      "$ref": "review-execution-contract-v1.schema.json"
     }
   }
 }

@@ -20,7 +20,7 @@ IDENTITY_FIELDS = frozenset(
 )
 
 
-def redact_structure(value):
+def redact_structure(value, *, preserve_identity=True):
     """Preserve JSON shape while applying the same value policy and key context."""
     changed = False
 
@@ -33,7 +33,7 @@ def redact_structure(value):
         if isinstance(item, dict):
             result = {}
             for key, content in item.items():
-                if key in IDENTITY_FIELDS:
+                if preserve_identity and key in IDENTITY_FIELDS:
                     # Platform source identities must remain usable anchors.
                     # Text bodies still receive the same redaction policy.
                     result[key] = content

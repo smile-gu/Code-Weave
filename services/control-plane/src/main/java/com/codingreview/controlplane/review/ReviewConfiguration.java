@@ -55,13 +55,14 @@ public class ReviewConfiguration {
     }
 
     @Bean(destroyMethod = "close")
-    ReviewHarnessClient reviewHarnessClient(ReviewProperties properties) {
+    ReviewHarnessClient reviewHarnessClient(ReviewProperties properties,
+            @org.springframework.beans.factory.annotation.Value("${code-weave.review.execution-mode:SIMULATED}") String executionMode) {
         return new ReviewHarnessClient(
                 properties.harnessBaseUrl(),
                 properties.internalBearerToken(),
                 properties.connectionTimeout(),
                 properties.requestTimeout(),
-                properties.sseIdleTimeout());
+                properties.sseIdleTimeout(), executionMode);
     }
 
     @Bean

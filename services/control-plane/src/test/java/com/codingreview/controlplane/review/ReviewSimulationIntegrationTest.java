@@ -159,6 +159,8 @@ class ReviewSimulationIntegrationTest {
                                     .resolve("content/context.txt"))
                     .hasContent("context");
             assertThat(source.resolve("context.txt")).hasContent("context");
+            assertThat(service.result(session.sessionId(), imported.runId())).containsExactly(store.result(imported));
+            assertThatThrownBy(() -> service.result(UUID.randomUUID(), imported.runId())).isInstanceOf(RuntimeException.class);
             // Two independent runs consume the fixed Snapshot without sharing writable files.
             var second = ReviewExecution.preparing(session.sessionId());
             var prior = publications.find(imported.snapshotId()).orElseThrow();

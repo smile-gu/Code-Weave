@@ -8,6 +8,7 @@ class ExecutionCancelled(WorkCancelled):
 
 
 class DeterministicExecutor:
+    expected_contract = {"executionMode": "SIMULATED", "resultVersion": "1.0"}
     """Three bounded phases, yielding only the frozen empty Result candidate."""
 
     async def execute(self, run, cancel: asyncio.Event):

@@ -274,4 +274,90 @@ Evidence/Finding 至少包括：`EVIDENCE_SOURCE_NOT_FOUND`、`EVIDENCE_SNAPSHOT
 
 本 ADR 冻结目标设计，不代表上述组件已经实现。
 
+## 批次 5 Evidence 专项补修（2026-10-11）
+
+模型不负责计算来源摘要。只读工具在 `data.evidenceReferences` 提供可复制的规范引用；
+旧 `sourceRefs` 继续用于 Context 的来源追踪。final 引用使用原始整文件摘要，
+Diff 引用使用原始整份 changes.diff 摘要和全文件物理 LF 行坐标，header/hunk marker 不可引用。
+Diff 页标明起止物理行与半行状态，投影和校验共用 hunk 解析器；半行须按连续 Cursor 拼接。
+当前不支持 base。原用户输入在固定 anchors 中给 USER_INPUT 引用及保守、有效的候选示例。
+
+Artifact ContentPage v1 扩展可选 coordinates：起止行与半行状态属于已存 Artifact，
+不能当作原源码的行号。分页仍按完整信封预算缩小正文，保存 Cursor，不递归 Spill。
+Artifact 捕获 FULL 和 Evidence 材料 FULL 含义不同：已有脱敏状态必须传递到材料覆盖，
+被脱敏材料不能作为 FULL Evidence 发布。
+
+整批提交先检查 Scope、Candidate 引用和全部材料，再用现有 Evidence 表单事务发布整批事实。
+提交丢确认后独立核对全部不可变记录；存储或 Checkpoint 不确定时停止，不重发模型。
+语义预校验失败没有部分事实。事实发布后的其他故障不进入语义重试，保留失败事实以供诊断。
+
+明确的 SubmissionIssue 才可纠错，与 JSON/Schema 错误共用现有最多两次纠错和总模型预算。
+模型引用摘要、行号、侧别、覆盖或已确认引用错误可给具体反馈；Snapshot/Artifact 篡改、
+存储失败、取消和未知资源仍立即阻断，不能以通用异常捕获继续。
+
+拒绝诊断复用认证、完整性校验、有界捕获的 SYSTEM TOOL_OUTPUT Artifact，保存调用 ID、
+提交摘要、索引、白名单字段路径、阶段、稳定原因及受控引用对象。未知路径隐藏，
+不保存原始提交、任意字段名、模型叙述或异常消息；诊断本身不能作为 CODE Evidence。
+诊断写失败保留原拒绝门禁并停止；成功诊断作为显式 Artifact 引用进入下一请求并计量。
+
 2026-10-10批次3落地：独立Artifact根与0003_artifacts迁移、认证分页、五工具统一授权、脱敏/预算/Spill和实际Future收敛；当前无跨Run继承，默认空Result不变。实现与局限见docs/review-harness-batch-3-development-handoff.md。
+
+
+## 批次 5 实施增量
+
+Result 2.0、CODE/DOMAIN_CONTEXT 来源判别、候选/验证/Pass 使用严格协议，Python 与 Java 读取同一自包含 Schema。0006_evidence 保存独立不可变事实；实际打开固定源码/物理 Diff/可信 TOOL Artifact，校验归属、摘要和行坐标。删除代码使用固定 Diff；未保存全量 base blob 时明确拒绝 base。先整文件脱敏，再选择坐标，防私钥中间行绕过。源码/Artifact 片段 16 KiB，原用户上下文 32 KiB，超限明确失败。
+
+Evidence/Candidate 锚点由平台确认后重新装配到上下文；Summary 和模型验证不生成 Evidence。候选通过独立验证及平台反例/假设/来源门禁，量化性能没有生产者只能 RISK 或拒绝。State 和 ToolGateway 统一 8 KiB 消费预算：大输出可靠转存，连续读完可信 Artifact 或源码页面才计完整覆盖，跳页/脱敏仍保留限制。最终 Evidence 副本与事实表逐项一致，调用/Artifact 引用和 usage 必须吻合，Markdown 由结构结果确定性生成。
+
+真实 Meter basis 为 V41_REFERENCE_LOCAL_TOKENS，固定来源/revision/hash/license；输入低估持久阻断，有限托管样例不等于全域精确认证。真实模式显式启用；本轮仅离线验收，实际付费和模型质量小样另行授权。
+
+更新日期：2026-10-11（批次 5 离线实施）
+
+收口校正：Artifact 是否完整捕获以原完整工具材料的摘要核对；读完截断 Artifact 不构成整文件
+覆盖。Finding 的确认目标锚点必须纳入交付 checkedScope，其他固定文件仍可用作上下文。
+观测 Usage 的整数边界是记账格式，不是发送预算；超操作窗口的实际输入同样进入持久漂移保护。
+
+
+2026-10-11 结构纠错补修：拒绝回复作为有界、脱敏的不可信历史保存，诊断本身仍不保存原提交。独立验证隔离视图及大回复的下一实际请求须包含完整脱敏回复和反馈，完整计量后保存 Manifest；无跨 Run 继承或重启重放。Schema 诊断最多 8 条白名单路径/错误类型，合法约束只取平台 Schema，不引用错误 ctx、未知字段名或原值。提交阶段明确先确认 Evidence ID 再提交候选，现有两次纠错、原子发布和所有来源门禁不变。见 docs/review-harness-batch-5-submission-correction-fix.md。
+
+
+## 2026-10-12 批次 5A 摘要协议局部收敛（冻结稿34）
+
+此项显式替代旧摘要模型输出summaryText/referencedArtifactIds/sourceRefs的要求。真实COMPACTION仅纯文本、无tools、无json_object；模型负责叙事，平台负责Summary结构来源。既有“摘要带来源”指持久Summary产物，不要求模型重新生成UUID/hash/来源对象。INVESTIGATION/VALIDATION及Evidence/Candidate/factChecks不变。
+
+平台从进入压缩前已确认State、前序有效Summary与闭合prefix结构引用去重合并，Summary和压缩后State共用受信集合。保留来源归属/hash、FULL发布、完整请求计量、Token严格下降、Checkpoint确认、取消与预算门禁；来源集合超限明确失败，不删锚点求成功。正文中的未知ID或JSON样式文本不注册来源或权限。
+
+正文脱敏后须非空，最多8192字符/16384 UTF-8字节；截断、工具调用、Usage/漂移异常仍拒绝，不自动重试/换模型。FakeAdapter协议独立，不要求真实子项返回模型引用。持久Summary/State及外部Result2.0结构不变，旧产物不改。细节与新鲜离线矩阵见 docs/review-harness-batch-5a-compaction-text-protocol.md；新模板尚无付费验收，旧JSON样例不认证新请求。Evidence/Candidate句柄不在本项冻结范围。
+
+
+## 2026-10-12 兼容型 Token 预算（冻结稿40）
+
+此项替代任何输入低估立即全局阻断的旧规则。DeepSeek 策略 deepseek-compatible-budget-v1：完整请求 E，U=max(1024,ceil(E/10))，C=E+U；C≤27648 才发送，软水位比较 C。所有真实调用目的共用策略，Run 内不按 Usage 学习或放宽。
+
+E<A≤C 告警 INPUT_ESTIMATE_UNDERCOUNT；C<A≤27648 告警 INPUT_ESTIMATE_RESERVE_EXCEEDED。告警绑定 ModelCall 并发布认证可读 SYSTEM Artifact，保存 E/C/A/差值/版本，不复制模型正文。A>27648 或实际总量>32768 时先保存 Usage，再停止，不执行返回工具。旧 PROVIDER_TOKEN_METER_DRIFT 字节保留，但不再毒化 Readiness；坏资产、资源 UNCERTAIN 等保护保留。
+
+真实 Context Manifest 写严格 1.1（新增 C/U/policyVersion），1.0 历史严格读取；ModelCall v1 新字段可选，历史缺省字段不补 null 重写。Result2.0 与 Java/UI 报告合同未变。没有已确认稳定结构化超窗错误码，生产恢复 DISABLED，仅严格分类接口 Mock；HTTP400/超时不自动重发。余量是工程策略，不保证误差最坏界；Tokenizer/DSML 不改。
+
+本轮只离线，具体新鲜证据见 docs/review-harness-batch-5-compatible-token-budget.md；旧全量、Java/UI 与真实验收不能代替本轮证据。
+
+
+## 2026-10-12 用户调整：取消工具累计硬上限，默认256K窗口
+
+用户明确取消所有工具累计次数的限制，并要求提高Token预算，随后指定默认256K与接近大窗口前压缩。此授权替代冻结25/40中的32次工具及32K操作窗口；不修改其他安全边界，不进入批次6。
+
+当前策略deepseek-compatible-budget-v2：W=262144（256×1024），O=4096，P=1024，B=257024。U仍max(1024,ceil(E/10))，C=E+U；C≤B才发送。已存在闭合可压缩历史且C>0.8B时自动压缩；80%为工程软水位，不等到耗尽窗口。边界C205619无需压缩，C205620触发；E233658+C余量可恰好放入B，E233659拒绝。摘要、调查、提交和验证共用，压缩须严格减少Token且最终预算内，平台锚点/配对/Checkpointer保护保留。
+
+Provider档案仍引用已核对的官方1M容量来源，256K为本平台自定操作窗口，不宣称重新认证Provider最大容量。本文不把用户Codex 500K/475K的5%显示差异当作已知实现依据；本次官方配置文档无法读取，原因未确认。余量不是数学保证，超窗恢复保持DISABLED。
+
+取消graph_max_tool_calls配置和Context的累计次数阻断；State2.0的toolCallCount与providerCallMappings去除总量数值约束，仍非负/唯一/实际计数一致。每响应最多8工具、模型调用16、图步/墙钟、Token、输出与Checkpoint字节等现有限制不变，故“不限制工具总数”不等于无限时长或无限模型请求。旧32/64配置不再支持，新启动不得继续使用旧参数。工具预算耗尽的既有分支不再从新生产入口触发，旧失败原事实保留。
+
+预算历史兼容：旧1.0/1.1 Manifest严格读取，新Manifest1.2绑定v2及B257024；旧ModelCall缺省字段/策略v1仍按旧B27648校验，不重写原字节。ModelCall新v2数值上限同步扩大。Result2.0结构不变，累计inputTokens最大范围扩大为16×262144，Python和共享Schema同步，Java仍使用同一Schema。旧真实Result保留，无手改不可变产物。Tokenizer、Evidence、候选、factChecks不改。
+
+真实烟测费用预留随新输入预算同步为每请求最坏0.546816元（现有峰值输入2、输出8元每百万的管理策略），16请求全量最坏8.749056元；不自动视作8元预算可承受全量最坏。本轮零API调用，下次付费必须基于最新价格、现有累计费用和逐请求预留重新核对，不重用旧1.409024元预留描述。
+
+离线回归新增超过64/80历史工具计数仍能规范续接与持久、40K输入及Usage、真正超预算先保存Usage再拒绝、Manifest版本/Schema、256K软水位、原ID配对和取消。最终新鲜矩阵结果完成后追加；中间64K运行不是最终256K证据。Java共享合同专项5通过，预算数值更改后已重跑。保持未提交、未推送，先离线复审。
+
+
+## 2026-10-13 局部句柄协议（冻结43）
+
+真实入口State3.0：平台s/e/c，模型n仅本批；同批新Evidence+Candidate可COMPLETE。Registry绑定Run/Snapshot且保存观察范围/原Source和UUID映射，模型用局部选择、验证c专属s原文，平台解析回既有内部UUID/FactCheck。Evidence批事务与Checkpoint独立，精确确认后才采用，失确认停止不重分配/重放。半行/未展示/转存预览/脱敏/候选专属与修正门禁保留；纯文本压缩不建映射。内部Schema及fixtures独立，外部Result2.0、Java/UI字段不变；256K与字节/集合限额不扩大。旧State2严格读取、Fake不迁移，生产无自动旧Run续跑。交付与新鲜证据见docs/review-harness-batch-5-local-handles.md；仅离线、未提交/推送、不进入批次6。

@@ -12,7 +12,12 @@ from review_harness.infrastructure.paths import storage_accessible
 
 
 def create_app(
-    settings: Settings | None = None, *, service=None, hub=None, executor=None
+    settings: Settings | None = None,
+    *,
+    service=None,
+    hub=None,
+    executor=None,
+    provider_transport=None,
 ) -> FastAPI:
     settings = settings or Settings()
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
@@ -25,6 +30,10 @@ def create_app(
     app.state.supervisor = None
     app.state.recovery_complete = False
     app.state.checkpoints = None
+    app.state.real_adapter = None
+    app.state.real_executor_ready = False
+    app.state.real_failure_code = None
+    app.state.provider_transport = provider_transport
     app.state.graph_capabilities = {
         "checkpoint": "DISABLED",
         "model": "TEST_ONLY",

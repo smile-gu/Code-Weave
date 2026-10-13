@@ -626,3 +626,12 @@ Review 活动、提交未知、事件/Result 导入未知或 `resourceState=UNCE
 并发测试不得依赖概率性 `sleep`。批次 1 不接真实模型、LangGraph、Tool、Memory 或 MCP。
 
 2026-10-10批次3：Artifact元数据及内容认证读取接口已落地，Java不直读Artifact文件，浏览器不直接调用Python。Run/Event/Result/Health已有Wire不变；新增工具协议见contracts/schemas/review-tool-*.schema.json。
+
+
+## 批次 5 协议增量
+
+创建请求的可选 executionContract 明确 executionMode/resultVersion，合法组合为 SIMULATED/1.0 与 REAL/2.0；省略仅表示旧模拟。认证 GET /internal/v1/review-capabilities 声明当前模式与启用门禁。默认模拟，REAL 必须显式设置密钥、固定计量资产、能力档案和独立 Checkpointer；Java 在预留前协商，不能自动降级。旧 Result 1.0 的数组/Markdown 严格为空。产品库显式升级 0006_evidence，Readiness 检查七张核心表及必需列。Supervisor 确认收尾后原子写入 Result 2.0、SUCCEEDED 与事件；Java 校验原始 hash/身份/时间/共享 Schema、跨引用和确定性 Markdown 后幂等导入。
+
+产品 GET /api/v1/coding-sessions/{sessionId}/review-runs/{runId}/result 只读已导入历史；不触发重新采集或调度。Evidence materials 经 Session/Run 归属及结果引用校验后代理到 Python 认证、安全读取和脱敏，不由 Java 直接读源码。前端报告是只读草稿，成功交付不是审批或全项目无 Bug 保证。真实付费/质量小样另行授权，离线实现与新鲜验收见 docs/review-harness-batch-5-development-handoff.md。
+
+更新日期：2026-10-11（批次 5 离线实施）

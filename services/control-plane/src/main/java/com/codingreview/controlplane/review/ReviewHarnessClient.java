@@ -32,6 +32,7 @@ public final class ReviewHarnessClient implements AutoCloseable {
     private final Duration requestTimeout, idleTimeout, roundTimeout;
     private final HttpClient http;
     private final Semaphore connections = new Semaphore(2);
+    private final String executionMode;
 
     public ReviewHarnessClient(
             URI base,
@@ -39,6 +40,14 @@ public final class ReviewHarnessClient implements AutoCloseable {
             Duration connectionTimeout,
             Duration requestTimeout,
             Duration idleTimeout) {
+        this(base, credential, connectionTimeout, requestTimeout, idleTimeout, null);
+    }
+
+    public ReviewHarnessClient(URI base, String credential, Duration connectionTimeout,
+            Duration requestTimeout, Duration idleTimeout, String executionMode) {
+        if (executionMode != null && !Set.of("SIMULATED", "REAL").contains(executionMode))
+            throw new IllegalArgumentException("Supported review execution mode required");
+        this.executionMode = executionMode;
         if (!Set.of("http", "https").contains(base.getScheme())
                 || !Set.of("127.0.0.1", "localhost", "[::1]", "::1").contains(base.getHost())
                 || base.getRawUserInfo() != null
@@ -66,6 +75,26 @@ public final class ReviewHarnessClient implements AutoCloseable {
             throw new ReviewException("REVIEW_HARNESS_NOT_READY");
     }
 
+    public Map<String, String> executionContract() {
+        String mode = executionMode == null ? "SIMULATED" : executionMode;
+        return Map.of("executionMode", mode, "resultVersion", mode.equals("REAL") ? "2.0" : "1.0");
+    }
+
+    public void requireExecutionCompatibility() {
+        requireAvailable();
+        // The original constructor remains the old 1.0 test/integration seam.
+        // Production configuration always supplies an explicit mode.
+        if (executionMode == null) return;
+        Response response = request("GET", "/review-capabilities", null, 65536);
+        if (response.status() != 200) throw new ReviewException("REVIEW_HARNESS_NOT_READY");
+        var value = ReviewJson.parse(response.bytes());
+        ReviewWireSchemas.validate("review-capabilities-v1", value);
+        if (!value.path("configuredContract").equals(ReviewJson.parse(ReviewJson.canonical(executionContract()))))
+            throw new ReviewException("EXECUTION_CONTRACT_UNSUPPORTED");
+        if (!value.path("status").asText().equals("READY") || !value.path("failureCodes").isEmpty())
+            throw new ReviewException("REVIEW_HARNESS_NOT_READY");
+    }
+
     public Response status(UUID run) {
         return request("GET", "/review-runs/" + run, null, 65536);
     }
@@ -86,6 +115,12 @@ public final class ReviewHarnessClient implements AutoCloseable {
                 response.bytes(),
                 response.headers().firstValue("X-Content-SHA256").orElse(""),
                 response.headers().firstValue("ETag").orElse(""));
+    }
+
+    public byte[] evidenceMaterials(UUID run, UUID evidence) {
+        Response response = request("GET", "/review-runs/" + run + "/evidence/" + evidence + "/materials", null, 1024 * 1024);
+        if (response.status() != 200) throw new ReviewException("REVIEW_EVIDENCE_NOT_AVAILABLE");
+        return response.bytes();
     }
 
     private HttpRequest.Builder builder(String path) {

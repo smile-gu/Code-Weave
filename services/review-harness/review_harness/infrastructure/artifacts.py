@@ -316,6 +316,20 @@ class ArtifactService:
                 if more
                 else None,
                 hasMore=more,
+                coordinates={
+                    "startLine": prefix.count("\n") + 1,
+                    "endLine": max(
+                        prefix.count("\n") + 1,
+                        prefix.count("\n")
+                        + 1
+                        + displayed.count("\n")
+                        - int(displayed.endswith("\n")),
+                    ),
+                    "startsMidLine": bool(prefix) and not prefix.endswith("\n"),
+                    "endsMidLine": more
+                    and bool(displayed)
+                    and not displayed.endswith("\n"),
+                },
             )
 
         limit = page_budget or self.settings.tool_output_bytes

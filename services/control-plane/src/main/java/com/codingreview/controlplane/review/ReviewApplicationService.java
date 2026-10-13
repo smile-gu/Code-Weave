@@ -85,6 +85,7 @@ public final class ReviewApplicationService {
                 || message.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 32768)
             throw new ReviewException("REVIEW_REQUEST_TOO_LARGE");
         client.requireAvailable();
+        client.requireExecutionCompatibility();
         ReviewExecution run;
         synchronized (locks.lock(sessionId)) {
             CodingSession session = active(sessionId);
@@ -114,7 +115,7 @@ public final class ReviewApplicationService {
                                 session.activeReviewBaselineCommit(),
                                 expected);
                 snapshots.save(publication);
-                run = run.submitting(publication, message);
+                run = run.submitting(publication, message, client.executionContract());
                 store.save(run);
             } catch (RuntimeException error) {
                 boolean safe =
@@ -155,6 +156,43 @@ public final class ReviewApplicationService {
     public List<ReviewExecution> list(UUID session, int limit) {
         requireSession(session);
         return store.list(session, limit);
+    }
+
+    /** Reads already imported bytes without rescheduling or touching the live repository. */
+    public byte[] result(UUID session, UUID run) {
+        requireSession(session);
+        ReviewExecution current = require(session, run);
+        if (!current.state().equals("COMPLETED")) throw new ReviewException("REVIEW_RESULT_NOT_AVAILABLE");
+        ReviewProtocol.persisted(store, current);
+        return store.result(current);
+    }
+
+    /** The owner-checked imported record controls which fixed materials may be viewed. */
+    public byte[] evidenceMaterials(UUID session, UUID run, UUID evidenceId) {
+        var result = ReviewJson.parse(result(session, run));
+        var record = java.util.stream.StreamSupport.stream(result.path("evidence").spliterator(), false)
+                .filter(item -> item.path("evidenceId").asText().equals(evidenceId.toString()))
+                .findFirst().orElseThrow(() -> new ReviewException("REVIEW_EVIDENCE_NOT_AVAILABLE"));
+        byte[] raw = client.evidenceMaterials(run, evidenceId);
+        var value = ReviewJson.parse(raw);
+        String code = "REVIEW_RESULT_INTEGRITY_ERROR";
+        ReviewProtocol.fields(value, Set.of("evidenceId", "runId", "snapshotId", "materials"), Set.of(), code);
+        if (!value.path("evidenceId").asText().equals(evidenceId.toString())
+                || !value.path("runId").asText().equals(run.toString())
+                || !value.path("snapshotId").equals(result.path("snapshotId"))
+                || !value.path("materials").isArray()
+                || value.path("materials").size() != record.path("sourceRefs").size()) throw new ReviewException(code);
+        for (int i = 0; i < value.path("materials").size(); i++) {
+            var material = value.path("materials").get(i);
+            int textLimit = material.path("sourceRef").path("sourceType").asText().equals("USER_INPUT") ? 32768 : 16384;
+            ReviewProtocol.fields(material, Set.of("sourceRef", "text", "coverage", "redactionState"), Set.of(), code);
+            if (!material.path("sourceRef").equals(record.path("sourceRefs").get(i))
+                    || !material.path("text").isTextual()
+                    || material.path("text").asText().getBytes(java.nio.charset.StandardCharsets.UTF_8).length > textLimit
+                    || !Set.of("FULL", "PARTIAL", "SAMPLED").contains(material.path("coverage").asText())
+                    || !Set.of("NONE", "APPLIED").contains(material.path("redactionState").asText())) throw new ReviewException(code);
+        }
+        return raw;
     }
 
     public ReviewExecution cancel(UUID session, UUID run) {

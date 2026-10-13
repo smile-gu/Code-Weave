@@ -10,8 +10,9 @@ import aiosqlite
 from langgraph.checkpoint.base import empty_checkpoint
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
-from review_harness.domain.graph import ReviewGraphState, graph_error
+from review_harness.domain.graph import graph_error
 from review_harness.domain.model import canonical, sha256, valid_uuid
+from review_harness.domain.real_graph import parse_state
 from review_harness.infrastructure.paths import safe_directory, safe_file
 
 
@@ -126,9 +127,7 @@ class Checkpoints:
                                 raise graph_error("CHECKPOINT_INTEGRITY_FAILED")
                         continue
                     raw = JsonSerializer().loads_typed((row[1], row[2]))
-                    previous = ReviewGraphState.model_validate(
-                        raw["channel_values"]["state"]
-                    )
+                    previous = parse_state(raw["channel_values"]["state"])
                     if previous.runId != state.runId:
                         raise ValueError("Checkpoint ownership mismatch")
                     await self.read(previous, row[0])
@@ -138,7 +137,7 @@ class Checkpoints:
                     raise graph_error("CHECKPOINT_INTEGRITY_FAILED") from None
 
     async def save(self, state):
-        state = ReviewGraphState.model_validate(state.model_dump())
+        state = parse_state(state.model_dump())
         if self.saver is None:
             raise graph_error("CHECKPOINT_UNAVAILABLE")
         self.assert_file()
@@ -201,9 +200,7 @@ class Checkpoints:
                 value = await saver.aget_tuple(self.config(expected, identity))
                 if value is None:
                     raise graph_error("CHECKPOINT_NOT_FOUND")
-                state = ReviewGraphState.model_validate(
-                    value.checkpoint["channel_values"]["state"]
-                )
+                state = parse_state(value.checkpoint["channel_values"]["state"])
                 metadata = value.metadata
                 if state.identity() != expected.identity():
                     raise graph_error("CHECKPOINT_IDENTITY_MISMATCH")

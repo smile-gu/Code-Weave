@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
 
-/** 本批仅后端模拟闭环，成功不表示代码审查通过。 */
+/** Fixed-input review and immutable draft history; delivery is not approval. */
 @RestController
 @RequestMapping("/api/v1/coding-sessions/{sessionId}")
 public final class ReviewController {
@@ -93,5 +93,19 @@ public final class ReviewController {
     public ResponseEntity<Map<String, Object>> cancel(
             @PathVariable UUID sessionId, @PathVariable UUID runId) {
         return ResponseEntity.accepted().body(service.cancel(sessionId, runId).wire());
+    }
+
+    @GetMapping(value = "/review-runs/{runId}/result", produces = "application/json")
+    public ResponseEntity<byte[]> result(@PathVariable UUID sessionId, @PathVariable UUID runId) {
+        byte[] raw = service.result(sessionId, runId);
+        return ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .header("ETag", "\"" + ReviewJson.sha256(raw) + "\"")
+                .header("Cache-Control", "no-store").body(raw);
+    }
+
+    @GetMapping(value = "/review-runs/{runId}/evidence/{evidenceId}/materials", produces = "application/json")
+    public ResponseEntity<byte[]> evidenceMaterials(@PathVariable UUID sessionId, @PathVariable UUID runId, @PathVariable UUID evidenceId) {
+        return ResponseEntity.ok().contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .header("Cache-Control", "no-store").body(service.evidenceMaterials(sessionId, runId, evidenceId));
     }
 }

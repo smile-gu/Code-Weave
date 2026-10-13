@@ -80,7 +80,7 @@ public final class ReviewProtocol {
         fields(value, Set.of("resultId", "resultVersion", "resultSha256"), Set.of(), code);
         require(
                 uuid(value.get("resultId"))
-                        && value.path("resultVersion").asText().equals("1.0")
+                        && Set.of("1.0", "2.0").contains(value.path("resultVersion").asText())
                         && hash(value.get("resultSha256")),
                 code);
     }
@@ -334,8 +334,11 @@ public final class ReviewProtocol {
                         "diagnostics"),
                 Set.of(),
                 code);
+        String expectedVersion = ReviewJson.parse(run.requestBytes())
+                .path("executionContract").path("resultVersion").asText("1.0");
         require(
-                value.path("resultVersion").asText().equals("1.0")
+                value.path("resultVersion").asText().equals(expectedVersion)
+                        && value.path("resultVersion").equals(status.path("result").path("resultVersion"))
                         && value.path("resultId")
                                 .asText()
                                 .equals(status.path("result").path("resultId").asText())
@@ -347,6 +350,11 @@ public final class ReviewProtocol {
                                 .equals(status.path("finishedAt").asText()),
                 code);
         timestamp(value.get("generatedAt"), code);
+        if (expectedVersion.equals("2.0")) {
+            ReviewResultV2.validate(value);
+            return;
+        }
+        require(expectedVersion.equals("1.0"), code);
         for (String array : List.of("passResults", "evidence", "findings"))
             require(value.path(array).isArray() && value.path(array).isEmpty(), code);
         fields(value.get("reportDraft"), Set.of("markdown", "byteSize"), Set.of(), code);

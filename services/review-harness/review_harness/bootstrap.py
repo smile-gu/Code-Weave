@@ -5,15 +5,22 @@ from uuid import uuid4
 
 from sqlalchemy.engine import make_url
 
+from review_harness.application.evidence import EvidenceService
 from review_harness.application.recovery import recover_runs
 from review_harness.application.service import RunService
+from review_harness.domain.real_graph import HandleReviewGraphState
 from review_harness.infrastructure.artifacts import ArtifactService
 from review_harness.infrastructure.checkpoints import Checkpoints
 from review_harness.infrastructure.persistence.database import Database
+from review_harness.infrastructure.persistence.model_calls import ModelCallStore
 from review_harness.infrastructure.persistence.store import RunStore
 from review_harness.infrastructure.persistence.workspaces import WorkspaceStore
 from review_harness.infrastructure.workspaces import WorkspaceManager
+from review_harness.runtime.context import ContextEngine
+from review_harness.runtime.deepseek import DeepSeekAdapter
+from review_harness.runtime.deepseek_meter import ASSETS, TextMeter
 from review_harness.runtime.executor import DeterministicExecutor
+from review_harness.runtime.review import RealReviewExecutor
 from review_harness.runtime.supervisor import Supervisor
 from review_harness.runtime.tools import ToolGateway
 
@@ -42,6 +49,9 @@ async def lifespan(app):
     app.state.service = RunService(store, supervisor)
     app.state.artifacts = ArtifactService(settings, database, store, workspaces)
     app.state.tools = ToolGateway(settings, store, workspaces, app.state.artifacts)
+    app.state.evidence = EvidenceService(
+        settings, database, store, workspaces, app.state.artifacts
+    )
     if settings.checkpoint_database_url is not None:
         checkpoints = Checkpoints(
             Path(make_url(settings.checkpoint_database_url).database)
@@ -53,6 +63,36 @@ async def lifespan(app):
         except Exception:
             app.state.graph_capabilities["checkpoint"] = "NOT_READY"
             logger.warning('{"errorCode":"CHECKPOINT_UNAVAILABLE"}')
+    if settings.execution_mode == "REAL" and settings.deepseek_api_key is not None:
+        try:
+            adapter = app.state.real_adapter = DeepSeekAdapter(
+                settings.deepseek_api_key,
+                transport=app.state.provider_transport,
+                meter=TextMeter(settings.deepseek_asset_root or ASSETS),
+            )
+            if settings.budget_policy_version != adapter.budget_policy.version:
+                raise RuntimeError("Unsupported context budget policy")
+            adapter.ready()
+            if app.state.checkpoints is None or not await app.state.checkpoints.ready():
+                raise RuntimeError("Checkpoint unavailable")
+            evidence = app.state.evidence
+            engine = ContextEngine(
+                settings,
+                store,
+                workspaces,
+                app.state.artifacts,
+                app.state.checkpoints,
+                adapter,
+                model_calls=ModelCallStore(database),
+                state_type=HandleReviewGraphState,
+                evidence=evidence,
+            )
+            supervisor.executor = RealReviewExecutor(engine, evidence, app.state.tools)
+            app.state.real_executor_ready = True
+        except Exception as error:
+            app.state.real_failure_code = getattr(
+                error, "code", "CHECKPOINT_UNAVAILABLE"
+            )
     try:
         if (
             await database.schema_ready()
@@ -60,9 +100,17 @@ async def lifespan(app):
             and app.state.storage_probe()
         ):
             await recover_runs(store, app.state.service, workspaces)
+            await ModelCallStore(database).recover(
+                local_resources_released=lambda run_id: (
+                    not workspaces.runtime_tasks_active(run_id)
+                )
+            )
             await app.state.artifacts.audit()
             app.state.recovery_complete = True
-            supervisor.start()
+            from review_harness.application.readiness import real_failures
+
+            if not await real_failures(app):
+                supervisor.start()
     except Exception:
         supervisor.accepting = False
         logger.error(

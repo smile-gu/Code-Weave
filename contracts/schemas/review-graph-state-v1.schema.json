@@ -228,6 +228,20 @@
           "title": "Toolcallid",
           "type": "string"
         },
+        "providerToolCallId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Providertoolcallid"
+        },
         "name": {
           "enum": [
             "read_file",
@@ -420,7 +434,7 @@
     },
     "graphStepCount": {
       "default": 0,
-      "maximum": 16,
+      "maximum": 160,
       "minimum": 0,
       "title": "Graphstepcount",
       "type": "integer"
@@ -458,5 +472,5 @@
   "title": "ReviewGraphState",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://code-weave.local/contracts/review-graph-state-v1.schema.json"
+  "$id": "https://code-weave.local/schemas/review-graph-state-v1.schema.json"
 }

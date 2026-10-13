@@ -1,4 +1,4 @@
-import json
+import asyncio
 
 from fastapi import APIRouter, Request
 from pydantic import ValidationError
@@ -6,8 +6,10 @@ from starlette.responses import Response
 
 from review_harness.api.dto import CreateRun
 from review_harness.api.sse import BoundedStreamingResponse, parse_cursor, stream_events
-from review_harness.application.readiness import readiness
+from review_harness.application.readiness import readiness, real_failures
 from review_harness.domain.model import HarnessError, canonical, valid_uuid
+from review_harness.domain.model_call import ReviewCapabilities
+from review_harness.domain.provider import strict_json
 
 router = APIRouter(prefix="/internal/v1")
 
@@ -38,11 +40,11 @@ async def create_run(request: Request):
     # 首次接受返回 202；同请求重试返回 200；同 runId 不同请求返回 409。
     body = bytearray()
     async for chunk in request.stream():
-        body.extend(chunk)
-        if len(body) > 65536:
+        if len(body) + len(chunk) > 65536:
             raise HarnessError("REVIEW_REQUEST_TOO_LARGE", 413, "请求超过大小上限")
+        body.extend(chunk)
     try:
-        value = json.loads(body)
+        value = strict_json(bytes(body), limit=65536)
         if (
             isinstance(value, dict)
             and isinstance(value.get("protocolVersion"), str)
@@ -54,11 +56,25 @@ async def create_run(request: Request):
         raise HarnessError(
             "REQUEST_VALIDATION_FAILED", 422, "请求格式或字段不符合协议"
         ) from None
-    if request.app.state.database is not None:
+    requested_contract = (
+        dto.executionContract.model_dump()
+        if dto.executionContract
+        else {"executionMode": "SIMULATED", "resultVersion": "1.0"}
+    )
+    if requested_contract != request.app.state.settings.execution_contract:
+        raise HarnessError(
+            "EXECUTION_CONTRACT_UNSUPPORTED",
+            400,
+            "当前服务不支持请求的执行模式和结果版本",
+        )
+    if (
+        request.app.state.database is not None
+        or request.app.state.settings.execution_mode == "REAL"
+    ):
         _, ready = await readiness(request.app)
         if not ready:
             raise HarnessError("REVIEW_HARNESS_NOT_READY", 503, "运行服务尚未就绪")
-    run, status = await service(request).create(dto.model_dump())
+    run, status = await service(request).create(dto.model_dump(exclude_none=True))
     return json_response(run.wire(), status)
 
 
@@ -119,6 +135,30 @@ async def graph_capabilities(request: Request):
     return json_response(value)
 
 
+@router.get("/review-capabilities")
+async def review_capabilities(request: Request):
+    _, ready = await readiness(request.app)
+    value = ReviewCapabilities.model_validate(
+        {
+            "protocolVersion": "1.0",
+            "configuredContract": request.app.state.settings.execution_contract,
+            "status": "READY" if ready else "NOT_READY",
+            "provider": "DEEPSEEK"
+            if request.app.state.settings.execution_mode == "REAL"
+            else None,
+            "model": "deepseek-flash"
+            if request.app.state.settings.execution_mode == "REAL"
+            else None,
+            "meterVersion": "v4.1-2cba9e42-v1"
+            if request.app.state.settings.execution_mode == "REAL"
+            else None,
+            "failureCodes": await real_failures(request.app)
+            or ([] if ready else ["REVIEW_HARNESS_NOT_READY"]),
+        }
+    )
+    return json_response(value.model_dump())
+
+
 @router.get("/review-runs/{run_id}/artifacts/{artifact_id}")
 async def artifact_metadata(run_id: str, artifact_id: str, request: Request):
     value = await request.app.state.artifacts.metadata(
@@ -135,3 +175,19 @@ async def artifact_content(
         run_identity(run_id), artifact_id, cursor
     )
     return json_response(value.model_dump())
+
+
+@router.get("/review-runs/{run_id}/evidence/{evidence_id}/materials")
+async def evidence_materials(run_id: str, evidence_id: str, request: Request):
+    run = await service(request).store.get_run(run_identity(run_id))
+    if not valid_uuid(evidence_id):
+        raise HarnessError("REQUEST_VALIDATION_FAILED", 422, "证据身份格式无效")
+    evidence = request.app.state.evidence
+    record = await evidence.get(run, evidence_id)
+    value = {
+        "evidenceId": evidence_id,
+        "runId": run.run_id,
+        "snapshotId": run.snapshot_id,
+        "materials": await evidence.materials(run, record.sourceRefs, asyncio.Event()),
+    }
+    return json_response(value)

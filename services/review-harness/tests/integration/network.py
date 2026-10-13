@@ -36,6 +36,7 @@ async def network_client(app):
             base_url=f"http://127.0.0.1:{port}",
             headers={"Authorization": "Bearer test-only-credential"},
             timeout=5,
+            trust_env=False,
         ) as client:
             yield client
     finally:

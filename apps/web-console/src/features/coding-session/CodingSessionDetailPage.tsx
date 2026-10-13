@@ -17,6 +17,7 @@ import { DiffPanel } from '../run-result/DiffPanel'
 import { formatSessionTime, sessionStatusLabels } from './sessionPresentation'
 import { TurnExecutionPanel } from './TurnExecutionPanel'
 import { TurnMarkdown } from './TurnMarkdown'
+import { ReviewDraftPanel } from './ReviewDraftPanel'
 
 const baselineBlockerLabels: Record<string, string> = {
   SESSION_NOT_ACTIVE: '会话当前不是可开发状态',
@@ -252,6 +253,8 @@ export function CodingSessionDetailPage() {
         )}
       </section>
 
+      <ReviewDraftPanel key={sessionId} sessionId={sessionId} />
+
       {session.status === 'ACTIVE' && changesQuery.isLoading && <section className="session-changes"><p>正在读取累计代码变更…</p></section>}
       {session.status === 'ACTIVE' && changesQuery.data && <section className="session-changes">
           <header><strong>当前累计代码变更</strong><small>相对当前活动审查基线</small></header>
@@ -266,7 +269,7 @@ export function CodingSessionDetailPage() {
             ? `已检测到 ${baselineReadinessQuery.data.branch} 上的模块提交，其中 ${baselineReadinessQuery.data.changedFiles} 个文件与最近一次 Coding 验证结果一致。`
             : `当前模块暂不能归档：${baselineReadinessQuery.data?.blockers.map((code) => baselineBlockerLabels[code] ?? code).join('、') ?? '正在检查'}。`}</p>
           <p>请在 Review、问题修复和最终自测全部完成后，只为当前模块创建一次正式 Git Commit。平台不会自动提交或推送代码。</p>
-          <p>Review Harness 接入前，Review 与最终自测是否完成由你确认；平台当前负责校验提交来源和代码指纹。</p>
+          <p>报告为只读草稿；Review 与最终自测是否完成仍由你确认，平台校验提交来源和代码指纹。</p>
           <button type="button" className="secondary-button"
             disabled={baselineReadinessQuery.isFetching}
             onClick={() => void baselineReadinessQuery.refetch()}>

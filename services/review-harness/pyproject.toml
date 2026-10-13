@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "code-weave-review-harness"
 version = "0.1.0"
 requires-python = ">=3.12,<3.13"
-dependencies = ["fastapi==0.143.0", "uvicorn==0.54.0", "pydantic-settings==2.15.0", "SQLAlchemy[asyncio]==2.1.4", "aiosqlite==0.22.1", "alembic==1.20.0", "langgraph==1.2.14", "langgraph-checkpoint-sqlite==3.1.1"]
+dependencies = ["fastapi==0.143.0", "uvicorn==0.54.0", "pydantic-settings==2.15.0", "SQLAlchemy[asyncio]==2.1.4", "aiosqlite==0.22.1", "alembic==1.20.0", "langgraph==1.2.14", "langgraph-checkpoint-sqlite==3.1.1", "httpx==0.28.1", "tokenizers==0.23.3"]
 
 [project.optional-dependencies]
-test = ["pytest==9.1.1", "pytest-asyncio==1.4.0", "httpx==0.28.1", "ruff==0.16.10"]
+test = ["pytest==9.1.1", "pytest-asyncio==1.4.0", "ruff==0.16.10", "jsonschema==4.25.1"]
 
 [project.scripts]
 review-harness = "review_harness.main:main"
@@ -17,12 +17,16 @@ review-harness = "review_harness.main:main"
 [tool.setuptools.packages.find]
 include = ["review_harness*"]
 
+[tool.setuptools.package-data]
+review_harness = ["assets/deepseek_v41/*"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
 [tool.ruff]
 target-version = "py312"
+extend-exclude = ["review_harness/assets"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]

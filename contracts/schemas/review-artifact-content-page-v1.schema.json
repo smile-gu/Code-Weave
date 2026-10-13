@@ -1,4 +1,37 @@
 {
+  "$defs": {
+    "ContentCoordinates": {
+      "additionalProperties": false,
+      "properties": {
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        },
+        "startsMidLine": {
+          "title": "Startsmidline",
+          "type": "boolean"
+        },
+        "endsMidLine": {
+          "title": "Endsmidline",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "startLine",
+        "endLine",
+        "startsMidLine",
+        "endsMidLine"
+      ],
+      "title": "ContentCoordinates",
+      "type": "object"
+    }
+  },
   "additionalProperties": false,
   "properties": {
     "artifactId": {
@@ -48,6 +81,17 @@
     "hasMore": {
       "title": "Hasmore",
       "type": "boolean"
+    },
+    "coordinates": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContentCoordinates"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "required": [

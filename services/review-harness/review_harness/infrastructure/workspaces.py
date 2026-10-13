@@ -30,6 +30,7 @@ class FileJob:
 # for a completed process restart. No durable row is replaced by this registry.
 _live_jobs: dict[tuple[str, str], FileJob] = {}
 _runtime_tasks: dict[tuple[str, str], set[asyncio.Task]] = {}
+_runtime_uncertain: set[tuple[str, str]] = set()
 _jobs_lock = threading.Lock()
 # Per execution root, including jobs left by an earlier App instance.
 # Admission equals worker capacity: no hidden executor backlog is accepted.
@@ -364,16 +365,20 @@ class WorkspaceManager:
         with _jobs_lock:
             if (
                 sum(
-                    not other.done()
-                    for task_key, registered in _runtime_tasks.items()
-                    if task_key[0] == key[0]
-                    for other in registered
+                    task_key[0] == key[0]
+                    and (
+                        task_key in _runtime_uncertain
+                        or any(
+                            not task.done() for task in _runtime_tasks.get(task_key, ())
+                        )
+                    )
+                    for task_key in _runtime_tasks.keys() | _runtime_uncertain
                 )
                 >= 2
             ):
                 raise WorkspaceError("EXECUTION_WORKSPACE_BUSY")
             tasks = _runtime_tasks.setdefault(key, set())
-            if any(not other.done() for other in tasks):
+            if key in _runtime_uncertain or any(not other.done() for other in tasks):
                 raise WorkspaceError("EXECUTION_WORKSPACE_BUSY")
             tasks.add(task)
 
@@ -386,11 +391,28 @@ class WorkspaceManager:
 
         task.add_done_callback(finished)
 
+    def runtime_tasks_active(self, run_id):
+        """Same-process recreation must not invent local model closure."""
+        key = os.path.normcase(str(self.settings.execution_root)), run_id
+        with _jobs_lock:
+            return key in _runtime_uncertain or any(
+                not task.done() for task in _runtime_tasks.get(key, ())
+            )
+
+    def mark_runtime_uncertain(self, run):
+        """A failed HTTP release consumes its bounded slot until process restart.
+
+        A completed coroutine does not prove that its connection was closed.
+        Keep the same-process guard alongside the durable RETAINED record.
+        """
+        with _jobs_lock:
+            _runtime_uncertain.add(self._key(run))
+
     async def cleanup(self, run):
         record = await self.resources.get(run)
         with _jobs_lock:
             live = _live_jobs.get(self._key(run))
-            runtime_live = any(
+            runtime_live = self._key(run) in _runtime_uncertain or any(
                 not task.done() for task in _runtime_tasks.get(self._key(run), ())
             )
         if runtime_live:

@@ -84,6 +84,14 @@ class Supervisor:
             self.accepting = False
 
     async def _run_one(self, run_id, signal):
+        expected = getattr(self.executor, "expected_contract", None)
+        if expected is not None:
+            pending = await self.store.get_run(run_id)
+            if pending.status == "PENDING" and pending.execution_contract != expected:
+                await self.store.fail_before_start(
+                    run_id, Failure.make("EXECUTION_CONTRACT_UNSUPPORTED")
+                )
+                return
         try:
             run, acquired = await self.store.start_run(run_id)
         except SessionBlocked:
@@ -106,15 +114,24 @@ class Supervisor:
         if (await self.store.get_run(run_id)).status == "CANCELLING":
             signal.set()
         cancelled, failure, context = False, None, None
+        review_package = None
         try:
-            context = await self.workspaces.prepare(run, signal)
-            if (await self.store.get_run(run_id)).status == "CANCELLING":
-                signal.set()
-            if signal.is_set():
-                raise WorkCancelled()
-            await self.executor.execute(context, signal)
-            if not signal.is_set():
-                await self.workspaces.verify(context, signal)
+            async with asyncio.timeout(
+                getattr(self.executor, "wallclock_seconds", None)
+            ):
+                context = await self.workspaces.prepare(run, signal)
+                if (await self.store.get_run(run_id)).status == "CANCELLING":
+                    signal.set()
+                if signal.is_set():
+                    raise WorkCancelled()
+                review_package = await self.executor.execute(context, signal)
+                if not signal.is_set():
+                    await self.workspaces.verify(context, signal)
+        except TimeoutError:
+            signal.set()
+            if hasattr(self.executor, "abort"):
+                await self.executor.abort(run_id)
+            failure = Failure.make("CONTEXT_RUN_TIMEOUT")
         except WorkCancelled:
             cancelled = True
         except WorkspaceError as error:
@@ -128,7 +145,15 @@ class Supervisor:
             failure = Failure.make(
                 error.code
                 if error.code.startswith(
-                    ("ARTIFACT_", "CONTEXT_", "COMPACTION_", "CHECKPOINT_")
+                    (
+                        "ARTIFACT_",
+                        "CONTEXT_",
+                        "COMPACTION_",
+                        "CHECKPOINT_",
+                        "PROVIDER_",
+                        "EVIDENCE_",
+                        "FINDING_",
+                    )
                 )
                 else "REVIEW_HARNESS_INTERNAL_ERROR"
             )
@@ -172,7 +197,12 @@ class Supervisor:
                 await self.store.complete_cancel(run_id)
             return
         try:
-            current, completed = await self.store.complete_success(run_id)
+            if review_package is None:
+                current, completed = await self.store.complete_success(run_id)
+            else:
+                current, completed = await self.store.complete_success(
+                    run_id, review_package
+                )
         except HarnessError as error:
             if error.code == "REVIEW_RUN_STATE_WRITE_UNCERTAIN":
                 raise

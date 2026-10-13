@@ -44,6 +44,8 @@ class ModelCapabilities:
 @dataclass(frozen=True)
 class ModelRequest:
     wire: bytes
+    model_call_id: str | None = None
+    purpose: str | None = None
 
     @property
     def digest(self):
@@ -65,7 +67,7 @@ class FakeAdapter:
         self.calls = []
         self.hook = hook
 
-    def build_request(self, blocks, tools, purpose, call_id):
+    def build_request(self, blocks, tools, purpose, call_id, *, structured=False):
         wire = canonical(
             {
                 "protocol": "test-only-v1",

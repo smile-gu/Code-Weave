@@ -42,7 +42,7 @@
       "required": ["resultId", "resultVersion", "resultSha256"],
       "properties": {
         "resultId": { "$ref": "#/$defs/uuid" },
-        "resultVersion": { "const": "1.0" },
+        "resultVersion": { "enum": ["1.0", "2.0"] },
         "resultSha256": { "$ref": "#/$defs/sha256" }
       }
     },

@@ -7,7 +7,11 @@ from uuid import uuid4
 from pydantic import ValidationError
 
 from review_harness.application.redaction import redact
-from review_harness.domain.model import HarnessError, canonical
+from review_harness.application.source_references import (
+    diff_page_references,
+    final_reference,
+)
+from review_harness.domain.model import HarnessError, canonical, sha256
 from review_harness.domain.snapshot import WorkCancelled, WorkspaceError
 from review_harness.domain.tools import PARAMETERS, ToolEnvelope, ToolError
 from review_harness.infrastructure.paths import portable
@@ -183,12 +187,34 @@ class ToolGateway:
                     params.artifactId,
                     params.cursor,
                     signal=signal,
-                    page_budget=output_bytes - overhead,
+                    page_budget=output_bytes - overhead - 256,
                     seconds=remaining(),
                 )
+                meta = await self.artifacts.metadata(current.run_id, params.artifactId)
+                page_data = page.model_dump()
+                page_data["evidenceReferences"] = []
+                if (
+                    page.text
+                    and meta.producer_type == "TOOL"
+                    and meta.kind
+                    in {
+                        "SOURCE_EXCERPT",
+                        "TOOL_OUTPUT",
+                    }
+                ):
+                    page_data["evidenceReferences"] = [
+                        {
+                            "sourceType": "ARTIFACT",
+                            "artifactId": page.artifactId,
+                            "sha256": page.sha256,
+                            "coverage": page.coverage,
+                            "startLine": page.coordinates.startLine,
+                            "endLine": page.coordinates.endLine,
+                        }
+                    ]
                 output = envelope(
                     "OK",
-                    page.model_dump(),
+                    page_data,
                     coverage=page.coverage,
                     truncated=page.hasMore,
                 )
@@ -209,17 +235,18 @@ class ToolGateway:
             if len(canonical(output.model_dump())) > output_bytes:
                 if name == "git_diff":
                     raise tool_error("TOOL_LIMIT_EXCEEDED")
+                captured = canonical(
+                    {
+                        "toolName": name,
+                        "data": data,
+                        "sourceRefs": refs,
+                        "coverage": coverage,
+                        "truncated": truncated,
+                    }
+                )
                 artifact = await self.artifacts.publish(
                     context,
-                    canonical(
-                        {
-                            "toolName": name,
-                            "data": data,
-                            "sourceRefs": refs,
-                            "coverage": coverage,
-                            "truncated": truncated,
-                        }
-                    ).decode(),
+                    captured.decode(),
                     "SOURCE_EXCERPT" if name == "read_file" else "TOOL_OUTPUT",
                     name,
                     signal,
@@ -247,9 +274,27 @@ class ToolGateway:
                 }
                 # Bounded deterministic preview, never a substitute for READY storage.
                 preview = canonical(data).decode()[:128]
+                preview_data = {"preview": preview}
+                if data.get("evidenceReferences"):
+                    preview_data["evidenceReferences"] = data["evidenceReferences"][:16]
+                if name == "read_file":
+                    preview_data["captureComplete"] = artifact.sha256 == sha256(
+                        captured
+                    )
+                    preview_data.update(
+                        {
+                            key: data[key]
+                            for key in (
+                                "startLine",
+                                "endLine",
+                                "hasMore",
+                                "redactionState",
+                            )
+                        }
+                    )
                 output = envelope(
                     "OK",
-                    {"preview": preview},
+                    preview_data,
                     refs[:1],
                     artifact.coverage,
                     True,
@@ -271,6 +316,8 @@ class ToolGateway:
                 return envelope("ERROR", coverage="PARTIAL", code="TOOL_TIMEOUT")
             raise
         except HarnessError as error:
+            if name == "read_artifact" and error.code == "ARTIFACT_LIMIT_EXCEEDED":
+                return envelope("ERROR", coverage="PARTIAL", code="TOOL_LIMIT_EXCEEDED")
             if error.code.startswith("TOOL_") or error.code in {
                 "ARTIFACT_NOT_FOUND",
                 "ARTIFACT_CURSOR_INVALID",
@@ -393,6 +440,9 @@ class ToolGateway:
                 "endLine": end,
                 "hasMore": more,
                 "redactionState": redaction,
+                "evidenceReferences": [final_reference(ref) for ref in refs]
+                if selected
+                else [],
             },
             refs,
             "PARTIAL" if partial else "FULL",
@@ -489,6 +539,7 @@ class ToolGateway:
                 "skippedFiles": skipped,
                 "scannedBytes": scanned,
                 "scanComplete": not partial,
+                "evidenceReferences": [final_reference(ref) for ref in refs[:16]],
             },
             refs,
             "PARTIAL" if partial or excerpt_partial else "FULL",
@@ -540,6 +591,36 @@ class ToolGateway:
         if limit <= 0:
             raise tool_error("TOOL_LIMIT_EXCEEDED")
         selected = remaining[: max(1, limit)]
+        start = len(display[:offset].decode())
+        allowed_paths = {
+            path
+            for change in manifest.changes.files
+            if not change.binary
+            for path in (change.path, change.oldPath)
+            if path is not None
+        }
+        while True:
+            coordinates, evidence_refs = diff_page_references(
+                original, text, start, start + len(selected), digest, allowed_paths
+            )
+            # Metadata participates in the consumer budget as well as text.
+            if (
+                len(
+                    canonical(
+                        {
+                            "text": selected,
+                            "pageCoordinates": coordinates,
+                            "evidenceReferences": evidence_refs,
+                        }
+                    )
+                )
+                <= output_bytes - 1024
+            ):
+                break
+            if len(selected) <= 1:
+                raise tool_error("TOOL_LIMIT_EXCEEDED")
+            selected = selected[: len(selected) // 2]
+            budget.check()
         next_offset = offset + len(selected.encode())
         more = next_offset < len(display)
         cursor = (
@@ -552,6 +633,8 @@ class ToolGateway:
         return (
             {
                 "text": selected,
+                "pageCoordinates": coordinates,
+                "evidenceReferences": evidence_refs,
                 "nextCursor": cursor,
                 "hasMore": more,
                 "redactionState": redaction,

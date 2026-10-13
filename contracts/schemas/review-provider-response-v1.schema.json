@@ -1,0 +1,243 @@
+{
+  "$defs": {
+    "AssistantMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "assistant",
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content"
+        },
+        "tool_calls": {
+          "items": {
+            "$ref": "#/$defs/ProviderToolCall"
+          },
+          "maxItems": 8,
+          "title": "Tool Calls",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "AssistantMessage",
+      "type": "object"
+    },
+    "FunctionCall": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "read_file",
+            "search_code",
+            "glob_files",
+            "git_diff",
+            "read_artifact"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "arguments": {
+          "maxLength": 16384,
+          "title": "Arguments",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "arguments"
+      ],
+      "title": "FunctionCall",
+      "type": "object"
+    },
+    "ProviderChoice": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "const": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "message": {
+          "$ref": "#/$defs/AssistantMessage"
+        },
+        "finish_reason": {
+          "enum": [
+            "stop",
+            "tool_calls"
+          ],
+          "title": "Finish Reason",
+          "type": "string"
+        },
+        "logprobs": {
+          "const": null,
+          "default": null,
+          "title": "Logprobs",
+          "type": "null"
+        }
+      },
+      "required": [
+        "index",
+        "message",
+        "finish_reason"
+      ],
+      "title": "ProviderChoice",
+      "type": "object"
+    },
+    "ProviderToolCall": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "function",
+          "title": "Type",
+          "type": "string"
+        },
+        "function": {
+          "$ref": "#/$defs/FunctionCall"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "function"
+      ],
+      "title": "ProviderToolCall",
+      "type": "object"
+    },
+    "ProviderUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt_tokens": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Prompt Tokens",
+          "type": "integer"
+        },
+        "completion_tokens": {
+          "maximum": 4096,
+          "minimum": 0,
+          "title": "Completion Tokens",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        },
+        "prompt_cache_hit_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Cache Hit Tokens"
+        },
+        "prompt_cache_miss_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Cache Miss Tokens"
+        }
+      },
+      "required": [
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens"
+      ],
+      "title": "ProviderUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "object": {
+      "const": "chat.completion",
+      "title": "Object",
+      "type": "string"
+    },
+    "created": {
+      "minimum": 0,
+      "title": "Created",
+      "type": "integer"
+    },
+    "model": {
+      "const": "deepseek-flash",
+      "title": "Model",
+      "type": "string"
+    },
+    "choices": {
+      "items": {
+        "$ref": "#/$defs/ProviderChoice"
+      },
+      "maxItems": 1,
+      "minItems": 1,
+      "title": "Choices",
+      "type": "array"
+    },
+    "usage": {
+      "$ref": "#/$defs/ProviderUsage"
+    },
+    "system_fingerprint": {
+      "anyOf": [
+        {
+          "maxLength": 256,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "System Fingerprint"
+    }
+  },
+  "required": [
+    "id",
+    "object",
+    "created",
+    "model",
+    "choices",
+    "usage"
+  ],
+  "title": "ProviderResponse",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-provider-response-v1.schema.json"
+}

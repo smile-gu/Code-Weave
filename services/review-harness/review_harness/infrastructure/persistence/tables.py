@@ -12,6 +12,45 @@ from sqlalchemy import (
 
 metadata = MetaData()
 
+evidence_records = Table(
+    "review_evidence",
+    metadata,
+    Column("evidence_id", Text, primary_key=True),
+    Column(
+        "run_id",
+        Text,
+        ForeignKey("review_runs.run_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("snapshot_id", Text, nullable=False),
+    Column("record_bytes", BLOB, nullable=False),
+    Column("sha256", Text, nullable=False),
+    CheckConstraint("length(record_bytes) <= 131072", name="evidence_bytes"),
+)
+Index("ix_review_evidence_run", evidence_records.c.run_id)
+
+model_calls = Table(
+    "review_model_calls",
+    metadata,
+    Column("model_call_id", Text, primary_key=True),
+    Column(
+        "run_id",
+        Text,
+        ForeignKey("review_runs.run_id", ondelete="RESTRICT"),
+        nullable=False,
+    ),
+    Column("snapshot_id", Text, nullable=False),
+    Column("status", Text, nullable=False),
+    Column("record_bytes", BLOB, nullable=False),
+    Column("sha256", Text, nullable=False),
+    CheckConstraint(
+        "status IN ('PREPARED','DISPATCHING','RETURNED','LOCAL_CLOSED')",
+        name="model_call_status",
+    ),
+    CheckConstraint("length(record_bytes) <= 16384", name="model_call_bytes"),
+)
+Index("ix_review_model_calls_run", model_calls.c.run_id)
+
 artifacts = Table(
     "review_artifacts",
     metadata,

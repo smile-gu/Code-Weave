@@ -1,8 +1,13 @@
 """Bounded, transactional view replacement; no recursive summarizer or hidden retry."""
 
+import json
+
+from pydantic import ValidationError
+
 from review_harness.application.redaction import redact
 from review_harness.domain.graph import ArtifactRef, Summary, graph_error, pending_calls
 from review_harness.domain.model import canonical, sha256, utc_now
+from review_harness.domain.provider import CompactionText
 from review_harness.runtime.model_adapter import TestWindowExceeded
 
 
@@ -34,14 +39,45 @@ class Compactor:
             request = await engine.build(
                 context, state, signal, purpose="COMPACTION", messages=candidate
             )
-            if (
-                engine.adapter.count_request(request)
-                <= engine.adapter.capabilities.input_budget
-            ):
+            if engine.input_cost(request) <= engine.adapter.capabilities.input_budget:
                 prefix = candidate
                 break
         if not prefix:
             raise graph_error("COMPACTION_SOURCE_EXCEEDS_BUDGET")
+        # One trusted collection feeds both the durable Summary and retained State.
+        refs = {r.artifactId: r for r in state.artifactRefs}
+        sources = {canonical(r.model_dump()): r for r in state.sourceRefs}
+        evidence_ids, candidate_ids = set(state.evidenceRefs), set(state.candidateRefs)
+        if state.summaryArtifactRef:
+            page = await engine.artifacts.content(
+                state.runId, state.summaryArtifactRef.artifactId, signal=signal
+            )
+            if page.hasMore or page.coverage != "FULL":
+                raise graph_error("COMPACTION_SUMMARY_INVALID")
+            previous = Summary.model_validate(json.loads(page.text))
+            sources.update((canonical(r.model_dump()), r) for r in previous.sourceRefs)
+            evidence_ids.update(previous.referencedEvidenceIds)
+            candidate_ids.update(previous.referencedCandidateIds)
+            # baseline build already confirms previous IDs belong to retained State.
+            if not set(previous.referencedArtifactIds) <= refs.keys():
+                raise graph_error("COMPACTION_REFERENCE_INVALID")
+        for item in prefix:
+            refs.update((r.artifactId, r) for r in item.artifactRefs)
+            sources.update((canonical(r.model_dump()), r) for r in item.sourceRefs)
+        if (
+            len(refs) > 64
+            or len(sources) > 64
+            or len(evidence_ids) > 128
+            or len(candidate_ids) > 32
+        ):
+            raise graph_error("COMPACTION_REFERENCE_LIMIT_EXCEEDED")
+        anchored = state.updated(
+            artifactRefs=[r.model_dump() for r in refs.values()],
+            sourceRefs=[r.model_dump() for r in sources.values()],
+            evidenceRefs=sorted(evidence_ids),
+            candidateRefs=sorted(candidate_ids),
+        )
+        await engine.validate(context, anchored, signal)
         # invoke() governs the summarizer just like every investigation call.
         try:
             called, response = await engine.invoke(
@@ -52,16 +88,15 @@ class Compactor:
         if response.toolCalls:
             raise graph_error("COMPACTION_SUMMARY_INVALID")
         text, redaction = redact(response.content)
-        if not text.strip():
+        try:
+            CompactionText(summaryText=text)
+        except ValidationError:
             raise graph_error("COMPACTION_SUMMARY_INVALID")
-        allowed_artifacts = {r.artifactId for r in state.artifactRefs}
-        allowed_sources = {canonical(r.model_dump()) for r in state.sourceRefs}
-        for item in prefix:
-            allowed_artifacts.update(r.artifactId for r in item.artifactRefs)
-            allowed_sources.update(canonical(r.model_dump()) for r in item.sourceRefs)
-        if not set(response.referencedArtifactIds) <= allowed_artifacts or any(
-            canonical(r.model_dump()) not in allowed_sources
-            for r in response.sourceRefs
+        if engine.adapter.capabilities.meter_id != "V41_REFERENCE_LOCAL_TOKENS" and (
+            not set(response.referencedArtifactIds) <= refs.keys()
+            or any(
+                canonical(r.model_dump()) not in sources for r in response.sourceRefs
+            )
         ):
             raise graph_error("COMPACTION_REFERENCE_INVALID")
         summary = Summary(
@@ -79,10 +114,20 @@ class Compactor:
             ),
             previousSummaryVersion=state.summaryVersion,
             summaryText=text,
-            referencedArtifactIds=sorted(allowed_artifacts),
-            sourceRefs=state.sourceRefs,
+            referencedArtifactIds=sorted(refs),
+            sourceRefs=list(sources.values()),
+            referencedEvidenceIds=sorted(evidence_ids),
+            referencedCandidateIds=sorted(candidate_ids),
             modelId=engine.adapter.capabilities.model_id,
-            estimatedTokens=len(text.encode()),
+            estimatedTokens=(
+                len(
+                    engine.adapter.meter.tokenizer.encode(
+                        text, add_special_tokens=False
+                    ).ids
+                )
+                if engine.adapter.capabilities.meter_id == "V41_REFERENCE_LOCAL_TOKENS"
+                else len(text.encode())
+            ),
             createdAt=utc_now(),
         )
         artifact = await engine.artifacts.publish(
@@ -101,12 +146,6 @@ class Compactor:
         ref = ArtifactRef.model_validate(
             {key: artifact.wire()[key] for key in ArtifactRef.model_fields}
         )
-        # Keep every material anchor, even when messages carrying it are replaced.
-        refs = {r.artifactId: r for r in state.artifactRefs}
-        sources = {canonical(r.model_dump()): r for r in state.sourceRefs}
-        for item in prefix:
-            refs.update((r.artifactId, r) for r in item.artifactRefs)
-            sources.update((canonical(r.model_dump()), r) for r in item.sourceRefs)
         candidate = called.updated(
             revision=called.revision + 1,
             summaryVersion=summary.summaryVersion,
@@ -114,6 +153,8 @@ class Compactor:
             messages=[m.model_dump() for m in state.messages[len(prefix) :]],
             artifactRefs=[r.model_dump() for r in refs.values()],
             sourceRefs=[r.model_dump() for r in sources.values()],
+            evidenceRefs=summary.referencedEvidenceIds,
+            candidateRefs=summary.referencedCandidateIds,
             sourceMessageIds=summary.sourceMessageIds,
             sourceDigest=summary.sourceDigest,
             compactionCount=state.compactionCount + 1,
@@ -121,20 +162,34 @@ class Compactor:
         replaced = await engine.build(context, candidate, signal)
         if engine.adapter.count_request(replaced) >= baseline_units:
             raise graph_error("COMPACTION_NO_PROGRESS")
+        if engine.input_cost(replaced) > engine.adapter.capabilities.input_budget:
+            raise graph_error("CONTEXT_REQUEST_EXCEEDS_BUDGET")
         await engine.persist(candidate, signal)
         await engine.active(context, signal)
         return candidate
 
-    async def fit(self, context, state, signal):
+    async def fit(self, context, state, signal, **request_options):
         current = state
         for attempt in range(self.engine.settings.compaction_attempts + 1):
-            request = await self.engine.build(context, current, signal)
-            if (
-                self.engine.adapter.count_request(request)
-                <= self.engine.adapter.capabilities.input_budget
+            request = await self.engine.build(
+                context, current, signal, **request_options
+            )
+            can_compact = request_options.get("messages") is None and bool(
+                closed_prefixes(current.messages)
+            )
+            if self.engine.input_cost(
+                request
+            ) <= self.engine.adapter.capabilities.input_budget * (
+                0.8
+                if self.engine.adapter.capabilities.meter_id
+                == "V41_REFERENCE_LOCAL_TOKENS"
+                and can_compact
+                else 1
             ):
                 return current
             if attempt == self.engine.settings.compaction_attempts:
+                break
+            if not can_compact:
                 break
             current = await self.compact(context, current, signal)
         raise graph_error("CONTEXT_REQUEST_EXCEEDS_BUDGET")

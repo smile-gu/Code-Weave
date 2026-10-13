@@ -1,0 +1,670 @@
+{
+  "$defs": {
+    "AssistantMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "assistant",
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Content"
+        },
+        "tool_calls": {
+          "items": {
+            "$ref": "#/$defs/ProviderToolCall"
+          },
+          "maxItems": 8,
+          "title": "Tool Calls",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "AssistantMessage",
+      "type": "object"
+    },
+    "FunctionCall": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "read_file",
+            "search_code",
+            "glob_files",
+            "git_diff",
+            "read_artifact"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "arguments": {
+          "maxLength": 16384,
+          "title": "Arguments",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "arguments"
+      ],
+      "title": "FunctionCall",
+      "type": "object"
+    },
+    "FunctionDefinition": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "name": {
+              "const": "read_file"
+            },
+            "parameters": {
+              "const": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "title": "Path",
+                    "type": "string"
+                  },
+                  "startLine": {
+                    "default": 1,
+                    "minimum": 1,
+                    "title": "Startline",
+                    "type": "integer"
+                  },
+                  "maxLines": {
+                    "default": 200,
+                    "maximum": 1000,
+                    "minimum": 1,
+                    "title": "Maxlines",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "title": "ReadFile",
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "name": {
+              "const": "search_code"
+            },
+            "parameters": {
+              "const": {
+                "additionalProperties": false,
+                "properties": {
+                  "query": {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "title": "Query",
+                    "type": "string"
+                  },
+                  "glob": {
+                    "anyOf": [
+                      {
+                        "maxLength": 1024,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "Glob"
+                  },
+                  "maxResults": {
+                    "default": 100,
+                    "maximum": 500,
+                    "minimum": 1,
+                    "title": "Maxresults",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "query"
+                ],
+                "title": "SearchCode",
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "name": {
+              "const": "glob_files"
+            },
+            "parameters": {
+              "const": {
+                "additionalProperties": false,
+                "properties": {
+                  "pattern": {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "title": "Pattern",
+                    "type": "string"
+                  },
+                  "maxResults": {
+                    "default": 100,
+                    "maximum": 500,
+                    "minimum": 1,
+                    "title": "Maxresults",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "pattern"
+                ],
+                "title": "GlobFiles",
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "name": {
+              "const": "git_diff"
+            },
+            "parameters": {
+              "const": {
+                "additionalProperties": false,
+                "properties": {
+                  "cursor": {
+                    "anyOf": [
+                      {
+                        "maxLength": 1024,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "Cursor"
+                  }
+                },
+                "title": "GitDiff",
+                "type": "object"
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "name": {
+              "const": "read_artifact"
+            },
+            "parameters": {
+              "const": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifactId": {
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "title": "Artifactid",
+                    "type": "string"
+                  },
+                  "cursor": {
+                    "anyOf": [
+                      {
+                        "maxLength": 1024,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "Cursor"
+                  }
+                },
+                "required": [
+                  "artifactId"
+                ],
+                "title": "ReadArtifact",
+                "type": "object"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "name": {
+          "enum": [
+            "read_file",
+            "search_code",
+            "glob_files",
+            "git_diff",
+            "read_artifact"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "enum": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "title": "Path",
+                  "type": "string"
+                },
+                "startLine": {
+                  "default": 1,
+                  "minimum": 1,
+                  "title": "Startline",
+                  "type": "integer"
+                },
+                "maxLines": {
+                  "default": 200,
+                  "maximum": 1000,
+                  "minimum": 1,
+                  "title": "Maxlines",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "title": "ReadFile",
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "title": "Query",
+                  "type": "string"
+                },
+                "glob": {
+                  "anyOf": [
+                    {
+                      "maxLength": 1024,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Glob"
+                },
+                "maxResults": {
+                  "default": 100,
+                  "maximum": 500,
+                  "minimum": 1,
+                  "title": "Maxresults",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "title": "SearchCode",
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "pattern": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "title": "Pattern",
+                  "type": "string"
+                },
+                "maxResults": {
+                  "default": 100,
+                  "maximum": 500,
+                  "minimum": 1,
+                  "title": "Maxresults",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "pattern"
+              ],
+              "title": "GlobFiles",
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "cursor": {
+                  "anyOf": [
+                    {
+                      "maxLength": 1024,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Cursor"
+                }
+              },
+              "title": "GitDiff",
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "artifactId": {
+                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                  "title": "Artifactid",
+                  "type": "string"
+                },
+                "cursor": {
+                  "anyOf": [
+                    {
+                      "maxLength": 1024,
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "title": "Cursor"
+                }
+              },
+              "required": [
+                "artifactId"
+              ],
+              "title": "ReadArtifact",
+              "type": "object"
+            }
+          ],
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "parameters"
+      ],
+      "title": "FunctionDefinition",
+      "type": "object"
+    },
+    "ProviderToolCall": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "function",
+          "title": "Type",
+          "type": "string"
+        },
+        "function": {
+          "$ref": "#/$defs/FunctionCall"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "function"
+      ],
+      "title": "ProviderToolCall",
+      "type": "object"
+    },
+    "ResponseFormat": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "json_object",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ResponseFormat",
+      "type": "object"
+    },
+    "SystemMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "system",
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "SystemMessage",
+      "type": "object"
+    },
+    "Thinking": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "disabled",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Thinking",
+      "type": "object"
+    },
+    "ToolDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "function",
+          "title": "Type",
+          "type": "string"
+        },
+        "function": {
+          "$ref": "#/$defs/FunctionDefinition"
+        }
+      },
+      "required": [
+        "type",
+        "function"
+      ],
+      "title": "ToolDefinition",
+      "type": "object"
+    },
+    "ToolMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "tool",
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "title": "Content",
+          "type": "string"
+        },
+        "tool_call_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Tool Call Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content",
+        "tool_call_id"
+      ],
+      "title": "ToolMessage",
+      "type": "object"
+    },
+    "UserMessage": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "const": "user",
+          "title": "Role",
+          "type": "string"
+        },
+        "content": {
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "content"
+      ],
+      "title": "UserMessage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "const": "deepseek-flash",
+      "title": "Model",
+      "type": "string"
+    },
+    "messages": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "assistant": "#/$defs/AssistantMessage",
+            "system": "#/$defs/SystemMessage",
+            "tool": "#/$defs/ToolMessage",
+            "user": "#/$defs/UserMessage"
+          },
+          "propertyName": "role"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/SystemMessage"
+          },
+          {
+            "$ref": "#/$defs/UserMessage"
+          },
+          {
+            "$ref": "#/$defs/AssistantMessage"
+          },
+          {
+            "$ref": "#/$defs/ToolMessage"
+          }
+        ]
+      },
+      "maxItems": 160,
+      "minItems": 1,
+      "title": "Messages",
+      "type": "array"
+    },
+    "thinking": {
+      "$ref": "#/$defs/Thinking"
+    },
+    "stream": {
+      "const": false,
+      "title": "Stream",
+      "type": "boolean"
+    },
+    "max_tokens": {
+      "maximum": 4096,
+      "minimum": 1,
+      "title": "Max Tokens",
+      "type": "integer"
+    },
+    "tools": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/ToolDefinition"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tools"
+    },
+    "tool_choice": {
+      "anyOf": [
+        {
+          "const": "auto",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tool Choice"
+    },
+    "response_format": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResponseFormat"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "model",
+    "messages",
+    "thinking",
+    "stream",
+    "max_tokens"
+  ],
+  "title": "ProviderRequest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-provider-request-v1.schema.json"
+}

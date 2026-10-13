@@ -1,7 +1,7 @@
 """Strict graph protocol; no runtime clients, paths or product status are serialized."""
 
 import json
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -28,11 +28,12 @@ def graph_error(code):
 
 
 class StrictModel(BaseModel):
+    json_byte_limit: ClassVar[int] = 256 * 1024
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
     @model_validator(mode="after")
     def bounded_json(self):
-        if len(canonical(self.model_dump())) > 256 * 1024:
+        if len(canonical(self.model_dump())) > self.json_byte_limit:
             raise ValueError("Protocol object exceeds byte budget")
         return self
 
@@ -71,6 +72,7 @@ class SourceRef(StrictModel):
 
 class ToolCall(StrictModel):
     toolCallId: UUID
+    providerToolCallId: str | None = Field(default=None, min_length=1, max_length=128)
     name: Literal["read_file", "search_code", "glob_files", "git_diff", "read_artifact"]
     arguments: dict
 
@@ -168,7 +170,7 @@ class ReviewGraphState(StrictModel):
     pendingToolCalls: list[UUID] = Field(default_factory=list, max_length=8)
     modelCallCount: int = Field(default=0, ge=0, le=16)
     compactionCount: int = Field(default=0, ge=0, le=8)
-    graphStepCount: int = Field(default=0, ge=0, le=16)
+    graphStepCount: int = Field(default=0, ge=0, le=160)
     lastContextManifestRef: ArtifactRef | None = None
     modelUsages: list[ModelUsage] = Field(default_factory=list, max_length=16)
 
@@ -220,14 +222,16 @@ class ContextManifest(StrictModel):
     passId: Literal["correctness"]
     investigationId: UUID
     modelId: str = Field(min_length=1, max_length=128)
-    callPurpose: Literal["INVESTIGATION", "COMPACTION"]
+    callPurpose: Literal["INVESTIGATION", "COMPACTION", "VALIDATION"]
     stateRevision: int = Field(ge=0)
     summaryVersion: int = Field(ge=0)
     sourceRefs: list[SourceRef] = Field(max_length=64)
+    evidenceRefs: list[UUID] = Field(default_factory=list, max_length=128)
+    candidateRefs: list[UUID] = Field(default_factory=list, max_length=32)
     toolSetDigest: Digest
     requestDigest: Digest
-    meterId: Literal["test-only-utf8-units"]
-    meterVersion: Literal["1"]
+    meterId: Literal["test-only-utf8-units", "V41_REFERENCE_LOCAL_TOKENS"]
+    meterVersion: Literal["1", "v4.1-2cba9e42-v1"]
     estimatedInputTokens: int = Field(ge=0)
     inputBudget: int = Field(gt=0)
     reservedOutputTokens: int = Field(gt=0)
@@ -236,11 +240,57 @@ class ContextManifest(StrictModel):
 
     @model_validator(mode="after")
     def budget(self):
+        if (self.meterId, self.meterVersion) not in {
+            ("test-only-utf8-units", "1"),
+            ("V41_REFERENCE_LOCAL_TOKENS", "v4.1-2cba9e42-v1"),
+        }:
+            raise ValueError("Meter identity/version mismatch")
         if self.estimatedInputTokens > self.inputBudget or not valid_time(
             self.createdAt
         ):
             raise ValueError("Invalid context budget or timestamp")
         return self
+
+
+class CompatibleContextManifest(ContextManifest):
+    manifestVersion: Literal["1.1"] = "1.1"
+    conservativeInputTokens: int = Field(ge=0)
+    uncertaintyReserveTokens: int = Field(ge=1024)
+    policyVersion: Literal["deepseek-compatible-budget-v1"]
+
+    @model_validator(mode="after")
+    def conservative_budget(self):
+        from review_harness.domain.budget import input_budget_for
+
+        reserve = max(1024, (self.estimatedInputTokens + 9) // 10)
+        if (
+            self.meterId != "V41_REFERENCE_LOCAL_TOKENS"
+            or self.inputBudget != input_budget_for(self.policyVersion)
+            or self.reservedOutputTokens != 4096
+            or self.protocolSafetyMargin != 1024
+            or self.uncertaintyReserveTokens != reserve
+            or self.conservativeInputTokens != self.estimatedInputTokens + reserve
+            or self.conservativeInputTokens > self.inputBudget
+        ):
+            raise ValueError("Invalid conservative context budget")
+        return self
+
+
+class ExpandedContextManifest(CompatibleContextManifest):
+    manifestVersion: Literal["1.2"] = "1.2"
+    policyVersion: Literal["deepseek-compatible-budget-v2"]
+
+
+def read_context_manifest(value):
+    """Select a strict persisted version; unknown versions never fall back."""
+    version = value.get("manifestVersion") if isinstance(value, dict) else None
+    if version == "1.0":
+        return ContextManifest.model_validate(value)
+    if version == "1.1":
+        return CompatibleContextManifest.model_validate(value)
+    if version == "1.2":
+        return ExpandedContextManifest.model_validate(value)
+    raise ValueError("Unsupported context manifest version")
 
 
 class Summary(StrictModel):
@@ -251,8 +301,8 @@ class Summary(StrictModel):
     summaryText: str = Field(min_length=1, max_length=16384)
     referencedArtifactIds: list[UUID] = Field(max_length=64)
     sourceRefs: list[SourceRef] = Field(max_length=64)
-    referencedEvidenceIds: list[UUID] = Field(default_factory=list, max_length=0)
-    referencedCandidateIds: list[UUID] = Field(default_factory=list, max_length=0)
+    referencedEvidenceIds: list[UUID] = Field(default_factory=list, max_length=128)
+    referencedCandidateIds: list[UUID] = Field(default_factory=list, max_length=32)
     modelId: str = Field(min_length=1, max_length=128)
     estimatedTokens: int = Field(ge=0)
     createdAt: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$")

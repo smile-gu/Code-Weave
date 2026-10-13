@@ -127,13 +127,153 @@ class RunStore:
         if (
             row["snapshot_id"] != run.snapshot_id
             or row["manifest_sha256"] != run.manifest_sha256
-            or row["result_version"] != "1.0"
+            or row["result_version"] != run.result_version
             or row["created_at"] != run.finished_at
         ):
             raise integrity_error()
-        if row["document_bytes"] != empty_result(run, run.finished_at, run.result_id):
-            raise integrity_error()
+        if run.result_version == "1.0":
+            if row["document_bytes"] != empty_result(
+                run, run.finished_at, run.result_id
+            ):
+                raise integrity_error()
+        else:
+            from review_harness.domain.provider import strict_json
+            from review_harness.domain.review import ReviewResult
+
+            try:
+                result = ReviewResult.model_validate(strict_json(row["document_bytes"]))
+                if (
+                    result.resultId,
+                    result.runId,
+                    result.snapshotId,
+                    result.manifestSha256,
+                    result.generatedAt,
+                ) != (
+                    run.result_id,
+                    run.run_id,
+                    run.snapshot_id,
+                    run.manifest_sha256,
+                    run.finished_at,
+                ) or canonical(result.model_dump()) != row["document_bytes"]:
+                    raise ValueError("Result identity mismatch")
+                await self._result_references(connection, run, result)
+            except (ValueError, TypeError, KeyError):
+                raise integrity_error() from None
         return row
+
+    async def _result_references(self, connection, run, result):
+        from review_harness.application.report import render_report
+        from review_harness.infrastructure.persistence.evidence import EvidenceStore
+        from review_harness.infrastructure.persistence.model_calls import ModelCallStore
+        from review_harness.infrastructure.persistence.tables import (
+            artifacts,
+            evidence_records,
+            model_calls,
+        )
+
+        if result.reportDraft != render_report(result.passResults[0], result.findings):
+            raise integrity_error()
+        records = (
+            (
+                await connection.execute(
+                    EvidenceStore.projection()
+                    .where(evidence_records.c.run_id == run.run_id)
+                    .limit(129)
+                )
+            )
+            .mappings()
+            .all()
+        )
+        source = {r["evidence_id"]: EvidenceStore.decode(r, run) for r in records}
+        if len(source) != len(result.evidence) or any(
+            source.get(r.evidenceId) != r for r in result.evidence
+        ):
+            raise integrity_error()
+        calls = {}
+        call_store = ModelCallStore(self.database)
+        actual_calls = (
+            (
+                await connection.execute(
+                    select(model_calls.c.model_call_id)
+                    .where(model_calls.c.run_id == run.run_id)
+                    .limit(17)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if (
+            set(actual_calls) != set(result.diagnostics.modelCallIds)
+            or len(actual_calls) > 16
+        ):
+            raise integrity_error()
+        for identity in result.diagnostics.modelCallIds:
+            row = (
+                (
+                    await connection.execute(
+                        call_store._projection().where(
+                            model_calls.c.run_id == run.run_id,
+                            model_calls.c.model_call_id == identity,
+                        )
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            if row is None:
+                raise integrity_error()
+            call = call_store._read(row)
+            if (
+                call.snapshotId != run.snapshot_id
+                or call.status != "LOCAL_CLOSED"
+                or call.usage is None
+            ):
+                raise integrity_error()
+            calls[identity] = call
+        if set(result.diagnostics.contextManifestArtifactIds) != {
+            c.manifestRef.artifactId for c in calls.values()
+        }:
+            raise integrity_error()
+        usage = result.passResults[0].usage
+        if (usage.modelCalls, usage.inputTokens, usage.outputTokens) != (
+            len(calls),
+            sum(c.usage.prompt_tokens for c in calls.values()),
+            sum(c.usage.completion_tokens for c in calls.values()),
+        ):
+            raise integrity_error()
+        for record in result.evidence:
+            if record.producerId not in calls or record.capturedAt > result.generatedAt:
+                raise integrity_error()
+        for finding in result.findings:
+            if calls[finding.validationModelCallId].purpose != "VALIDATION":
+                raise integrity_error()
+        refs = [c.manifestRef for c in calls.values()] + [
+            ref
+            for e in result.evidence
+            for ref in e.sourceRefs
+            if ref.sourceType == "ARTIFACT"
+        ]
+        for ref in refs:
+            row = (
+                (
+                    await connection.execute(
+                        select(artifacts).where(
+                            artifacts.c.run_id == run.run_id,
+                            artifacts.c.artifact_id == ref.artifactId,
+                        )
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            if (
+                row is None
+                or row["snapshot_id"] != run.snapshot_id
+                or row["sha256"] != ref.sha256
+                or row["integrity_state"] != "READY"
+                or row["coverage"] != ref.coverage
+            ):
+                raise integrity_error()
 
     async def read_events(self, run_id: str, after: int, limit: int) -> list[dict]:
         await self.get_run(run_id)
@@ -335,7 +475,15 @@ class RunStore:
         )
 
     async def _transition(
-        self, run_id, sources, status, resource, kind, failure=None, recovery_code=None
+        self,
+        run_id,
+        sources,
+        status,
+        resource,
+        kind,
+        failure=None,
+        recovery_code=None,
+        review_package=None,
     ):
         async def transition(connection):
             current = await self.get_run(run_id)
@@ -384,7 +532,37 @@ class RunStore:
                 values["recovery_code"] = recovery_code
             if status == "SUCCEEDED":
                 result_id = str(uuid4())
-                document = empty_result(current, now, result_id)
+                version = current.execution_contract["resultVersion"]
+                if version == "2.0":
+                    from review_harness.application.report import render_report
+                    from review_harness.domain.review import ReviewPackage, ReviewResult
+
+                    if review_package is None:
+                        raise integrity_error()
+                    package = ReviewPackage.model_validate(review_package.model_dump())
+                    result = ReviewResult.model_validate(
+                        {
+                            "resultVersion": "2.0",
+                            "resultId": result_id,
+                            "runId": current.run_id,
+                            "snapshotId": current.snapshot_id,
+                            "manifestSha256": current.manifest_sha256,
+                            "generatedAt": now,
+                            "passResults": [package.passResult.model_dump()],
+                            "evidence": [r.model_dump() for r in package.evidence],
+                            "findings": [f.model_dump() for f in package.findings],
+                            "diagnostics": package.diagnostics.model_dump(),
+                            "reportDraft": render_report(
+                                package.passResult, package.findings
+                            ).model_dump(),
+                        }
+                    )
+                    await self._result_references(connection, current, result)
+                    document = canonical(result.model_dump())
+                else:
+                    if review_package is not None:
+                        raise integrity_error()
+                    document = empty_result(current, now, result_id)
                 digest = sha256(document)
                 await connection.execute(
                     insert(results).values(
@@ -392,14 +570,14 @@ class RunStore:
                         run_id=run_id,
                         snapshot_id=current.snapshot_id,
                         manifest_sha256=current.manifest_sha256,
-                        result_version="1.0",
+                        result_version=version,
                         document_bytes=document,
                         sha256=digest,
                         created_at=now,
                     )
                 )
                 values.update(
-                    result_id=result_id, result_sha256=digest, result_version="1.0"
+                    result_id=result_id, result_sha256=digest, result_version=version
                 )
             row = (
                 (
@@ -457,9 +635,14 @@ class RunStore:
             run_id, {("RUNNING", "ACTIVE")}, "CANCELLING", "RELEASING", "CANCELLING"
         )
 
-    async def complete_success(self, run_id):
+    async def complete_success(self, run_id, review_package=None):
         return await self._transition(
-            run_id, {("RUNNING", "ACTIVE")}, "SUCCEEDED", "RELEASED", "SUCCEEDED"
+            run_id,
+            {("RUNNING", "ACTIVE")},
+            "SUCCEEDED",
+            "RELEASED",
+            "SUCCEEDED",
+            review_package=review_package,
         )
 
     async def complete_failure_safe(self, run_id, failure, recovery_code=None):

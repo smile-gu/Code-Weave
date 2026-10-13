@@ -18,33 +18,78 @@
     "diagnostics"
   ],
   "properties": {
-    "resultVersion": { "const": "1.0" },
-    "resultId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
-    "runId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
-    "snapshotId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
-    "manifestSha256": { "$ref": "review-harness-common-v1.schema.json#/$defs/sha256" },
-    "generatedAt": { "$ref": "review-harness-common-v1.schema.json#/$defs/utcTimestamp" },
-    "passResults": { "type": "array", "items": { "type": "object" } },
-    "evidence": { "type": "array", "items": { "type": "object" } },
-    "findings": { "type": "array", "items": { "type": "object" } },
+    "resultVersion": {
+      "const": "1.0"
+    },
+    "resultId": {
+      "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
+    },
+    "runId": {
+      "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
+    },
+    "snapshotId": {
+      "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
+    },
+    "manifestSha256": {
+      "$ref": "review-harness-common-v1.schema.json#/$defs/sha256"
+    },
+    "generatedAt": {
+      "$ref": "review-harness-common-v1.schema.json#/$defs/utcTimestamp"
+    },
+    "passResults": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 0
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 0
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 0
+    },
     "reportDraft": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["markdown", "byteSize"],
+      "required": [
+        "markdown",
+        "byteSize"
+      ],
       "properties": {
-        "markdown": { "type": "string" },
-        "byteSize": { "type": "integer", "minimum": 0 }
+        "markdown": {
+          "type": "string",
+          "const": ""
+        },
+        "byteSize": {
+          "type": "integer",
+          "minimum": 0,
+          "const": 0
+        }
       }
     },
     "diagnostics": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["contextManifestArtifactIds"],
+      "required": [
+        "contextManifestArtifactIds"
+      ],
       "properties": {
         "contextManifestArtifactIds": {
           "type": "array",
-          "items": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
-          "uniqueItems": true
+          "items": {
+            "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
+          },
+          "uniqueItems": true,
+          "maxItems": 0
         }
       }
     }

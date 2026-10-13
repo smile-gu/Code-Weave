@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "oneOf": [
+    {
+      "properties": {
+        "executionMode": {
+          "const": "SIMULATED"
+        },
+        "resultVersion": {
+          "const": "1.0"
+        }
+      }
+    },
+    {
+      "properties": {
+        "executionMode": {
+          "const": "REAL"
+        },
+        "resultVersion": {
+          "const": "2.0"
+        }
+      }
+    }
+  ],
+  "properties": {
+    "executionMode": {
+      "enum": [
+        "SIMULATED",
+        "REAL"
+      ],
+      "title": "Executionmode",
+      "type": "string"
+    },
+    "resultVersion": {
+      "enum": [
+        "1.0",
+        "2.0"
+      ],
+      "title": "Resultversion",
+      "type": "string"
+    }
+  },
+  "required": [
+    "executionMode",
+    "resultVersion"
+  ],
+  "title": "ExecutionContract",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-execution-contract-v1.schema.json"
+}

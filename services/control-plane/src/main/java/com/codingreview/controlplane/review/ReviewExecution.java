@@ -155,6 +155,11 @@ public record ReviewExecution(
     }
 
     public ReviewExecution submitting(SnapshotPublication snapshot, String message) {
+        return submitting(snapshot, message, Map.of("executionMode", "SIMULATED", "resultVersion", "1.0"));
+    }
+
+    public ReviewExecution submitting(SnapshotPublication snapshot, String message, Map<String, String> executionContract) {
+        ReviewWireSchemas.validate("review-execution-contract-v1", ReviewJson.parse(ReviewJson.canonical(executionContract)));
         byte[] request =
                 ReviewJson.canonical(
                         Map.of(
@@ -173,7 +178,8 @@ public record ReviewExecution(
                                         "manifestSha256",
                                         snapshot.manifestSha256()),
                                 "input",
-                                Map.of("message", message)));
+                                Map.of("message", message),
+                                "executionContract", executionContract));
         if (request.length > 65536
                 || message.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 32768
                 || message.isBlank()) throw new ReviewException("REVIEW_REQUEST_TOO_LARGE");
@@ -298,7 +304,7 @@ public record ReviewExecution(
         value.put("diagnosticCode", diagnosticCode);
         value.put("createdAt", createdAt);
         value.put("updatedAt", updatedAt);
-        value.put("simulationOnly", true);
+        value.put("simulationOnly", requestBytes() == null || !ReviewJson.parse(requestBytes()).path("executionContract").path("executionMode").asText().equals("REAL"));
         return value;
     }
 }

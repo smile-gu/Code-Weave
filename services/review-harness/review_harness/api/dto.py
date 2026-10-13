@@ -2,6 +2,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
+from review_harness.domain.model_call import ExecutionContract
+
 UUIDString = Annotated[
     str,
     StringConstraints(
@@ -38,3 +40,4 @@ class CreateRun(StrictDTO):
     reviewThreadId: UUIDString
     snapshot: Snapshot
     input: Input
+    executionContract: ExecutionContract | None = None

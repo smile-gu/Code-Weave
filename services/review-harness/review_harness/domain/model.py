@@ -172,6 +172,12 @@ class Run:
             }
         return None
 
+    @property
+    def execution_contract(self):
+        return json.loads(self.request_payload).get(
+            "executionContract", {"executionMode": "SIMULATED", "resultVersion": "1.0"}
+        )
+
     def wire(self) -> dict:
         return {
             "protocolVersion": self.protocol_version,
@@ -245,7 +251,12 @@ class Run:
                 else all(v is None for v in failure_fields)
             )
             if self.descriptor:
-                _require(valid_uuid(self.result_id) and self.result_version == "1.0")
+                _require(
+                    valid_uuid(self.result_id) and self.result_version in {"1.0", "2.0"}
+                )
+                _require(
+                    self.result_version == self.execution_contract["resultVersion"]
+                )
                 _require(re.fullmatch(r"sha256:[0-9a-f]{64}", self.result_sha256))
             if self.failure:
                 self.failure.validate()
@@ -257,7 +268,7 @@ class Run:
                 and sha256(self.request_payload) == self.request_fingerprint
             )
             _require(
-                set(request)
+                set(request) - {"executionContract"}
                 == {
                     "protocolVersion",
                     "runId",
@@ -267,6 +278,10 @@ class Run:
                     "input",
                 }
             )
+            if "executionContract" in request:
+                from review_harness.domain.model_call import ExecutionContract
+
+                ExecutionContract.model_validate(request["executionContract"])
             _require(
                 request["protocolVersion"] == self.protocol_version
                 and request["runId"] == self.run_id

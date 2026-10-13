@@ -9,11 +9,11 @@ from review_harness.application.redaction import redact, redact_structure
 from review_harness.domain.graph import (
     GRAPH_TOOL_OUTPUT_BYTES,
     GraphMessage,
-    ReviewGraphState,
     graph_error,
     pending_calls,
 )
 from review_harness.domain.model import canonical
+from review_harness.domain.real_graph import parse_state
 from review_harness.domain.snapshot import WorkCancelled
 from review_harness.runtime.compaction import Compactor
 from review_harness.runtime.model_adapter import TestWindowExceeded
@@ -39,7 +39,7 @@ class GraphProbeExecutor:
         tool_digest = state.toolSetDigest
 
         async def assemble(channels):
-            current = ReviewGraphState.model_validate(channels["state"])
+            current = parse_state(channels["state"])
             if current.graphStepCount >= engine.settings.graph_max_steps:
                 raise graph_error("CONTEXT_GRAPH_STEP_LIMIT_EXCEEDED")
             if (
@@ -57,7 +57,7 @@ class GraphProbeExecutor:
             }
 
         async def model(channels):
-            current = ReviewGraphState.model_validate(channels["state"])
+            current = parse_state(channels["state"])
             attempts = channels["compactions"]
             while True:
                 try:
@@ -89,7 +89,7 @@ class GraphProbeExecutor:
             return {"state": current.model_dump(), "done": not response.toolCalls}
 
         async def tools(channels):
-            current = ReviewGraphState.model_validate(channels["state"])
+            current = parse_state(channels["state"])
             for call in current.messages[-1].toolCalls:
                 await engine.active(context, signal)
                 envelope = await self.gateway.call(
@@ -143,7 +143,7 @@ class GraphProbeExecutor:
             {"state": state.model_dump(), "done": False},
             config={"recursion_limit": engine.settings.graph_max_steps * 4 + 4},
         )
-        self.last_state = ReviewGraphState.model_validate(result["state"])
+        self.last_state = parse_state(result["state"])
 
     async def cleanup(self, context):
         await self.engine.cleanup(context.run_id)

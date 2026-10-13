@@ -120,7 +120,8 @@
     "callPurpose": {
       "enum": [
         "INVESTIGATION",
-        "COMPACTION"
+        "COMPACTION",
+        "VALIDATION"
       ],
       "title": "Callpurpose",
       "type": "string"
@@ -143,6 +144,24 @@
       "title": "Sourcerefs",
       "type": "array"
     },
+    "evidenceRefs": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Evidencerefs",
+      "type": "array"
+    },
+    "candidateRefs": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Candidaterefs",
+      "type": "array"
+    },
     "toolSetDigest": {
       "pattern": "^sha256:[0-9a-f]{64}$",
       "title": "Toolsetdigest",
@@ -154,12 +173,18 @@
       "type": "string"
     },
     "meterId": {
-      "const": "test-only-utf8-units",
+      "enum": [
+        "test-only-utf8-units",
+        "V41_REFERENCE_LOCAL_TOKENS"
+      ],
       "title": "Meterid",
       "type": "string"
     },
     "meterVersion": {
-      "const": "1",
+      "enum": [
+        "1",
+        "v4.1-2cba9e42-v1"
+      ],
       "title": "Meterversion",
       "type": "string"
     },
@@ -214,5 +239,5 @@
   "title": "ContextManifest",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://code-weave.local/contracts/review-context-manifest-v1.schema.json"
+  "$id": "https://code-weave.local/schemas/review-context-manifest-v1.schema.json"
 }

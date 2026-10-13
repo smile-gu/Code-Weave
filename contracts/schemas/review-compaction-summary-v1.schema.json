@@ -128,7 +128,7 @@
         "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
         "type": "string"
       },
-      "maxItems": 0,
+      "maxItems": 128,
       "title": "Referencedevidenceids",
       "type": "array"
     },
@@ -137,7 +137,7 @@
         "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
         "type": "string"
       },
-      "maxItems": 0,
+      "maxItems": 32,
       "title": "Referencedcandidateids",
       "type": "array"
     },
@@ -173,5 +173,5 @@
   "title": "Summary",
   "type": "object",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://code-weave.local/contracts/review-compaction-summary-v1.schema.json"
+  "$id": "https://code-weave.local/schemas/review-compaction-summary-v1.schema.json"
 }

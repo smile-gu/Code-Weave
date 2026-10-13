@@ -73,6 +73,14 @@ class Artifact(BaseModel):
         return self.model_dump(by_alias=True)
 
 
+class ContentCoordinates(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    startLine: int = Field(ge=1)
+    endLine: int = Field(ge=1)
+    startsMidLine: bool
+    endsMidLine: bool
+
+
 class ContentPage(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     artifactId: str = Field(
@@ -84,3 +92,4 @@ class ContentPage(BaseModel):
     redactionState: Literal["NONE", "APPLIED", "NOT_APPLICABLE"]
     nextCursor: str | None = Field(max_length=1024)
     hasMore: bool
+    coordinates: ContentCoordinates | None = None

@@ -52,7 +52,12 @@ def verify():
             for name, value in os.environ.items()
             if not name.startswith("CODE_WEAVE_REVIEW_")
         }
-        run([str(executable), "-m", "pytest", "-q"], environment)
+        # Keep pytest retention/cleanup inside this acceptance's owned root.
+        # Other shells may be running pytest under the same Windows account.
+        run(
+            [str(executable), "-m", "pytest", "-q", "--basetemp", str(root / "pytest")],
+            environment,
+        )
         run([str(executable), "-m", "ruff", "check", "."], environment)
         run([str(executable), "-m", "ruff", "format", "--check", "."], environment)
         snapshots = root / "snapshots"
@@ -103,7 +108,8 @@ def verify():
                 f"http://127.0.0.1:{port}/internal/v1/health",
                 headers={"Authorization": "Bearer " + credential},
             )
-            with urllib.request.urlopen(request, timeout=5) as response:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(request, timeout=5) as response:
                 health = json.load(response)
                 if (
                     response.status != 200
