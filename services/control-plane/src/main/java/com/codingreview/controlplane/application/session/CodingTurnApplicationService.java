@@ -79,9 +79,28 @@ public final class CodingTurnApplicationService implements CodingIdleSafety {
 
     /** 创建排队 Turn，并保证同一 Session 同时只有一轮运行。 */
     public CodingTurn submit(UUID sessionId, String prompt) {
+        return submit(sessionId, UUID.randomUUID(), null, prompt);
+    }
+
+    /** Internal-only entry: the published STARTING intent must authorize this exact identity. */
+    public CodingTurn submitHandoff(UUID sessionId, UUID turnId, UUID handoffId, String prompt) {
+        if (!Thread.holdsLock(lock(sessionId))) throw new IllegalStateException("Session operation lock required");
+        reviewGuard.assertHandoffIntent(sessionId, turnId, handoffId, prompt);
+        var existing = turns.find(sessionId, turnId);
+        if (existing.isPresent()) {
+            var turn = existing.get();
+            if (!handoffId.equals(turn.sourceHandoffId()) || !prompt.equals(turn.userPrompt()))
+                throw new CodingSessionConflictException("HANDOFF_INTEGRITY_ERROR", "交接与既有 Turn 身份不一致。");
+            return turn;
+        }
+        return submit(sessionId, turnId, handoffId, prompt);
+    }
+
+    private CodingTurn submit(UUID sessionId, UUID turnId, UUID handoffId, String prompt) {
         synchronized (lock(sessionId)) {
             CodingSession session = requireActive(sessionId);
             reviewGuard.assertAvailable(sessionId);
+            reviewGuard.assertCodingAllowed(sessionId, handoffId);
             String executionBlock = executionBlocks.get(sessionId);
             if (executionBlock != null || resourceBlocks.contains(sessionId)) {
                 throw new CodingSessionConflictException(
@@ -111,8 +130,8 @@ public final class CodingTurnApplicationService implements CodingIdleSafety {
             }
             int sequence = history.stream().mapToInt(CodingTurn::sequence).max().orElse(0) + 1;
             CodingTurn queued = CodingTurn.queued(
-                    UUID.randomUUID(), sessionId, sequence, prompt, Instant.now()
-            );
+                    turnId, sessionId, sequence, prompt, Instant.now()
+            ).withSourceHandoff(handoffId);
             try {
                 turns.save(queued);
             } catch (RuntimeException exception) {
@@ -154,6 +173,7 @@ public final class CodingTurnApplicationService implements CodingIdleSafety {
 
     /** 在调用方持续持有 Session 操作锁时确认历史、句柄和执行保护均允许关闭。 */
     public void assertIdleAndSafeForClose(UUID sessionId) {
+        reviewGuard.assertNoUnconfirmedStart(sessionId);
         assertIdleAndSafe(sessionId);
     }
 

@@ -1,3 +1,4 @@
+import { ReviewHandoffPanel } from './ReviewHandoffPanel'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { ApiError } from '../../shared/api/http'
@@ -115,5 +116,6 @@ export function ReviewReportEditor({ sessionId, runId, sessionActive, requiresAc
       </select></label>
       <RevisionForm key={report.data.reportRevision.revisionDigest} view={{ ...report.data, editable: report.data.editable && sessionActive }} disabled={pending || intent !== null} requiresAcknowledgement={requiresAcknowledgement} onIntent={next => void send(next)} />
     </>}
+    {report.data && selectedRevision === undefined && <ReviewHandoffPanel sessionId={sessionId} runId={runId} sessionActive={sessionActive} approval={report.data.approval} />}
   </section>
 }

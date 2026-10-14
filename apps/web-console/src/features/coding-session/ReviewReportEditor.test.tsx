@@ -12,7 +12,8 @@ afterEach(() => { vi.unstubAllGlobals(); sessionStorage.clear() })
 describe('ReviewReportEditor', () => {
  it('does not create on GET and reuses the exact request after an uncertain write', async () => {
   let created = false, attempts = 0
-  const fetch = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+  const fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+   if (url.endsWith("/handoffs")) return ok([])
    if (init?.method === 'POST') { attempts++; if (attempts === 1) return { ok: false, status: 503, json: async () => ({ status: 503, code: 'REVIEW_STATE_WRITE_UNCERTAIN', message: 'Write uncertain' }) }; created = true; return ok(view) }
    return created ? ok(view) : { ok: false, status: 404, json: async () => ({ status: 404, code: 'REPORT_NOT_FOUND', message: 'Not started' }) }
   })
@@ -29,7 +30,8 @@ describe('ReviewReportEditor', () => {
  })
  it('saves a version with original grade and requires explicit approved selection and incomplete acknowledgement', async () => {
   let current = view
-  const fetch = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+  const fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+   if (url.endsWith("/handoffs")) return ok([])
    if (init?.method === 'PUT') {
     const body = JSON.parse(String(init.body)); current = { ...view, currentRevision: 2, reportRevision: { ...revision, ...body, revision: 2, revisionDigest: 'sha256:second' } }
    }
@@ -54,7 +56,7 @@ describe('ReviewReportEditor', () => {
  })
  it('reads an old version without publishing or enabling edits', async () => {
   const history = [{ revision: 1, revisionDigest: 'sha256:first', createdAt: 'then' }, { revision: 2, revisionDigest: 'sha256:second', createdAt: 'now' }]
-  const fetch = vi.fn().mockImplementation(async (url: string) => ok({ ...view, currentRevision: 2, revisionHistory: history,
+  const fetch = vi.fn().mockImplementation(async (url: string) => url.endsWith("/handoffs") ? ok([]) : ok({ ...view, currentRevision: 2, revisionHistory: history,
     editable: !url.includes('revision=1'), reportRevision: url.includes('revision=1') ? revision : { ...revision, revision: 2, revisionDigest: 'sha256:second', findingReviews: [{ ...revision.findingReviews[0], title: 'New title' }] } }))
   vi.stubGlobal('fetch', fetch); show()
   await screen.findByDisplayValue('New title')
@@ -66,7 +68,7 @@ describe('ReviewReportEditor', () => {
  it('restores an uncertain request without sending it until explicit retry', async () => {
   const held = { action: 'edit', body: { expectedRevision: 1, requestId: 'held-request', findingReviews: revision.findingReviews, userInstructions: 'Keep exact intent' } }
   sessionStorage.setItem('code-weave:report-intent:session:run', JSON.stringify(held))
-  const fetch = vi.fn().mockResolvedValue(ok(view)); vi.stubGlobal('fetch', fetch); show()
+  const fetch = vi.fn().mockImplementation(async (url: string) => ok(url.endsWith("/handoffs") ? [] : view)); vi.stubGlobal('fetch', fetch); show()
   await screen.findByDisplayValue('Original title')
   expect(fetch.mock.calls.every(([, init]) => !init.method)).toBe(true)
   fireEvent.click(screen.getByRole('button', { name: '重试同一请求' }))
@@ -76,7 +78,8 @@ describe('ReviewReportEditor', () => {
  })
  it('allows correction after a confirmed validation rejection instead of locking the bad request', async () => {
   let attempts = 0
-  const fetch = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+  const fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+   if (url.endsWith("/handoffs")) return ok([])
    if (init?.method === 'PUT' && ++attempts === 1) return { ok: false, status: 400, json: async () => ({ status: 400, code: 'REPORT_REQUEST_INVALID', message: 'Invalid title' }) }
    return ok(view)
   })
@@ -92,7 +95,7 @@ describe('ReviewReportEditor', () => {
   expect(sessionStorage.getItem('code-weave:report-intent:session:run')).toBeNull()
  })
  it('keeps closed session reports read-only', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(ok({ ...view, editable: false }))); show(false)
+  vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: string) => ok(url.endsWith("/handoffs") ? [] : { ...view, editable: false }))); show(false)
   expect(await screen.findByLabelText('标题 1')).toBeDisabled()
   expect(screen.getByRole('button', { name: '保存为新版本' })).toBeDisabled()
  })

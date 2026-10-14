@@ -67,6 +67,46 @@ public final class SnapshotCapture {
         }
     }
 
+    /** Compare current input using the same full-inventory observation as capture; no recapture. */
+    public void assertCurrent(
+            UUID snapshotId,
+            UUID sessionId,
+            String expectedManifest,
+            Path repository,
+            String activeBaseline) {
+        try {
+            var identity =
+                    publishedIdentity(snapshotId, sessionId)
+                            .orElseThrow(() -> new SnapshotException("SNAPSHOT_IDENTITY_MISMATCH"));
+            if (!identity.manifestSha256().equals(expectedManifest))
+                throw new SnapshotException("SNAPSHOT_IDENTITY_MISMATCH");
+            var manifest =
+                    ReviewJson.parse(
+                            Files.readAllBytes(
+                                    ReviewPaths.file(
+                                            root.resolve(snapshotId.toString()),
+                                            "manifest.json",
+                                            false)));
+            if (!ReviewJson.sha256(ReviewJson.canonical(manifest)).equals(expectedManifest)
+                    || !manifest.path("baseCommit").asText().equals(activeBaseline))
+                throw new SnapshotException("SNAPSHOT_IDENTITY_MISMATCH");
+            long deadline = deadline();
+            Observation first = observe(repository, activeBaseline, deadline);
+            Observation second = observe(repository, activeBaseline, deadline);
+            if (!same(first, second)
+                    || !first.head().equals(manifest.path("capturedHeadCommit").asText())
+                    || !first.branch().equals(manifest.path("branch").asText())
+                    || !first.fingerprint().equals(manifest.path("workspaceFingerprint").asText())
+                    || !ReviewJson.parse(ReviewJson.canonical(first.entries()))
+                            .equals(manifest.path("entries")))
+                throw new SnapshotException("SNAPSHOT_SOURCE_DRIFTED");
+        } catch (SnapshotException error) {
+            throw error;
+        } catch (IOException | RuntimeException error) {
+            throw new SnapshotException("SNAPSHOT_SOURCE_UNREADABLE");
+        }
+    }
+
     public SnapshotPublication capture(
             UUID id,
             UUID sessionId,

@@ -41,7 +41,13 @@ public final class ReviewWireSchemas {
                     "review-report-edit-v1",
                     "review-report-approve-v1",
                     "review-report-close-v1",
-                    "review-report-approval-v1");
+                    "review-report-approval-v1",
+                    "review-report-head-v2",
+                    "review-handoff-v1",
+                    "review-handoff-view-v1",
+                    "review-handoff-prepare-v1",
+                    "review-handoff-start-v1",
+                    "review-handoff-revoke-v1");
     private static final Map<String, JsonSchema> CACHE = new ConcurrentHashMap<>();
 
     private ReviewWireSchemas() {}

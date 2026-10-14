@@ -31,6 +31,10 @@ public final class ReviewReportService {
         var value = sessions.find(id).orElseThrow(() -> new CodingSessionNotFoundException(id));
         if (write && value.status() != CodingSessionStatus.ACTIVE)
             throw new CodingSessionConflictException("SESSION_NOT_ACTIVE", "关闭的会话仅允许读取报告历史。");
+        if (write)
+            store.scan(
+                    id,
+                    run -> store.reportHead(run).ifPresent(ReviewHandoffService::assertNoStarting));
         return value;
     }
 
@@ -287,6 +291,7 @@ public final class ReviewReportService {
                                     null,
                                     EMPTY_DIGEST)
                             .sealed();
+            next = carryHandoffs(head, next, ReviewHandoff.Status.SUPERSEDED);
             preflightHead(source, candidate, next);
             store.saveReportRevision(source.run(), candidate);
             store.saveReportHead(source.run(), next);
@@ -357,6 +362,7 @@ public final class ReviewReportService {
                                     approval,
                                     EMPTY_DIGEST)
                             .sealed();
+            next = carryHandoffs(head, next, ReviewHandoff.Status.SUPERSEDED);
             store.saveReportHead(source.run(), next);
             return approval;
         }
@@ -394,9 +400,31 @@ public final class ReviewReportService {
                                     null,
                                     EMPTY_DIGEST)
                             .sealed();
+            next = carryHandoffs(head, next, ReviewHandoff.Status.REVOKED);
             store.saveReportHead(source.run(), next);
             return view(source, next, next.currentRevision(), true);
         }
+    }
+
+    private Head carryHandoffs(Head previous, Head next, ReviewHandoff.Status status) {
+        if (previous.handoffs() == null) return next;
+        var entries =
+                previous.handoffs().entries().stream()
+                        .map(
+                                entry ->
+                                        entry.status() == ReviewHandoff.Status.PREPARED
+                                                        || entry.status()
+                                                                == ReviewHandoff.Status
+                                                                        .START_BLOCKED
+                                                ? entry.status(
+                                                        status,
+                                                        status == ReviewHandoff.Status.REVOKED
+                                                                ? "REPORT_CLOSED"
+                                                                : "REPORT_CHANGED",
+                                                        ReviewJson.timestamp(Instant.now()))
+                                                : entry)
+                        .toList();
+        return next.withHandoffs(new ReviewHandoff.Index("1.0", entries));
     }
 
     private void preflightHead(Source source, Revision candidate, Head head) {

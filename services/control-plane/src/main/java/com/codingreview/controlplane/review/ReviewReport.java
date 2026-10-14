@@ -70,8 +70,19 @@ public final class ReviewReport {
         try {
             require(raw.length <= MAX_BYTES, code);
             var node = ReviewJson.parse(raw);
-            ReviewWireSchemas.validate(schema(type), node);
-            T value = MAPPER.treeToValue(node, type);
+            ReviewWireSchemas.validate(
+                    type == Head.class && node.has("handoffs")
+                            ? "review-report-head-v2"
+                            : schema(type),
+                    node);
+            T value =
+                    (type == Head.class
+                                    ? MAPPER.copy()
+                                            .disable(
+                                                    DeserializationFeature
+                                                            .FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                                    : MAPPER)
+                            .treeToValue(node, type);
             // UUIDs and typed scalars must have their canonical representation.
             require(Arrays.equals(ReviewJson.canonical(node), ReviewJson.canonical(value)), code);
             return value;
@@ -89,6 +100,11 @@ public final class ReviewReport {
         if (type == ApprovalRequest.class) return "review-report-approve-v1";
         if (type == CloseRequest.class) return "review-report-close-v1";
         if (type == Approval.class) return "review-report-approval-v1";
+        if (type == ReviewHandoff.Content.class) return "review-handoff-v1";
+        if (type == ReviewHandoff.View.class) return "review-handoff-view-v1";
+        if (type == ReviewHandoff.PrepareRequest.class) return "review-handoff-prepare-v1";
+        if (type == ReviewHandoff.StartRequest.class) return "review-handoff-start-v1";
+        if (type == ReviewHandoff.RevokeRequest.class) return "review-handoff-revoke-v1";
         throw new ReviewException("REPORT_CONTRACT_INVALID");
     }
 
@@ -255,7 +271,33 @@ public final class ReviewReport {
             List<Pointer> revisions,
             List<Receipt> receipts,
             Approval approval,
-            String headDigest) {
+            String headDigest,
+            @com.fasterxml.jackson.annotation.JsonInclude(
+                            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                    ReviewHandoff.Index handoffs) {
+        public Head(
+                UUID reportId,
+                UUID sessionId,
+                UUID runId,
+                int currentRevision,
+                Interaction interaction,
+                List<Pointer> revisions,
+                List<Receipt> receipts,
+                Approval approval,
+                String headDigest) {
+            this(
+                    reportId,
+                    sessionId,
+                    runId,
+                    currentRevision,
+                    interaction,
+                    revisions,
+                    receipts,
+                    approval,
+                    headDigest,
+                    null);
+        }
+
         public Head {
             Objects.requireNonNull(reportId);
             Objects.requireNonNull(sessionId);
@@ -287,6 +329,21 @@ public final class ReviewReport {
             require(headDigest.equals(contentDigest(this, "headDigest")), "REPORT_INTEGRITY_ERROR");
         }
 
+        public Head withHandoffs(ReviewHandoff.Index index) {
+            return new Head(
+                            reportId,
+                            sessionId,
+                            runId,
+                            currentRevision,
+                            interaction,
+                            revisions,
+                            receipts,
+                            approval,
+                            EMPTY_DIGEST,
+                            index)
+                    .sealed();
+        }
+
         public Head sealed() {
             return new Head(
                     reportId,
@@ -297,7 +354,8 @@ public final class ReviewReport {
                     revisions,
                     receipts,
                     approval,
-                    contentDigest(this, "headDigest"));
+                    contentDigest(this, "headDigest"),
+                    handoffs);
         }
     }
 

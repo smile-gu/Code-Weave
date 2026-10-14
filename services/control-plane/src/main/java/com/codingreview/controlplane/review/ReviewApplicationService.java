@@ -59,6 +59,7 @@ public final class ReviewApplicationService {
     private ScopePreview scope(CodingSession session) {
         coding.assertIdleAndSafe(session.sessionId());
         guard.assertAvailable(session.sessionId());
+        guard.assertNoUnconfirmedStart(session.sessionId());
         workspace.assertReadable(session);
         ScopePreview preview =
                 capture.preview(

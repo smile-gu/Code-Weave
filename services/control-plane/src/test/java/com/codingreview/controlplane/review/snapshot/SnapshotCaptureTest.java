@@ -17,6 +17,41 @@ import java.util.*;
 class SnapshotCaptureTest {
     @TempDir Path temp;
 
+    @Test
+    void handoffComparisonUsesCapturedFullInputAndDoesNotModifyIndex() throws Exception {
+        Path repo = repository();
+        Files.writeString(repo.resolve("changed.txt"), "review input\n");
+        var capture = capture();
+        var preview = capture.preview(UUID.randomUUID(), repo, head(repo));
+        var publication =
+                capture.capture(
+                        UUID.randomUUID(),
+                        preview.sessionId(),
+                        repo,
+                        head(repo),
+                        confirmation(preview));
+        byte[] index = Files.readAllBytes(repo.resolve(".git/index"));
+        capture.assertCurrent(
+                publication.snapshotId(),
+                publication.sessionId(),
+                publication.manifestSha256(),
+                repo,
+                head(repo));
+        assertThat(Files.readAllBytes(repo.resolve(".git/index"))).containsExactly(index);
+        Files.writeString(repo.resolve("context.txt"), "external edit outside selected changes");
+        assertThatThrownBy(
+                        () ->
+                                capture.assertCurrent(
+                                        publication.snapshotId(),
+                                        publication.sessionId(),
+                                        publication.manifestSha256(),
+                                        repo,
+                                        head(repo)))
+                .isInstanceOf(SnapshotException.class)
+                .hasMessageContaining("SNAPSHOT_SOURCE_DRIFTED");
+        assertThat(Files.readAllBytes(repo.resolve(".git/index"))).containsExactly(index);
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
         "true,false",

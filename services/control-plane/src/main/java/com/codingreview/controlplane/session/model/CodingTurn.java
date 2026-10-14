@@ -22,8 +22,26 @@ public record CodingTurn(
         Instant startedAt,
         Instant endedAt,
         String failedStage,
-        String failureKind
+        String failureKind,
+        UUID sourceHandoffId
 ) {
+    /** Legacy Turn snapshots and callers have no Handoff provenance. */
+    public CodingTurn(UUID turnId, UUID sessionId, int sequence, String userPrompt,
+            TurnStatus status, TurnOutcome outcome, String assistantMessage,
+            String nativeClaudeSessionId, int changedFiles, String workspaceFingerprint,
+            String failureCode, String userMessage, Instant createdAt, Instant startedAt,
+            Instant endedAt, String failedStage, String failureKind) {
+        this(turnId, sessionId, sequence, userPrompt, status, outcome, assistantMessage,
+                nativeClaudeSessionId, changedFiles, workspaceFingerprint, failureCode, userMessage,
+                createdAt, startedAt, endedAt, failedStage, failureKind, null);
+    }
+
+    public CodingTurn withSourceHandoff(UUID id) {
+        return new CodingTurn(turnId, sessionId, sequence, userPrompt, status, outcome, assistantMessage,
+                nativeClaudeSessionId, changedFiles, workspaceFingerprint, failureCode, userMessage,
+                createdAt, startedAt, endedAt, failedStage, failureKind, id);
+    }
+
     /** 兼容旧调用与缺少阶段诊断的历史快照。 */
     public CodingTurn(UUID turnId, UUID sessionId, int sequence, String userPrompt,
                       TurnStatus status, TurnOutcome outcome, String assistantMessage,
@@ -38,7 +56,7 @@ public record CodingTurn(
     public CodingTurn withDiagnostic(String stage, String kind, String code) {
         return new CodingTurn(turnId, sessionId, sequence, userPrompt, status, outcome, assistantMessage,
                 nativeClaudeSessionId, changedFiles, workspaceFingerprint, code, userMessage,
-                createdAt, startedAt, endedAt, stage, kind);
+                createdAt, startedAt, endedAt, stage, kind).withSourceHandoff(sourceHandoffId);
     }
     public CodingTurn {
         Objects.requireNonNull(turnId, "turnId");
@@ -67,7 +85,7 @@ public record CodingTurn(
         requireStatus(TurnStatus.QUEUED);
         return new CodingTurn(turnId, sessionId, sequence, userPrompt, TurnStatus.RUNNING, null,
                 null, nativeClaudeSessionId, 0, null, null,
-                "Coding Agent 正在执行。", createdAt, now, null);
+                "Coding Agent 正在执行。", createdAt, now, null).withSourceHandoff(sourceHandoffId);
     }
 
     /** 记录 Turn 的正常业务结论。 */
@@ -75,7 +93,7 @@ public record CodingTurn(
                                String assistant, String nativeId, Instant now) {
         if (status != TurnStatus.RUNNING) throw new IllegalStateException("only running turn can complete");
         return new CodingTurn(turnId, sessionId, sequence, userPrompt, TurnStatus.COMPLETED, result,
-                assistant, nativeId, files, fingerprint, null, message, createdAt, startedAt, now);
+                assistant, nativeId, files, fingerprint, null, message, createdAt, startedAt, now).withSourceHandoff(sourceHandoffId);
     }
 
     /** 记录 Agent 或基础设施失败。 */
@@ -83,7 +101,7 @@ public record CodingTurn(
         if (status != TurnStatus.RUNNING) throw new IllegalStateException("only running turn can fail");
         return new CodingTurn(turnId, sessionId, sequence, userPrompt, TurnStatus.FAILED, result,
                 assistant, nativeId, changedFiles, workspaceFingerprint, code, message,
-                createdAt, startedAt, now);
+                createdAt, startedAt, now).withSourceHandoff(sourceHandoffId);
     }
 
     /** 在执行尚未开始时将排队 Turn 收敛为失败，不伪造 startedAt。 */
@@ -91,7 +109,7 @@ public record CodingTurn(
         requireStatus(TurnStatus.QUEUED);
         return new CodingTurn(turnId, sessionId, sequence, userPrompt, TurnStatus.FAILED,
                 TurnOutcome.AGENT_FAILED, null, nativeClaudeSessionId, 0, null,
-                code, message, createdAt, null, now);
+                code, message, createdAt, null, now).withSourceHandoff(sourceHandoffId);
     }
 
     /** 记录用户主动停止的 Turn。 */
@@ -100,7 +118,7 @@ public record CodingTurn(
         return new CodingTurn(turnId, sessionId, sequence, userPrompt, TurnStatus.CANCELLED, null,
                 assistantMessage, nativeClaudeSessionId, changedFiles, workspaceFingerprint,
                 "CANCELLED", message,
-                createdAt, startedAt, now, null, "CANCELLED");
+                createdAt, startedAt, now, null, "CANCELLED").withSourceHandoff(sourceHandoffId);
     }
 
     /** 服务重启后把无法确认结果的运行中 Turn 标记为中断。 */
@@ -111,7 +129,7 @@ public record CodingTurn(
         return new CodingTurn(turnId, sessionId, sequence, userPrompt, TurnStatus.INTERRUPTED, null,
                 assistantMessage, nativeClaudeSessionId, changedFiles, workspaceFingerprint,
                 "SERVICE_RESTARTED",
-                "服务在本轮完成前重启，结果无法确认。", createdAt, startedAt, now);
+                "服务在本轮完成前重启，结果无法确认。", createdAt, startedAt, now).withSourceHandoff(sourceHandoffId);
     }
 
     /** 检查状态转换的前置条件。 */

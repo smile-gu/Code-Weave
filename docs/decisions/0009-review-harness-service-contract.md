@@ -659,3 +659,8 @@ Result3.0具有独立Python/Java严格读取器与六维顺序/选择/引用/用
 ## 2026-10-14 批次6B：Java人工报告与历史
 
 已可靠导入的真实Result2/3仍只读；显式报告API建立/修订/批准选择/关闭人工审阅，不调度模型或Coding。ReportRevision绑定Session/Thread/Run、Result身份/hash/version、Snapshot/manifest，原Finding等级及来源不可替换。Session锁下expectedRevision/requestId控制版本冲突和幂等；关闭Session只读。不可变版本先发布，单ReportHead随后确认当前索引、回执与批准选择；不是多文件原子事务。孤儿不公开，原请求精确确认，容量在新发布前预检。新修订清除旧批准选择；6C另接Handoff和启动保护。见6B交付及新鲜受影响证据。
+
+
+## 批次6C离线实现
+
+Handoff1.0不可变材料由已可靠导入Result与精确人工批准投影，生命周期纳入新ReportHead v2，旧v1严格历史读取。Session锁下准备/替代/撤销/显式启动；STARTING可靠确认后复用原Coding执行器，固定Turn/sourceHandoffId失确认精读，重启不自动发送。完整Snapshot只读一致性、资源及交互门禁仍在；不是多文件原子事务，未运行真实CC。见docs/review-harness-batch-6c-handoff-delivery.md。

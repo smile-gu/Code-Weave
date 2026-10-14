@@ -147,6 +147,53 @@ public class ReviewConfiguration {
         return new ReviewReportService(sessions, locks, store);
     }
 
+    @Bean
+    ReviewHandoffService reviewHandoffService(
+            CodingSessionRepository sessions,
+            SessionOperationLockManager locks,
+            ReviewExecutionStore store,
+            ReviewReportService reports,
+            ReviewExecutionGuard guard,
+            CodingTurnApplicationService coding,
+            com.codingreview.controlplane.session.persistence.CodingTurnRepository turns,
+            SnapshotCapture capture,
+            SnapshotPublicationStore snapshots,
+            SessionWorkspaceGuard workspace) {
+        return new ReviewHandoffService(
+                sessions,
+                locks,
+                store,
+                reports,
+                guard,
+                coding,
+                turns,
+                (session, run) -> {
+                    workspace.assertReadable(session);
+                    var publication =
+                            snapshots
+                                    .find(run.snapshotId())
+                                    .orElseThrow(
+                                            () ->
+                                                    new SnapshotException(
+                                                            "SNAPSHOT_IDENTITY_MISMATCH"));
+                    if (!publication.sessionId().equals(session.sessionId())
+                            || !publication.manifestSha256().equals(run.manifestSha256()))
+                        throw new SnapshotException("SNAPSHOT_IDENTITY_MISMATCH");
+                    capture.assertCurrent(
+                            run.snapshotId(),
+                            session.sessionId(),
+                            run.manifestSha256(),
+                            session.sourceRepository(),
+                            session.activeReviewBaselineCommit());
+                });
+    }
+
+    @Bean
+    @org.springframework.core.annotation.Order(2)
+    org.springframework.boot.ApplicationRunner reconcileHandoffs(ReviewHandoffService handoffs) {
+        return args -> handoffs.recover();
+    }
+
     public static final class ReadyReviewDiscovery {
         private final ReviewCoordinator coordinator;
 

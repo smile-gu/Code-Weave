@@ -42,6 +42,10 @@ class ReviewReportContractTest {
                 .containsExactlyInAnyOrderElementsOf(
                         Arrays.stream(type.getRecordComponents())
                                 .map(java.lang.reflect.RecordComponent::getName)
+                                .filter(
+                                        nameOfField ->
+                                                type != ReviewReport.Head.class
+                                                        || !nameOfField.equals("handoffs"))
                                 .toList());
         var positive = fixture.path("positive");
         ReviewWireSchemas.validate(name, positive);

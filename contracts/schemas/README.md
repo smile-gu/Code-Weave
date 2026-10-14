@@ -123,3 +123,8 @@ Schema无法单独证明跨实体身份/时间/用量/谱系/权限，Python与J
 新增review-report-v1（View）、review-report-revision-v1、内部review-report-head-v1及create/edit/approve/close请求、approval响应共8份自包含严格Schema。新fixtures位于review-report-v1，旧Result2/3及旧fixtures不改。JavaDTO/业务门禁严格检查原Result来源、不可变等级/身份、版本/请求冲突、原字节摘要、批准与覆盖确认；Schema有效不等于已经获得批准。字段文本另按UTF-8字节限制，报告/请求1MiB，开放Head预留1KiB关闭空间。交付见docs/review-harness-batch-6b-report-revisions-handoff.md。
 
 B6B-R01：description/fixInstructions 各最多 16384 UTF-8 字节，足以无损容纳原 Result 的 4096 Unicode 字符；Schema 原有 8192 字符边界不变，两项同时适用。原 Result 与整体 1MiB、Head 关闭空间边界均不变。
+
+
+## 批次6C交接合同
+
+新增review-handoff-v1、view/prepare/start/revoke-v1和内部review-report-head-v2共6份严格自包含Schema。旧Head v1历史字节/Schema不改，只有含handoffs的新Head按v2校验。fixtures/review-handoff-v1提供6正6反及规范摘要。运行时追加身份、来源投影、精确批准、状态和固定Turn门禁；Schema不等于执行授权。交付见docs/review-harness-batch-6c-handoff-delivery.md。

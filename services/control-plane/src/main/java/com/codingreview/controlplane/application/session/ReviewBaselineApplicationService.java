@@ -102,7 +102,7 @@ public final class ReviewBaselineApplicationService {
         if (!blockers.isEmpty()) {
             return unavailable(session, blockers);
         }
-        try { reviewGuard.assertAvailable(session.sessionId()); codingSafety.assertIdleAndSafe(session.sessionId()); }
+        try { reviewGuard.assertAvailable(session.sessionId()); reviewGuard.assertCodingAllowed(session.sessionId(), null); codingSafety.assertIdleAndSafe(session.sessionId()); }
         catch (CodingSessionConflictException error) { return unavailable(session, List.of(error.code())); }
 
         List<CodingTurn> history = turns.findAll(session.sessionId());

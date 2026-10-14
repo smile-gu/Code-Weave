@@ -42,4 +42,17 @@ class CodingTurnTest {
         )).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("workspaceFingerprint");
     }
+    @Test
+    void handoffProvenanceSurvivesEveryLifecycleAndDiagnosticTransition() {
+        UUID source = UUID.randomUUID(); Instant now = Instant.now();
+        var queued = CodingTurn.queued(UUID.randomUUID(), UUID.randomUUID(), 1, "authorized data", now).withSourceHandoff(source);
+        var running = queued.running(now.plusSeconds(1));
+        var states = java.util.List.of(queued, running, queued.failBeforeStart("QUEUE_FAILED", "failed", now.plusSeconds(2)),
+                queued.cancelled("cancelled", now.plusSeconds(2)), queued.interrupted(now.plusSeconds(2)),
+                running.cancelled("cancelled", now.plusSeconds(2)), running.interrupted(now.plusSeconds(2)),
+                running.failed(TurnOutcome.AGENT_FAILED, "FAILED", "failed", null, null, now.plusSeconds(2)),
+                running.complete(TurnOutcome.CHANGES_VERIFIED, 1, "sha256:content", "done", "reply", null, now.plusSeconds(2)),
+                running.withDiagnostic("AGENT", "FAILED", "FAILED"));
+        assertThat(states).allSatisfy(turn -> assertThat(turn.sourceHandoffId()).isEqualTo(source));
+    }
 }

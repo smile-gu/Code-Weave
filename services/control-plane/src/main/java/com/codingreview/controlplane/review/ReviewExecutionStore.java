@@ -218,6 +218,36 @@ public class ReviewExecutionStore {
         atomic(directory(run.sessionId(), run.runId()), "report-head.json", raw, false);
     }
 
+    public Optional<ReviewHandoff.Content> handoff(ReviewExecution run, UUID id) {
+        Path directory = directory(run.sessionId(), run.runId());
+        validateReportDirectory(directory);
+        String name = "handoff-" + id + ".json";
+        if (!Files.exists(directory.resolve(name), LinkOption.NOFOLLOW_LINKS))
+            return Optional.empty();
+        var value =
+                ReviewReport.decode(
+                        read(directory, name, ReviewReport.MAX_BYTES),
+                        ReviewHandoff.Content.class,
+                        "HANDOFF_INTEGRITY_ERROR");
+        value.verify();
+        if (!value.sessionId().equals(run.sessionId())
+                || !value.runId().equals(run.runId())
+                || !value.handoffId().equals(id))
+            throw new ReviewException("HANDOFF_INTEGRITY_ERROR");
+        return Optional.of(value);
+    }
+
+    public void saveHandoff(ReviewExecution run, ReviewHandoff.Content content) {
+        content.verify();
+        byte[] raw = ReviewJson.canonical(content);
+        if (raw.length > ReviewReport.MAX_BYTES) throw new ReviewException("REPORT_TOO_LARGE");
+        atomic(
+                directory(run.sessionId(), run.runId()),
+                "handoff-" + content.handoffId() + ".json",
+                raw,
+                true);
+    }
+
     private void validateReportDirectory(Path directory) {
         try {
             ReviewPaths.directory(directory);
@@ -252,7 +282,7 @@ public class ReviewExecutionStore {
                     if (!Arrays.equals(
                             read(directory, name, Math.max(256 * 1024, raw.length)), raw))
                         throw new ReviewException(
-                                name.startsWith("report-")
+                                (name.startsWith("report-") || name.startsWith("handoff-"))
                                         ? "REPORT_INTEGRITY_ERROR"
                                         : name.equals("result.json")
                                                 ? "REVIEW_RESULT_INTEGRITY_ERROR"

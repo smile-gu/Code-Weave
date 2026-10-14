@@ -56,3 +56,23 @@ export async function writeHumanReport(sessionId: string, runId: string, intent:
   await request(reportPath(sessionId, runId) + suffix, { method: intent.action === 'edit' ? 'PUT' : 'POST',
     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(intent.body) })
 }
+
+export type HandoffStatus = 'PREPARED' | 'SUPERSEDED' | 'REVOKED' | 'STARTING' | 'STARTED' | 'START_BLOCKED'
+export type HandoffContent = {
+  handoffVersion: '1.0'; handoffId: string; sessionId: string; reviewThreadId: string; runId: string;
+  snapshotId: string; manifestSha256: string; sourceResultId: string; sourceResultSha256: string;
+  sourceResultVersion: string; reportId: string; reportRevision: number; reportRevisionDigest: string;
+  approvalRequestId: string; selectedFindingIds: string[];
+  materials: { review: FindingReview; originalFindingJson: string; evidenceJson: string[] }[];
+  reportInstructions: string; approvalInstructions: string; coverageJson: string; createdAt: string;
+  requestId: string; requestDigest: string; contentDigest: string;
+}
+export type HandoffView = { content: HandoffContent; lifecycle: { handoffId: string; contentDigest: string; status: HandoffStatus; turnId: string | null; startRequestId: string | null; startRequestDigest: string | null; reason: string | null; updatedAt: string } }
+export type HandoffIntent = { action: 'prepare'; body: { requestId: string; expectedRevision: number; expectedRevisionDigest: string } }
+  | { action: 'start' | 'revoke'; handoffId: string; body: { requestId: string; expectedHandoffDigest: string } }
+function handoffPath(sessionId: string, runId: string) { return `/api/v1/coding-sessions/${encodeURIComponent(sessionId)}/review-runs/${encodeURIComponent(runId)}/handoffs` }
+export function readHandoffs(sessionId: string, runId: string) { return request<HandoffView[]>(handoffPath(sessionId, runId)) }
+export function writeHandoff(sessionId: string, runId: string, intent: HandoffIntent) {
+  return request<HandoffView>(handoffPath(sessionId, runId) + (intent.action === 'prepare' ? '' : `/${encodeURIComponent(intent.handoffId)}/${intent.action}`),
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(intent.body) })
+}

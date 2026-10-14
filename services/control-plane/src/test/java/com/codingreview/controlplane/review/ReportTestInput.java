@@ -18,6 +18,11 @@ final class ReportTestInput {
     }
 
     static Imported imported(Path root, String grade, String text) throws Exception {
+        return imported(root, grade, text, UUID.randomUUID());
+    }
+
+    static Imported imported(Path root, String grade, String text, UUID sessionId)
+            throws Exception {
         var fixture =
                 ReviewJson.parse(
                         Files.readAllBytes(
@@ -35,7 +40,7 @@ final class ReportTestInput {
                                     .path(grade)
                                     .deepCopy();
         var plan = value.path("reviewPlan").deepCopy();
-        var run = ReviewExecution.preparing(UUID.randomUUID());
+        var run = ReviewExecution.preparing(sessionId);
         ((ObjectNode) plan.path("feeAuthorization")).put("confirmedAt", run.createdAt());
         run =
                 run.submitting(

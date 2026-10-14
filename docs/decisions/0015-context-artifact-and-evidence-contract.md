@@ -385,3 +385,8 @@ ModelCall2.0明确Pass与v2保守输入预算；费用按C与max_output预留，
 ## 2026-10-14 批次6B：人工字段不回填模型事实
 
 人工裁决存储于独立ReportRevision/Head，只修订标题、描述、修改要求、备注、decision与用户要求。原Result2/3、Evidence、源码引用、模型等级/验证与假设保留，RISK/SUGGESTION批准修改不升级VERIFIED。批准只绑定当前精确revision/digest的非空APPROVED_FOR_FIX项；有限/不完整覆盖须确认，零Finding仅可关闭审阅。历史GET无副作用、孤儿不可作为批准对象；本轮未触及Python执行/Token/Evidence门禁，不消除历史模型质量限制，也未启动Handoff/Coding。见6B交付。
+
+
+## 批次6C交付材料
+
+Handoff保留原Finding及关联Evidence、originalDisposition/假设、人工修订和用户要求，模型原文不能成为权限指令。旧Result不改，不通过自由文本增加Finding或Python绝对路径读取权限。持久Handoff身份绑定精确报告/批准/来源摘要，Turn转换保持sourceHandoffId；历史读取不重采输入或调度Coding。离线测试不证明真实CC理解材料或修复质量，详见6C交付记录。
