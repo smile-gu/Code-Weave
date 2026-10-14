@@ -1,4 +1,6 @@
-# Review Harness Runtime — 批次 4
+# Review Harness Runtime — 批次 6
+
+当前实现已包含批次 5 真实 Provider/局部句柄及批次 6 串行六 Pass、持久费用账本和 Result 3.0。Java 已提供人工报告修订及显式 Handoff/Coding 启动；下方按时间记录的批次说明保留为历史，不能用旧窗口、表数或“尚未实现”描述判断当前能力。最终验收状态见 [批次 6 统一验收](../../docs/review-harness-batch-6-final-acceptance.md)，未通过项及真实质量待验应单独核对。
 
 独立 Python 3.12 服务，提供确定性模拟执行。批次 1 已实现内部 HTTP、持久 Run/Event/Result、有界单 Worker、取消、SSE 和启动恢复。批次 2 增加真实 Snapshot 校验、独立执行副本、持久文件资源记录与 Java HTTP/SSE 模拟接通。批次 3 增加独立 Artifact 和五个基础只读工具，默认模拟器仍不自动调查；模型、Evidence 和前端 Review 属于后续批次。
 
@@ -33,7 +35,7 @@ $env:CODE_WEAVE_REVIEW_INTERNAL_BEARER_TOKEN = [System.Net.NetworkCredential]::n
 
 数据库目录必须已存在。Snapshot Root 必须可读，Execution Root 必须可读写；三个绝对根（含 Artifact Root）互不包含、拒绝链接/reparse别名，且位于真实仓库外。PENDING 不读取 Snapshot 内容；取得 RUNNING + ACTIVE 后先可靠保存执行空间意图，再校验原始 Manifest 摘要、内容并创建独立副本。数据库 Schema 缺失/不兼容、物理损坏、恢复失败时服务返回 NOT_READY，启动不会自动迁移或修补 Schema。
 
-Schema 检查同时验证 Alembic revision，以及 Run/Event/Result、execution_workspaces、review_artifacts、review_model_calls、review_evidence 七张表的全部必需列，空库也执行检查。Session 保护在创建和取得执行权的写事务中核验：同 Session 存在损坏历史或 UNCERTAIN 资源时，已排队任务也不能启动。被阻断任务保留 PENDING/ACCEPTED；确认资源安全后通过同请求重试或下一次恢复重新排队，其他 Session 继续服务。
+Schema 检查同时验证 Alembic revision，以及 Run/Event/Result、execution_workspaces、review_artifacts、review_model_calls、review_evidence、run_fee_budget、model_call_reservations、review_passes 十张产品表的全部必需列，空库也执行检查。Session 保护在创建和取得执行权的写事务中核验：同 Session 存在损坏历史或 UNCERTAIN 资源时，已排队任务也不能启动。被阻断任务保留 PENDING/ACCEPTED；确认资源安全后通过同请求重试或下一次恢复重新排队，其他 Session 继续服务。
 
 ## 配置
 
@@ -87,7 +89,7 @@ RunStore 每个命令在 `BEGIN IMMEDIATE` 事务内执行条件状态更新、�
 
 模拟器只有三个有界阶段，结果中的 Pass/Evidence/Finding 与 Markdown 全为空，成功不代表代码审查通过。目录、复制线程和句柄现在是真实资源：后台任务未退出、owner 不符、链接替换或清理未知，必须保留 RETAINED 与 FAILED + UNCERTAIN。重启先建立 Session 隔离并验证资源归属，再可靠清理；无法归属的目录或资源行使全服务 NOT_READY，原始文件保留。
 
-升级旧库必须显式执行 `alembic upgrade head` 到 `0006_evidence`。未升级的库不会启动 Worker；旧 0001 migration 不变，Result 1.0 仍仅为模拟空包，真实结果使用 2.0。Snapshot 不自动 GC，Run 结束只清理自己的执行副本。
+升级旧库必须显式执行 `alembic upgrade head` 到 `0008_review_passes`。未升级的库不会启动 Worker；旧迁移及 Result 1.0/2.0 历史读回保持，当前多 Pass 真实结果使用 3.0 和 HTTP 1.1，不能把模拟空包当审查通过。Snapshot 不自动 GC，Run 结束只清理自己的执行副本。
 
 ## 代码组织
 

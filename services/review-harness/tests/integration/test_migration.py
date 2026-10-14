@@ -17,6 +17,9 @@ async def test_empty_database_upgrade_enforces_constraints(tmp_path):
     with sqlite3.connect(path) as connection:
         connection.execute("PRAGMA foreign_keys=ON")
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+        assert connection.execute(
+            "SELECT version_num FROM alembic_version"
+        ).fetchall() == [("0008_review_passes",)]
         assert {
             r[0]
             for r in connection.execute(
@@ -31,6 +34,9 @@ async def test_empty_database_upgrade_enforces_constraints(tmp_path):
             "review_artifacts",
             "review_model_calls",
             "review_evidence",
+            "run_fee_budget",
+            "model_call_reservations",
+            "review_passes",
         }
         with pytest.raises(sqlite3.IntegrityError):
             connection.execute(
