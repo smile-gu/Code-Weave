@@ -1,0 +1,306 @@
+{
+  "review-report-v1": {
+    "positive": {
+      "reportRevision": {
+        "reportVersion": "1.0",
+        "reportId": "11111111-1111-4111-8111-111111111111",
+        "revision": 1,
+        "sessionId": "11111111-1111-4111-8111-111111111111",
+        "reviewThreadId": "11111111-1111-4111-8111-111111111111",
+        "runId": "11111111-1111-4111-8111-111111111111",
+        "sourceResultId": "11111111-1111-4111-8111-111111111111",
+        "sourceResultSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceResultVersion": "3.0",
+        "snapshotId": "11111111-1111-4111-8111-111111111111",
+        "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "createdAt": "2026-10-14T00:00:00.000000Z",
+        "findingReviews": [
+          {
+            "findingId": "11111111-1111-4111-8111-111111111111",
+            "originalDisposition": "RISK",
+            "title": "Finite risk",
+            "description": "Original assumption retained",
+            "fixInstructions": "Check guard",
+            "note": "Human note",
+            "decision": "PENDING"
+          }
+        ],
+        "userInstructions": "",
+        "requestId": "11111111-1111-4111-8111-111111111111",
+        "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a"
+      },
+      "currentRevision": 1,
+      "editable": true,
+      "interaction": "OPEN",
+      "revisionHistory": [
+        {
+          "revision": 1,
+          "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+          "createdAt": "2026-10-14T00:00:00.000000Z"
+        }
+      ],
+      "approval": null
+    },
+    "negative": {
+      "reportRevision": {
+        "reportVersion": "1.0",
+        "reportId": "11111111-1111-4111-8111-111111111111",
+        "revision": 1,
+        "sessionId": "11111111-1111-4111-8111-111111111111",
+        "reviewThreadId": "11111111-1111-4111-8111-111111111111",
+        "runId": "11111111-1111-4111-8111-111111111111",
+        "sourceResultId": "11111111-1111-4111-8111-111111111111",
+        "sourceResultSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "sourceResultVersion": "3.0",
+        "snapshotId": "11111111-1111-4111-8111-111111111111",
+        "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "createdAt": "2026-10-14T00:00:00.000000Z",
+        "findingReviews": [
+          {
+            "findingId": "11111111-1111-4111-8111-111111111111",
+            "originalDisposition": "RISK",
+            "title": "Finite risk",
+            "description": "Original assumption retained",
+            "fixInstructions": "Check guard",
+            "note": "Human note",
+            "decision": "PENDING"
+          }
+        ],
+        "userInstructions": "",
+        "requestId": "11111111-1111-4111-8111-111111111111",
+        "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a"
+      },
+      "currentRevision": 1,
+      "editable": true,
+      "interaction": "OPEN",
+      "revisionHistory": [
+        {
+          "revision": 1,
+          "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+          "createdAt": "2026-10-14T00:00:00.000000Z"
+        }
+      ],
+      "approval": null,
+      "unexpected": true
+    }
+  },
+  "review-report-head-v1": {
+    "positive": {
+      "reportId": "11111111-1111-4111-8111-111111111111",
+      "sessionId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "currentRevision": 1,
+      "interaction": "OPEN",
+      "revisions": [
+        {
+          "revision": 1,
+          "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+          "createdAt": "2026-10-14T00:00:00.000000Z"
+        }
+      ],
+      "receipts": [
+        {
+          "requestId": "11111111-1111-4111-8111-111111111111",
+          "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "operation": "CREATE",
+          "revision": 1,
+          "approval": null
+        }
+      ],
+      "approval": null,
+      "headDigest": "sha256:bd651bc09ae10d61863b1cf4feff041f05637850d48431c7b8f789cfd54c7848"
+    },
+    "negative": {
+      "reportId": "11111111-1111-4111-8111-111111111111",
+      "sessionId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "currentRevision": 1,
+      "interaction": "OPEN",
+      "revisions": [
+        {
+          "revision": 1,
+          "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+          "createdAt": "2026-10-14T00:00:00.000000Z"
+        }
+      ],
+      "receipts": [
+        {
+          "requestId": "11111111-1111-4111-8111-111111111111",
+          "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "operation": "CREATE",
+          "revision": 1,
+          "approval": null
+        }
+      ],
+      "approval": null,
+      "headDigest": "sha256:bd651bc09ae10d61863b1cf4feff041f05637850d48431c7b8f789cfd54c7848",
+      "unexpected": true
+    }
+  },
+  "review-report-create-v1": {
+    "positive": {
+      "requestId": "11111111-1111-4111-8111-111111111111"
+    },
+    "negative": {
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "unexpected": true
+    }
+  },
+  "review-report-edit-v1": {
+    "positive": {
+      "expectedRevision": 1,
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "findingReviews": [
+        {
+          "findingId": "11111111-1111-4111-8111-111111111111",
+          "originalDisposition": "RISK",
+          "title": "Finite risk",
+          "description": "Original assumption retained",
+          "fixInstructions": "Check guard",
+          "note": "Human note",
+          "decision": "PENDING"
+        }
+      ],
+      "userInstructions": ""
+    },
+    "negative": {
+      "expectedRevision": 1,
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "findingReviews": [
+        {
+          "findingId": "11111111-1111-4111-8111-111111111111",
+          "originalDisposition": "RISK",
+          "title": "Finite risk",
+          "description": "Original assumption retained",
+          "fixInstructions": "Check guard",
+          "note": "Human note",
+          "decision": "PENDING"
+        }
+      ],
+      "userInstructions": "",
+      "unexpected": true
+    }
+  },
+  "review-report-approve-v1": {
+    "positive": {
+      "expectedRevision": 1,
+      "expectedRevisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "selectedFindingIds": [
+        "11111111-1111-4111-8111-111111111111"
+      ],
+      "incompleteAcknowledged": true,
+      "userInstructions": ""
+    },
+    "negative": {
+      "expectedRevision": 1,
+      "expectedRevisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "selectedFindingIds": [
+        "11111111-1111-4111-8111-111111111111"
+      ],
+      "incompleteAcknowledged": true,
+      "userInstructions": "",
+      "unexpected": true
+    }
+  },
+  "review-report-close-v1": {
+    "positive": {
+      "expectedRevision": 1,
+      "requestId": "11111111-1111-4111-8111-111111111111"
+    },
+    "negative": {
+      "expectedRevision": 1,
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "unexpected": true
+    }
+  },
+  "review-report-revision-v1": {
+    "positive": {
+      "reportVersion": "1.0",
+      "reportId": "11111111-1111-4111-8111-111111111111",
+      "revision": 1,
+      "sessionId": "11111111-1111-4111-8111-111111111111",
+      "reviewThreadId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "sourceResultId": "11111111-1111-4111-8111-111111111111",
+      "sourceResultSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceResultVersion": "3.0",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "createdAt": "2026-10-14T00:00:00.000000Z",
+      "findingReviews": [
+        {
+          "findingId": "11111111-1111-4111-8111-111111111111",
+          "originalDisposition": "RISK",
+          "title": "Finite risk",
+          "description": "Original assumption retained",
+          "fixInstructions": "Check guard",
+          "note": "Human note",
+          "decision": "PENDING"
+        }
+      ],
+      "userInstructions": "",
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a"
+    },
+    "negative": {
+      "reportVersion": "1.0",
+      "reportId": "11111111-1111-4111-8111-111111111111",
+      "revision": 1,
+      "sessionId": "11111111-1111-4111-8111-111111111111",
+      "reviewThreadId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "sourceResultId": "11111111-1111-4111-8111-111111111111",
+      "sourceResultSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceResultVersion": "3.0",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "createdAt": "2026-10-14T00:00:00.000000Z",
+      "findingReviews": [
+        {
+          "findingId": "11111111-1111-4111-8111-111111111111",
+          "originalDisposition": "RISK",
+          "title": "Finite risk",
+          "description": "Original assumption retained",
+          "fixInstructions": "Check guard",
+          "note": "Human note",
+          "decision": "PENDING"
+        }
+      ],
+      "userInstructions": "",
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+      "unexpected": true
+    }
+  },
+  "review-report-approval-v1": {
+    "positive": {
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "revision": 1,
+      "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+      "selectedFindingIds": [
+        "11111111-1111-4111-8111-111111111111"
+      ],
+      "incompleteAcknowledged": true,
+      "userInstructions": "",
+      "createdAt": "2026-10-14T00:00:00.000000Z"
+    },
+    "negative": {
+      "requestId": "11111111-1111-4111-8111-111111111111",
+      "revision": 1,
+      "revisionDigest": "sha256:861f38953b0c99bec153d7bd054727ba143e00251ac30a03b296dfc365ab6b3a",
+      "selectedFindingIds": [
+        "11111111-1111-4111-8111-111111111111"
+      ],
+      "incompleteAcknowledged": true,
+      "userInstructions": "",
+      "createdAt": "2026-10-14T00:00:00.000000Z",
+      "unexpected": true
+    }
+  }
+}

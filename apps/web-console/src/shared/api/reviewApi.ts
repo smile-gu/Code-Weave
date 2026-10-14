@@ -33,3 +33,26 @@ export function readReviewResult(sessionId: string, runId: string) {
 export function readEvidenceMaterials(sessionId: string, runId: string, evidenceId: string) {
   return request<{ materials: { text: string; coverage: string; redactionState: string }[] }>(`/api/v1/coding-sessions/${encodeURIComponent(sessionId)}/review-runs/${encodeURIComponent(runId)}/evidence/${encodeURIComponent(evidenceId)}/materials`)
 }
+
+
+export type FindingDecision = 'PENDING' | 'APPROVED_FOR_FIX' | 'DEFERRED' | 'ACCEPTED_RISK' | 'DISMISSED'
+export type FindingReview = { findingId: string; originalDisposition: string; title: string; description: string; fixInstructions: string; note: string; decision: FindingDecision }
+export type ReportApproval = { requestId: string; revision: number; revisionDigest: string; selectedFindingIds: string[]; incompleteAcknowledged: boolean; userInstructions: string; createdAt: string }
+export type ReportRevision = {
+  reportVersion: '1.0'; reportId: string; revision: number; sessionId: string; reviewThreadId: string; runId: string;
+  sourceResultId: string; sourceResultSha256: string; sourceResultVersion: string; snapshotId: string; manifestSha256: string;
+  createdAt: string; findingReviews: FindingReview[]; userInstructions: string; revisionDigest: string; requestId: string; requestDigest: string;
+}
+export type ReportView = { reportRevision: ReportRevision; currentRevision: number; editable: boolean; interaction: 'OPEN' | 'CLOSED'; revisionHistory: { revision: number; revisionDigest: string; createdAt: string }[]; approval: ReportApproval | null }
+export type ReportEdit = { expectedRevision: number; requestId: string; findingReviews: FindingReview[]; userInstructions: string }
+export type ReportApprove = { expectedRevision: number; expectedRevisionDigest: string; requestId: string; selectedFindingIds: string[]; incompleteAcknowledged: boolean; userInstructions: string }
+export type ReportIntent = { action: 'create'; body: { requestId: string } } | { action: 'edit'; body: ReportEdit } | { action: 'approve'; body: ReportApprove } | { action: 'close'; body: { expectedRevision: number; requestId: string } }
+function reportPath(sessionId: string, runId: string) { return `/api/v1/coding-sessions/${encodeURIComponent(sessionId)}/review-runs/${encodeURIComponent(runId)}/report` }
+export function readHumanReport(sessionId: string, runId: string, revision?: number) {
+  return request<ReportView>(reportPath(sessionId, runId) + (revision === undefined ? '' : `?revision=${revision}`))
+}
+export async function writeHumanReport(sessionId: string, runId: string, intent: ReportIntent): Promise<void> {
+  const suffix = intent.action === 'approve' ? '/approve' : intent.action === 'close' ? '/close' : ''
+  await request(reportPath(sessionId, runId) + suffix, { method: intent.action === 'edit' ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(intent.body) })
+}

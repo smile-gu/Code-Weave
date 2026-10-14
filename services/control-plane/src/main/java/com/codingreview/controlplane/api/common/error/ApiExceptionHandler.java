@@ -30,9 +30,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(com.codingreview.controlplane.review.ReviewException.class)
     ResponseEntity<ApiErrorResponse> handleReview(com.codingreview.controlplane.review.ReviewException error, HttpServletRequest request) {
         HttpStatus status = switch (error.code()) {
-            case "REVIEW_RUN_NOT_FOUND" -> HttpStatus.NOT_FOUND;
-            case "REVIEW_REQUEST_TOO_LARGE" -> HttpStatus.PAYLOAD_TOO_LARGE;
-            case "REVIEW_REQUEST_INVALID", "REVIEW_SCOPE_EMPTY" -> HttpStatus.BAD_REQUEST;
+            case "REVIEW_RUN_NOT_FOUND", "REPORT_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            case "REVIEW_REQUEST_TOO_LARGE", "REPORT_TOO_LARGE" -> HttpStatus.PAYLOAD_TOO_LARGE;
+            case "REVIEW_REQUEST_INVALID", "REVIEW_SCOPE_EMPTY", "REPORT_REQUEST_INVALID",
+                "REPORT_FINDING_INVALID", "REPORT_APPROVAL_INVALID", "REPORT_INCOMPLETE_ACK_REQUIRED" -> HttpStatus.BAD_REQUEST;
+            case "REPORT_REVISION_CONFLICT", "REPORT_REQUEST_CONFLICT", "REPORT_ALREADY_EXISTS",
+                "REPORT_CLOSED", "REPORT_REAL_RESULT_REQUIRED" -> HttpStatus.CONFLICT;
             default -> HttpStatus.SERVICE_UNAVAILABLE;
         };
         return response(status, error.code(), error.getMessage(), request, null, Map.of());

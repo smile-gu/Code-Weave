@@ -33,13 +33,22 @@ public final class ReviewWireSchemas {
                     "review-model-call-v2",
                     "review-harness-status-v1.1",
                     "review-harness-event-v1.1",
-                    "review-pass-progress-v1");
+                    "review-pass-progress-v1",
+                    "review-report-v1",
+                    "review-report-head-v1",
+                    "review-report-revision-v1",
+                    "review-report-create-v1",
+                    "review-report-edit-v1",
+                    "review-report-approve-v1",
+                    "review-report-close-v1",
+                    "review-report-approval-v1");
     private static final Map<String, JsonSchema> CACHE = new ConcurrentHashMap<>();
 
     private ReviewWireSchemas() {}
 
     public static void validate(String name, JsonNode value) {
-        if (!NAMES.contains(name) || !CACHE.computeIfAbsent(name, ReviewWireSchemas::load).validate(value).isEmpty())
+        if (!NAMES.contains(name)
+                || !CACHE.computeIfAbsent(name, ReviewWireSchemas::load).validate(value).isEmpty())
             throw new ReviewException("REVIEW_CONTRACT_INVALID");
     }
 

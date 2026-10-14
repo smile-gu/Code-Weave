@@ -116,3 +116,10 @@ Schema无法单独证明跨实体身份/时间/用量/谱系/权限，Python与J
 ## 批次6A3运行合同
 
 新增九份独立运行Schema：review-graph-state-v4、review-context-manifest-v1.3、review-pass-fact-v1、review-pass-progress-v1、review-harness-status/event-v1.1、review-local-investigation/validation-batch-v2及review-dedup-decision-v1。导出入口python -m tests.export_multipass_runtime_contracts；旧合同不改。State4为当前Pass视图和Run共享Registry，来源观察按Pass隔离；Pass事实由产品库持久保存，Checkpoint不是Run终态权威。Result3总集/字节限额保持；实际模型质量及真实多Pass未在离线测试证明。见docs/review-harness-batch-6a3-multipass-handoff.md。
+
+
+## 批次6B人工报告合同
+
+新增review-report-v1（View）、review-report-revision-v1、内部review-report-head-v1及create/edit/approve/close请求、approval响应共8份自包含严格Schema。新fixtures位于review-report-v1，旧Result2/3及旧fixtures不改。JavaDTO/业务门禁严格检查原Result来源、不可变等级/身份、版本/请求冲突、原字节摘要、批准与覆盖确认；Schema有效不等于已经获得批准。字段文本另按UTF-8字节限制，报告/请求1MiB，开放Head预留1KiB关闭空间。交付见docs/review-harness-batch-6b-report-revisions-handoff.md。
+
+B6B-R01：description/fixInstructions 各最多 16384 UTF-8 字节，足以无损容纳原 Result 的 4096 Unicode 字符；Schema 原有 8192 字符边界不变，两项同时适用。原 Result 与整体 1MiB、Head 关闭空间边界均不变。

@@ -253,7 +253,7 @@ export function CodingSessionDetailPage() {
         )}
       </section>
 
-      <ReviewDraftPanel key={sessionId} sessionId={sessionId} />
+      <ReviewDraftPanel key={sessionId} sessionId={sessionId} sessionActive={session.status === 'ACTIVE'} />
 
       {session.status === 'ACTIVE' && changesQuery.isLoading && <section className="session-changes"><p>正在读取累计代码变更…</p></section>}
       {session.status === 'ACTIVE' && changesQuery.data && <section className="session-changes">

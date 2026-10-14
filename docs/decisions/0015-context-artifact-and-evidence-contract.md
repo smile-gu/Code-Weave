@@ -380,3 +380,8 @@ ModelCall2.0明确Pass与v2保守输入预算；费用按C与max_output预留，
 ## 2026-10-13 批次6A3：State4与Pass隔离
 
 当前Pass独立消息/摘要/inspection/计数；共享Registry保留稳定e/c真实身份，同材料在不同Pass重新观察并分配不同s，不自动把前Pass结论当Evidence。候选passId、专属来源/半行/事实核对/纠错额度门禁保持。全Run32候选/128Evidence不乘六，Checkpoint/Artifact/Result字节有限；State4临近消息集合上限可压缩闭合前缀。六Pass串行复用调查与独立验证，300/2000/10账本调用预算计入摘要/纠错；工具累计无新增上限。确定性召回后有界去重不造证据/改等级，贡献谱系与primary可核查。不确定保留重复；资源/存储/远端未知停止Run。见6A3交付，不以Mock成功声明六维质量。
+
+
+## 2026-10-14 批次6B：人工字段不回填模型事实
+
+人工裁决存储于独立ReportRevision/Head，只修订标题、描述、修改要求、备注、decision与用户要求。原Result2/3、Evidence、源码引用、模型等级/验证与假设保留，RISK/SUGGESTION批准修改不升级VERIFIED。批准只绑定当前精确revision/digest的非空APPROVED_FOR_FIX项；有限/不完整覆盖须确认，零Finding仅可关闭审阅。历史GET无副作用、孤儿不可作为批准对象；本轮未触及Python执行/Token/Evidence门禁，不消除历史模型质量限制，也未启动Handoff/Coding。见6B交付。

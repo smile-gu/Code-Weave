@@ -55,14 +55,18 @@ public class ReviewConfiguration {
     }
 
     @Bean(destroyMethod = "close")
-    ReviewHarnessClient reviewHarnessClient(ReviewProperties properties,
-            @org.springframework.beans.factory.annotation.Value("${code-weave.review.execution-mode:SIMULATED}") String executionMode) {
+    ReviewHarnessClient reviewHarnessClient(
+            ReviewProperties properties,
+            @org.springframework.beans.factory.annotation.Value(
+                            "${code-weave.review.execution-mode:SIMULATED}")
+                    String executionMode) {
         return new ReviewHarnessClient(
                 properties.harnessBaseUrl(),
                 properties.internalBearerToken(),
                 properties.connectionTimeout(),
                 properties.requestTimeout(),
-                properties.sseIdleTimeout(), executionMode);
+                properties.sseIdleTimeout(),
+                executionMode);
     }
 
     @Bean
@@ -133,6 +137,14 @@ public class ReviewConfiguration {
     @Bean
     ReadyReviewDiscovery readyReviewDiscovery(ReviewCoordinator coordinator) {
         return new ReadyReviewDiscovery(coordinator);
+    }
+
+    @Bean
+    ReviewReportService reviewReportService(
+            CodingSessionRepository sessions,
+            SessionOperationLockManager locks,
+            ReviewExecutionStore store) {
+        return new ReviewReportService(sessions, locks, store);
     }
 
     public static final class ReadyReviewDiscovery {

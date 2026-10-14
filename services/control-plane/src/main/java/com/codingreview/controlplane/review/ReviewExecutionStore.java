@@ -160,6 +160,72 @@ public class ReviewExecutionStore {
                 directory(execution.sessionId(), execution.runId()), "result.json", 1024 * 1024);
     }
 
+    public Optional<ReviewReport.Head> reportHead(ReviewExecution run) {
+        Path directory = directory(run.sessionId(), run.runId());
+        validateReportDirectory(directory);
+        if (!Files.exists(directory.resolve("report-head.json"), LinkOption.NOFOLLOW_LINKS))
+            return Optional.empty();
+        var head =
+                ReviewReport.decode(
+                        read(directory, "report-head.json", ReviewReport.MAX_BYTES),
+                        ReviewReport.Head.class,
+                        "REPORT_INTEGRITY_ERROR");
+        head.verify();
+        if (!head.sessionId().equals(run.sessionId()) || !head.runId().equals(run.runId()))
+            throw new ReviewException("REPORT_INTEGRITY_ERROR");
+        return Optional.of(head);
+    }
+
+    public Optional<ReviewReport.Revision> reportRevision(ReviewExecution run, int revision) {
+        if (revision < 1) throw new ReviewException("REPORT_REQUEST_INVALID");
+        Path directory = directory(run.sessionId(), run.runId());
+        String name = "report-revision-" + revision + ".json";
+        validateReportDirectory(directory);
+        if (!Files.exists(directory.resolve(name), LinkOption.NOFOLLOW_LINKS))
+            return Optional.empty();
+        var value =
+                ReviewReport.decode(
+                        read(directory, name, ReviewReport.MAX_BYTES),
+                        ReviewReport.Revision.class,
+                        "REPORT_INTEGRITY_ERROR");
+        value.verify();
+        if (value.revision() != revision
+                || !value.sessionId().equals(run.sessionId())
+                || !value.runId().equals(run.runId()))
+            throw new ReviewException("REPORT_INTEGRITY_ERROR");
+        return Optional.of(value);
+    }
+
+    public void saveReportRevision(ReviewExecution run, ReviewReport.Revision revision) {
+        revision.verify();
+        byte[] raw = ReviewJson.canonical(revision);
+        if (raw.length > ReviewReport.MAX_BYTES) throw new ReviewException("REPORT_TOO_LARGE");
+        atomic(
+                directory(run.sessionId(), run.runId()),
+                "report-revision-" + revision.revision() + ".json",
+                raw,
+                true);
+    }
+
+    public void saveReportHead(ReviewExecution run, ReviewReport.Head head) {
+        head.verify();
+        byte[] raw = ReviewJson.canonical(head);
+        int limit =
+                head.interaction() == ReviewReport.Interaction.OPEN
+                        ? ReviewReport.MAX_BYTES - ReviewReport.CLOSE_RESERVE_BYTES
+                        : ReviewReport.MAX_BYTES;
+        if (raw.length > limit) throw new ReviewException("REPORT_TOO_LARGE");
+        atomic(directory(run.sessionId(), run.runId()), "report-head.json", raw, false);
+    }
+
+    private void validateReportDirectory(Path directory) {
+        try {
+            ReviewPaths.directory(directory);
+        } catch (IOException error) {
+            throw new ReviewException("REPORT_INTEGRITY_ERROR");
+        }
+    }
+
     private byte[] read(Path directory, String name, int limit) {
         try {
             Path path = ReviewPaths.file(directory, name, false);
@@ -186,9 +252,11 @@ public class ReviewExecutionStore {
                     if (!Arrays.equals(
                             read(directory, name, Math.max(256 * 1024, raw.length)), raw))
                         throw new ReviewException(
-                                name.equals("result.json")
-                                        ? "REVIEW_RESULT_INTEGRITY_ERROR"
-                                        : "REVIEW_EVENT_INTEGRITY_ERROR");
+                                name.startsWith("report-")
+                                        ? "REPORT_INTEGRITY_ERROR"
+                                        : name.equals("result.json")
+                                                ? "REVIEW_RESULT_INTEGRITY_ERROR"
+                                                : "REVIEW_EVENT_INTEGRITY_ERROR");
                     return;
                 }
             }
@@ -202,7 +270,10 @@ public class ReviewExecutionStore {
             writer.move(temporary, target);
         } catch (IOException | RuntimeException e) {
             if (e instanceof ReviewException problem
-                    && Set.of("REVIEW_EVENT_INTEGRITY_ERROR", "REVIEW_RESULT_INTEGRITY_ERROR")
+                    && Set.of(
+                                    "REVIEW_EVENT_INTEGRITY_ERROR",
+                                    "REVIEW_RESULT_INTEGRITY_ERROR",
+                                    "REPORT_INTEGRITY_ERROR")
                             .contains(problem.code())) throw problem;
             boolean confirmed = false;
             try {
