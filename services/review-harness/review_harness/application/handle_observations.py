@@ -1,7 +1,7 @@
 """Register only complete material actually delivered by trusted tools."""
 
 from review_harness.domain.graph import graph_error
-from review_harness.domain.handles import HandleRegistry, merge_ranges
+from review_harness.domain.handles import merge_ranges
 
 
 def observe_page(registry, ref, coverage, redaction, coordinates, cursor, next_cursor):
@@ -30,7 +30,7 @@ def observe_page(registry, ref, coverage, redaction, coordinates, cursor, next_c
     rows[int(handle[1:]) - 1].update(
         observedRanges=ranges, pendingLine=pending, expectedCursor=next_cursor
     )
-    registry = HandleRegistry.model_validate({**registry.model_dump(), "sources": rows})
+    registry = type(registry).model_validate({**registry.model_dump(), "sources": rows})
     return registry, handle
 
 

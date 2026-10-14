@@ -1,0 +1,85 @@
+# 批次6受控真实审查：一次失败并停止
+
+产品 `07649dc230bae2089b5043232a6cc691a70136fb`，冻结稿64。用户授权一个官方 deepseek-flash 六Pass Run、管理预算¥3、所有purpose合计最多60次尝试，失败不自动重跑。**真实审查未通过**；零真实CC、未改生产实现、未提交/推送，不进入下一批。
+
+## 准备与装配边界
+
+执行进程起初无环境密钥；用户随后明确“我们就用之前的密钥”，据新授权只在执行进程环境使用此前提供的密钥，结束清除；未扫描历史文件找凭据、未写进验收脚本或产物。不输出密钥/Authorization。
+
+公开联网核实官方价格 https://api-docs.deepseek.com/zh-cn/quick_start/pricing/ ，采用保守高峰未命中输入2元/百万Token、输出8元/百万Token，不依赖时段/缓存折扣。HTML摘要 `sha256:5a7b1832592387340f2fc456399b34b89b05f3fa167c2e35909e2fa4afe021e3`；核实UTC `2026-10-14T11:41:49.803740Z`，到期 `17:41:49.803740Z`。Profile `official-flash-20261014-controlled-b6`，摘要 `sha256:bf35218b9d6762c8762d643ebd6f01bd9d22e82027d127d8170d10f9983851c8`。产品认证价格接口读回、摘要核对及Java ReviewPriceProfile严格校验通过；未覆盖Java在线价格HTTP入口。
+
+仓库外AttemptGate在唯一httpx transport出口串行锁、SQLite BEGIN IMMEDIATE及FULL同步持久次数，发送前提交并重读确认；未知尝试不退款，无HTTP自动重试。离线70个并发提交只有60到下游、后10阻断，五purpose共用，首个未知仍计数。计数失败不发送，崩溃可保守多计；不是产品新功能。正式300/2000及费用、引用、取消门禁不改。
+
+只将baseline/src复制到新临时Git仓库，提交基线后覆盖candidate/src为未提交改动，oracle/答案/README不进Snapshot。Java生产SnapshotCapture采集固定输入。baseline6通过/candidate仅nullable-null失败属设计窗口准备证据，本轮未重跑oracle。
+
+本轮采用**Python正式认证HTTP Run入口（隔离ASGI客户端）+Java生产Snapshot及结果读回**，不覆盖Java在线Review启动API。隔离Mock预跑六Pass成功12次、空Finding，仅证明协议/账本/读回；Java原request/result字节、事件/finish幂等和价格摘要校验通过。Java临时验收使用前轮保存的4da995a生产类；该提交到07649dc仅测试/文档变动，生产类适用边界如实保留。初次Mock同步迁移在async中报错、零发送，仓库外脚本改为to_thread后另mock2通过；日志保留，真实Run只有一个。
+
+## 样例与身份
+
+- 证据根：`C:/Users/ROG/AppData/Local/Temp/code-weave-b6-real-hwtnp8pa`。
+- Git基线：`9cef7bdc6c10880036db73912003da23c22b160b`。
+- 当前指纹：`sha256:4ffcbfb583aed755c60c5e224fd0ee41b6a3c368ed5c9028970497981b8526da`。
+- Session：`3baf6bfb-21f6-4c37-94f4-2d25779396ab`。
+- Thread：`e7777089-5cae-4dbe-ba24-41d25ee7e7e0`。
+- Run：`05c60930-ee73-4b09-9c29-76cb51cde564`。
+- Snapshot：`3ae808d8-a0bd-4794-b220-1f142d18d2f0`。
+- Manifest：`sha256:0eb71f4e59d7ab1cc35dec7f3f4e1167ed09b65cbc3bc040d5e09b6fe2c753ed`。
+
+用户输入严格按64固定文本，未提示缺陷位置/期望Finding。完整请求及Profile在证据根，原始产物不改。
+
+## 真实结果与费用
+
+UTC创建 `2026-10-14T11:44:55.725960Z`，终结 `11:44:58.064478Z`。实际尝试 **1/60**，唯一调用 correctness/INVESTIGATION，modelCallId `4077a809-181b-468f-91ac-7829762e8fd6`。
+
+Run `FAILED / REVIEW_EXECUTION_FAILED`，资源 `RELEASED`。correctness INCOMPLETE，其余五Pass SKIPPED/REVIEW_RUN_INTERRUPTED；没有Result、Report或Handoff，未补齐成功、未再次真实请求。
+
+有效Usage：输入1194（缓存命中768/未命中426）、输出77、合计1271。保守管理账本支出 **3004微元=¥0.003004**，预留0、overrun0、调用LOCAL_CLOSED、remoteOutcomeUnknown=false。此为管理支出，非控制台实际账单；余额不构成自动重试许可。
+
+首个模型回复请求git_diff({})和read_file(src/main/java/acceptance/TextLengths.java)，已保存Checkpoint revision3。正文/思考不导出至交付文档。未进入候选/Evidence独立验证，不能判定模型对null回归/正确反例的审查能力。
+
+## B6-REAL-R01：多Pass Diff来源分页重建使用旧Registry
+
+失败后仅使用MockTransport重放已保存工具名/参数，隔离的新mock-replay数据库稳定复现，零付费。工具异常栈捕获在仓库外wrapper，不修改产品/旧产物。
+
+确切路径：runtime/review.py `_tools` → application/handle_observations.py `observe_tool` → `observe_page:33`。代码通过 `HandleRegistry.model_validate({...registry.model_dump(), sources:rows})` 重建，而实际State4是MultipassRegistry。旧基类拒绝 `sources[].passId / activePass`，产生extra_forbidden ValidationError，Supervisor转为通用执行失败。调用Usage/费用已结算、工具调用已保存，因此不是预算不足或模型验证回复错误。
+
+最小修复方向交设计窗口决定：保留具体Registry类型与多Pass身份，不能删除passId/activePass或宽松接收额外字段；补State3/4真实Diff分页、跨页/半行/多文件及权限身份回归，并检查其他Registry重建入口。既有六PassMock只read_file，没有覆盖该Diff分页路径；625离线通过不能排除本缺口。本轮不实施生产补修、不再付费试错。
+
+## 证据与停止
+
+价格：official-pricing.html、price-profile.json；身份：identity.json；门禁：attempt_gate.py、preflight_gate.py、gate-preflight.log；Mock：mock2/、mock-java-import.log；真实：real/runs.sqlite、checkpoints.sqlite、attempts.sqlite、request/status/events、calls-summary/fees-summary及real-run.log；离线重现：replay_tools.py、offline-tools-trace.txt、offline-replay.log、mock-replay/。
+
+真实Result及Java真实结果导入、人机修订/批准/准备均未到达，真实CC仍未授权。先交设计窗口复核B6-REAL-R01，再决定最小补修和另行真实测试授权。原失败件保留，不替换、不重跑至成功。历史public偏差、同模型语义局限、256K高容量/POSIX未验、超窗恢复DISABLED继续披露。
+
+
+## 65冻结后的B6-REAL-R01离线补修
+
+基线07649dc，未提交产品差异。真实1次失败、原始Checkpoint/费用¥0.003004保留，新真实Run未授权/未执行。开发补修与离线验收完成，待设计窗口独立复审关闭问题，不宣称真实模型闭环已成功。
+
+生产仅改application/handle_observations.py：`HandleRegistry.model_validate`改为`type(registry).model_validate`，删除不再使用的基类导入。仍严格校验来源、passId/activePass、坐标、游标连续性；未删字段、extra=ignore、Prompt绕行、禁用Diff或新增版本工厂。其他显式Registry重建入口静态核对使用具体类型，不能据检索宣称所有工具组合已覆盖。
+
+新增tests/integration/test_diff_registry.py共8项：原红测State3通过/State4因旧类extra_forbidden失败（1红1绿）；修复后具体类型与身份/观察范围断言、State3/4半行连续完成/跳页拒绝4项通过。真实双文件Git Diff由独立临时仓库产生，准确发布到新Snapshot，生产RealReviewExecutor._tools→ToolGateway.git_diff→observe_tool/observe_page→Checkpoint保存/精确读回→DeepSeekAdapter下一请求wire，连续多页与半行、多文件裁剪均覆盖；所有授权物理行必须代码行，不能文件/hunk头。State4切换第二Pass同源新句柄、旧句柄提交Evidence拒绝SOURCE_NOT_OBSERVED_IN_PASS；原UUID/权限门禁不改。此测试固定合法工具调用，不发送Provider；不能当模型自主选择工具质量证明。
+
+新测试装配的中间错误（复用旧Snapshot留下多余文件、缺GraphMessage正文/provider映射、读取ModelRequest错误属性、缺limitations/提交函数参数）均仅改新增夹具，未弱化生产门禁；最终8项通过5.08秒。旧实时失败根因对应红测与离线真实工具重放原件保留。
+
+证据目录C:/Users/ROG/AppData/Local/Temp/code-weave-b6-diff-fix-r8i6aotq：registry-red.log、new-tests.log、affected.log、replay-green.log、两套全量日志/XML/JSON、schema.log、historical-failure-hashes.json。新目录Mock重放原Checkpoint中git_diff/read_file工具名参数，六Pass SUCCEEDED/RELEASED，13个Mock响应、零付费；原失败目录未修改且全部SHA再核对一致。空Finding属于离线脚本结果，不声称模型真实找到缺陷。
+
+|本轮验收|结果|
+|---|---|
+|受影响专项|101通过307.27秒；diff_registry/local_handles/multipass_runtime/tools/evidence_protocol及原仓库外test_page_registry.py；涵盖原独立2探针。与全量重叠，不相加|
+|当前Python全量|633收集/633通过/0失败/错误/跳过，923.34秒；python-full.xml|
+|官方干净Python3.12完整脚本|633通过917.73秒，锁安装/editable/pip check、Ruff/145格式、空库迁移/官方服务启动/认证Readiness及脚本子进程退出清理全走完，退出0/CLEAN_ACCEPTANCE；不超出脚本声称OS优雅停止范围|
+|Schema|68份元校验/331引用/32Typed完全一致/23正反例组通过；未写Schema|
+|静态|Ruff/145格式及git diff --check通过|
+|历史/范围|原真实运行文件全部SHA保持；Java/UI/合同未改，前轮证据适用范围保留，本轮未重跑。真实模型/CC、POSIX/高容量仍待验|
+
+完整命令/cwd/UTC起止存JSON。本次复用的仓库外runner元数据模板曾带旧SHA4da995a，实际HEAD一直为07649dc；现已显式更正JSON基线并保存original-runner-metadata原件及更正说明，不以旧SHA冒称当前补修。运行日志未改。
+
+|项|UTC起止|退出码|证据|
+|---|---|---|---|
+| python-full | 2026-10-14T12:07:36.100803+00:00 → 2026-10-14T12:23:01.897689+00:00 | 0 | python-full.log / .json |
+| python-clean | 2026-10-14T12:07:46.253880+00:00 → 2026-10-14T12:24:33.953873+00:00 | 0 | python-clean.log / .json |
+| ruff | 2026-10-14T12:23:01.898693+00:00 → 2026-10-14T12:23:02.063825+00:00 | 0 | ruff.log / .json |
+| ruff-format | 2026-10-14T12:23:02.064329+00:00 → 2026-10-14T12:23:02.192203+00:00 | 0 | ruff-format.log / .json |
+
+剩余限制：具体类型保持和工具身份回归通过，不证明模型语义判断正确、六维真实质量或完整Java在线启动路径。原真实失败未关闭为成功，剩余59次/费用余额不自动授权新Run。待设计窗口独立复审后另授权小粒度提交/新的受控真实复验；未提交/推送/新增付费/真实CC/下一批。
