@@ -108,6 +108,28 @@ async def test_state4_compacts_closed_history_before_message_collection_overflow
                 {k: record.wire()[k] for k in ArtifactRef.model_fields}
             )
             state = state.updated(validationRecordRefs=[ref.model_dump()])
+        from review_harness.domain.graph import ArtifactRef
+
+        audit = await engine.artifacts.publish(
+            context,
+            canonical(
+                {
+                    "recordType": "dedup_decision",
+                    "recordVersion": "1.0",
+                    **state.identity(),
+                    "action": "RETAINED",
+                }
+            ).decode(),
+            "TOOL_OUTPUT",
+            "dedup_decision",
+            signal,
+            producer_type="SYSTEM",
+            media_type="application/json",
+        )
+        audit_ref = ArtifactRef.model_validate(
+            {k: audit.wire()[k] for k in ArtifactRef.model_fields}
+        )
+        state = state.updated(artifactRefs=[audit_ref])
         state = state.updated(
             messages=[
                 GraphMessage(
@@ -123,6 +145,7 @@ async def test_state4_compacts_closed_history_before_message_collection_overflow
         await passes.begin(run.run_id, "correctness", state.revision, state.digest())
         fitted = await Compactor(engine).fit(context, state, signal)
         assert fitted.summaryVersion == 1 and fitted.compactionCount == 1
+        assert audit_ref in fitted.artifactRefs
         if state_version == "6.0":
             assert fitted.validationRecordRefs == state.validationRecordRefs
             assert ref in fitted.artifactRefs
@@ -506,7 +529,7 @@ async def test_six_passes_use_fresh_views_and_real_fee_mock_transport(
 
 def test_dedup_preserves_different_triggers_and_deterministic_primary_lineage():
     from review_harness.domain.multipass_state import PassFinding
-    from review_harness.runtime.dedup import merge_group, recall_groups
+    from review_harness.runtime.dedup import DedupDecision, merge_group, recall_groups
     from tests.integration.test_multipass_contracts import result_with_finding
 
     original = result_with_finding()["findings"][0]
@@ -521,7 +544,15 @@ def test_dedup_preserves_different_triggers_and_deterministic_primary_lineage():
         }
     )
     assert recall_groups([first, second]) == [[first, second]]
-    merged = merge_group([second, first])
+    handles = {first.candidateId: "c1", second.candidateId: "c2"}
+    decision = DedupDecision(
+        candidateHandles=["c1", "c2"],
+        sameRootCause=True,
+        sameTrigger=True,
+        sameFix=True,
+        rationale="Same null path and guard fix",
+    )
+    merged = merge_group([second, first], decision=decision, handles=handles)
     assert merged.candidateId == first.candidateId and merged.passId == "correctness"
     assert [c.passId for c in merged.contributions] == ["correctness", "security"]
     different = second.model_copy(
@@ -532,7 +563,11 @@ def test_dedup_preserves_different_triggers_and_deterministic_primary_lineage():
         }
     )
     with pytest.raises(ValueError):
-        merge_group([first, different])
+        merge_group(
+            [first, different],
+            decision=decision.model_copy(update={"sameTrigger": False}),
+            handles=handles,
+        )
 
 
 @pytest.mark.parametrize(

@@ -1,0 +1,925 @@
+{
+  "sourceResultSha256": "sha256:7163b2e9c9f7e3f8e9f30df295b6f5b416db11e7c3597b5955691c36a9c268ae",
+  "findings": [
+    {
+      "candidateId": "e522688a-3b27-40f3-abc7-6f3a46d0baf8",
+      "category": "contract-violation",
+      "claim": "The cumulative diff removes the null guard from TextLengths.nullableLength, changing the body from `return text == null ? 0 : text.length();` to `return text.length();`. The method's own Javadoc, unchanged by the diff and still present in the final file, declares: 'Null is an allowed input and must return zero.' With the null guard removed, invoking nullableLength(null) dereferences null and throws NullPointerException instead of returning 0. This is a directly violated source-level contract: the documented postcondition for the documented input class (null) is no longer satisfied. The trigger is any call passing null, which the contract explicitly designates as allowed and expected to succeed. The adverse consequence is that documented-legal usage now fails with an unchecked exception, and any assertion or caller relying on nullableLength(null) == 0 will fail. The companion change to requiredLength (`Objects.requireNonNull(text, \"text\"); int length = text.length(); return length;`) is semantics-preserving and is not part of this defect.",
+      "claimKind": "STATIC_CORRECTNESS",
+      "codeReferences": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        },
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "confidence": 0.95,
+      "contributions": [
+        {
+          "candidateId": "e522688a-3b27-40f3-abc7-6f3a46d0baf8",
+          "codeReferences": [
+            {
+              "endLine": 20,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+              "side": "diff",
+              "sourceType": "CODE",
+              "startLine": 6
+            },
+            {
+              "endLine": 19,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+              "side": "final",
+              "sourceType": "CODE",
+              "startLine": 1
+            }
+          ],
+          "disposition": "VERIFIED",
+          "evidenceIds": [
+            "ed913591-ca69-4721-a69a-b64728849d2b",
+            "29d460e4-e7fc-461f-ac53-0992d22d35a9"
+          ],
+          "passId": "correctness",
+          "validationModelCallId": "b3b0d86c-6cf3-42b7-b5ba-9804bcb924cc"
+        }
+      ],
+      "disposition": "VERIFIED",
+      "evidenceIds": [
+        "ed913591-ca69-4721-a69a-b64728849d2b",
+        "29d460e4-e7fc-461f-ac53-0992d22d35a9"
+      ],
+      "findingId": "94b9c5c8-83f8-4aae-8a53-2a500987e9dc",
+      "passId": "correctness",
+      "reasoningSummary": {
+        "assumptions": [
+          "The Javadoc comment retained in the final source is the authoritative interface contract for this method, and was not accidentally left stale by the diff.",
+          "No external wrapping or defaulting layer normalizes null before it reaches this static method; repository search shows no such caller in-tree."
+        ],
+        "conclusion": "Confirmed defect: for the contract-designated legal input null, nullableLength now throws NullPointerException instead of returning 0, violating its still-documented postcondition. The requiredLength edit is behavior-preserving and excluded from this finding.",
+        "counterexamples": [
+          "If the intent of the change was to redefine the contract so that null is no longer allowed, then the implementation would be internally consistent — but the contract text was NOT updated by the diff, so the mismatch still constitutes a defect (either the code or the doc is wrong).",
+          "For any non-null input the new implementation behaves identically to the original, so no defect arises for the non-null path."
+        ],
+        "executionPath": "nullableLength(null) -> body `return text.length();` -> null is dereferenced -> NullPointerException thrown; the pre-change body `text == null ? 0 : text.length()` would have returned 0.",
+        "rule": "A method must satisfy its declared contract: when the source explicitly documents 'Null is an allowed input and must return zero', the implementation must return 0 (not throw) for a null argument.",
+        "trigger": "A caller invokes TextLengths.nullableLength(null), an input the Javadoc explicitly designates as allowed."
+      },
+      "severity": "HIGH",
+      "suggestion": "Restore the null guard so the implementation matches the documented contract, e.g. `return text == null ? 0 : text.length();`. If the contract is instead intended to change, update the Javadoc to remove the 'null is allowed and must return zero' guarantee and treat it as a deliberate breaking API change. Additionally, since no in-tree caller or test currently pins this behavior, add tests asserting nullableLength(null) == 0 and requiredLength(null) throws NullPointerException to lock the contract down.",
+      "title": "nullableLength no longer returns 0 for null input, contradicting its declared contract",
+      "validationModelCallId": "b3b0d86c-6cf3-42b7-b5ba-9804bcb924cc",
+      "validationSummary": {
+        "assumptionsResolved": true,
+        "basis": "Verified against Diff s2 and final file s3: the null-returning guard was removed from nullableLength while its Javadoc requiring 0 for null is unchanged, violating the documented postcondition for a contract-legal input and producing NullPointerException on nullableLength(null).",
+        "counterexampleChecked": "Strongest counterexample is that the change intentionally redefines the contract so null is no longer allowed; the diff does not modify the Javadoc, so the documented postcondition is still violated. The non-null path counterexample only limits impact scope and does not refute the defect.",
+        "counterexampleHolds": false
+      }
+    },
+    {
+      "candidateId": "692b1e16-4a63-4bba-a6b6-0b243abb417c",
+      "category": "Contract/implementation inconsistency",
+      "claim": "The cumulative diff removes the null guard from TextLengths.nullableLength, changing the body from `return text == null ? 0 : text.length();` to `return text.length();`. The method's own Javadoc, unchanged by the diff and still present in the final file, declares: 'Null is an allowed input and must return zero.' With the null guard removed, invoking nullableLength(null) dereferences null and throws NullPointerException instead of returning 0. This is a source-level contract violation: for the specific input the documented postcondition names (null), the documented result (0) is no longer produced. The inconsistency is between the method's own declared contract and its implementation, both read directly from original source (final file and diff).",
+      "claimKind": "STATIC_CORRECTNESS",
+      "codeReferences": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        },
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "confidence": 0.9,
+      "contributions": [
+        {
+          "candidateId": "692b1e16-4a63-4bba-a6b6-0b243abb417c",
+          "codeReferences": [
+            {
+              "endLine": 20,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+              "side": "diff",
+              "sourceType": "CODE",
+              "startLine": 6
+            },
+            {
+              "endLine": 19,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+              "side": "final",
+              "sourceType": "CODE",
+              "startLine": 1
+            }
+          ],
+          "disposition": "VERIFIED",
+          "evidenceIds": [
+            "84c606cb-47bf-4a82-bb30-82da6e47f54c",
+            "978d3c91-54fb-41c3-814c-344200771303"
+          ],
+          "passId": "consistency",
+          "validationModelCallId": "9e310082-a519-4b7b-b106-b94510f59096"
+        }
+      ],
+      "disposition": "VERIFIED",
+      "evidenceIds": [
+        "84c606cb-47bf-4a82-bb30-82da6e47f54c",
+        "978d3c91-54fb-41c3-814c-344200771303"
+      ],
+      "findingId": "b4bbe9c6-532a-4288-85cc-4e07d31469e0",
+      "passId": "consistency",
+      "reasoningSummary": {
+        "assumptions": [
+          "The unchanged Javadoc in the final file is the intended, authoritative contract for the method."
+        ],
+        "conclusion": "Implementation and its unchanged declared contract are directly inconsistent for the null input case. The change is confirmed by source; the NPE is inferred from Java semantics (no execution performed). Caller impact is unestablished because the repository contains no call sites.",
+        "counterexamples": [
+          "If the Javadoc is stale and the intended contract is now 'null is invalid', the implementation would be correct and only the comment would be wrong — in that reading this is a documentation defect, not an implementation defect. The repository does not disambiguate which side is authoritative.",
+          "No callers, tests, or other referencing files exist in the repository, so no external call site is affected in-repository; the adverse consequence is limited to violation of the stated contract for external/unknown callers."
+        ],
+        "executionPath": "nullableLength(null) -> body `return text.length();` -> text is null -> NullPointerException thrown; no branch returns 0. Prior code `return text == null ? 0 : text.length();` returned 0 for the same input.",
+        "rule": "A method must satisfy the postcondition declared in its own (unchanged) Javadoc: 'Null is an allowed input and must return zero.'",
+        "trigger": "Calling TextLengths.nullableLength(null) on the post-change code."
+      },
+      "severity": "HIGH",
+      "suggestion": "Resolve the contract/implementation mismatch: either restore the null guard (`return text == null ? 0 : text.length();`) or update the Javadoc for nullableLength to state that null is invalid and throws NullPointerException. Which is correct depends on the intended API contract, which is external to this repository.",
+      "title": "nullableLength no longer returns 0 for null input, contradicting its unchanged Javadoc contract",
+      "validationModelCallId": "9e310082-a519-4b7b-b106-b94510f59096",
+      "validationSummary": {
+        "assumptionsResolved": true,
+        "basis": "Verified against the two authorized consistency-pass materials: s5 (diff, lines 6-20) and s6 (final file, lines 1-19). Diff line 9 removes `return text == null ? 0 : text.length();` and diff line 10 adds `return text.length();`, while final-file line 8 retains the unchanged Javadoc `/** Null is an allowed input and must return zero. */` directly above nullableLength, whose body at final-file line 10 is `return text.length();`. The declared contract text and the implementation are both read verbatim from original source; the NPE for null input follows deterministically from Java semantics on the observed single-expression body with no null check.",
+        "counterexampleChecked": "Considered whether the mismatch is only documentation (stale Javadoc) so the implementation is correct — accepted as a possible reading, but it does not refute the inconsistency claim, since the claim is precisely that implementation and its own unchanged declared contract no longer agree for the named input, and the repository supplies no overriding contract to disambiguate. Also considered that no callers/tests exist in-repository, limiting demonstrated blast radius, but the postcondition named (null -> 0) is exactly the input for which the code now throws, so the violation holds for the named input regardless of call-site existence.",
+        "counterexampleHolds": false
+      }
+    },
+    {
+      "candidateId": "eaf84ad8-5036-4e13-b833-9e5ba132b873",
+      "category": "Input Validation / Contract Violation (Removal of Null Handling)",
+      "claim": "The cumulative diff removes the null guard from TextLengths.nullableLength, changing the body from `return text == null ? 0 : text.length();` to `return text.length();`, while the method's Javadoc ('Null is an allowed input and must return zero.') is left unchanged and is still present in the final file. Because the class is final with a private constructor and the method is static, no override or alternate path exists. Under Java semantics, invoking nullableLength(null) dereferences null and throws NullPointerException instead of returning 0, directly violating the method's own documented postcondition for that specific input. The companion method requiredLength still satisfies its contract (Objects.requireNonNull retained, local-variable extraction is semantics-preserving). Note: no callers, tests, or external contract exist anywhere in the snapshot, so the breadth of impact on external consumers is unassessed and rests on the in-file documentation alone.",
+      "claimKind": "STATIC_CORRECTNESS",
+      "codeReferences": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        },
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "confidence": 0.82,
+      "contributions": [
+        {
+          "candidateId": "eaf84ad8-5036-4e13-b833-9e5ba132b873",
+          "codeReferences": [
+            {
+              "endLine": 20,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+              "side": "diff",
+              "sourceType": "CODE",
+              "startLine": 6
+            },
+            {
+              "endLine": 19,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+              "side": "final",
+              "sourceType": "CODE",
+              "startLine": 1
+            }
+          ],
+          "disposition": "VERIFIED",
+          "evidenceIds": [
+            "f1ef2cd6-2ca0-4810-9883-878b622d95d0",
+            "4e630c86-6590-4cb2-8609-bd6b404e5bcf"
+          ],
+          "passId": "security",
+          "validationModelCallId": "d991e77a-2066-4bdf-97d6-3ea57842665c"
+        }
+      ],
+      "disposition": "VERIFIED",
+      "evidenceIds": [
+        "f1ef2cd6-2ca0-4810-9883-878b622d95d0",
+        "4e630c86-6590-4cb2-8609-bd6b404e5bcf"
+      ],
+      "findingId": "db780146-3725-4185-9e3c-2eb83d3df78c",
+      "passId": "security",
+      "reasoningSummary": {
+        "assumptions": [
+          "The in-file Javadoc is the authoritative contract for the method, since no external interface, spec, or test is present in the snapshot.",
+          "Standard Java semantics apply: dereferencing null via String.length() throws NullPointerException.",
+          "The snapshot's diff and final file accurately reflect the cumulative change; both were read directly rather than taken from summaries."
+        ],
+        "conclusion": "The behavioral change is confirmed against the original diff and final file: nullableLength(null) now throws NullPointerException instead of returning 0, contradicting its unchanged documented postcondition. This is a statically verified contract violation. The magnitude of downstream impact is not verifiable from this snapshot because no callers or tests exist, so the finding is scoped to the source-level contract breach rather than to a demonstrated production failure.",
+        "counterexamples": [
+          "If an out-of-repo caller, framework, or generated wrapper intercepted null input before the call, nullableLength(null) might never reach the method — no such layer exists in the snapshot, but absence of callers means this cannot be excluded.",
+          "If the Javadoc were stale and the intended contract had deliberately changed to 'null throws', the code would be correct and only the comment would be wrong; the repository provides no artifact (spec, commit message, test) to decide which side is authoritative.",
+          "If the method were reached only with non-null arguments in practice, no observable failure would occur — irrelevant to the contract violation but relevant to real-world impact."
+        ],
+        "executionPath": "nullableLength(String text) -> `return text.length();` -> String.length() is invoked on a null reference -> NullPointerException is thrown before any value is returned.",
+        "rule": "A method must satisfy its declared contract for all documented-valid inputs; here the unchanged Javadoc of nullableLength declares 'Null is an allowed input and must return zero.'",
+        "trigger": "Call nullableLength(null) on the post-change code."
+      },
+      "severity": "MEDIUM",
+      "suggestion": "Decide the intended contract for nullableLength and make code and Javadoc agree: if null must return 0, restore the guard (`return text == null ? 0 : text.length();`); if null must now throw, update the Javadoc to state that null is invalid and throws NullPointerException (matching requiredLength) and treat the change as a deliberate breaking API change. Add tests for nullableLength(null) and requiredLength(null), which are currently absent, and confirm with external consumers whether the previous null-returning behavior was relied upon before release.",
+      "title": "nullableLength no longer returns 0 for null input, contradicting its unchanged Javadoc contract",
+      "validationModelCallId": "d991e77a-2066-4bdf-97d6-3ea57842665c",
+      "validationSummary": {
+        "assumptionsResolved": true,
+        "basis": "Re-read the security-pass diff material (s8, lines 6-20) and final file material (s9, lines 1-19). Diff line 9 removes `return text == null ? 0 : text.length();` and line 10 adds `return text.length();` in nullableLength, while diff line 7 / final line 8 still carry the Javadoc 'Null is an allowed input and must return zero.' The class is final with a private constructor (final lines 5-6), the method is static, and no other members or callers exist in the snapshot, so the static method's documented postcondition for null is the operative contract and it is now contradicted. requiredLength's change (final lines 15-17, Objects.requireNonNull plus local-variable extraction) is semantics-preserving as the candidate states.",
+        "counterexampleChecked": "Examined the three counterexamples the candidate itself lists: (a) an out-of-repo interceptor — no evidence in the snapshot either way; it would only affect real-world reachability, not the source-level contract breach; (b) stale Javadoc / deliberately changed contract — the repository contains no spec, commit message, or test establishing that the comment is obsolete, and the candidate explicitly scopes the finding to the in-file documentation contract, so this does not refute the claim as stated; (c) non-null usage in practice — again a reachability/impact point, not a refutation of the documented-contract violation. No counterexample invalidates the claim as scoped.",
+        "counterexampleHolds": false
+      }
+    },
+    {
+      "candidateId": "397a05a2-cc96-4ae7-9742-75af3f796855",
+      "category": "API contract / module boundary integrity",
+      "claim": "The accumulated diff removes the null guard from TextLengths.nullableLength, changing the body from `return text == null ? 0 : text.length();` to `return text.length();`, while the method's own Javadoc — unchanged by the diff and still present in the final file at line 7 — declares 'Null is an allowed input and must return zero.' The class is final with a private constructor and the method is static, so there is no override or alternate dispatch path: the static method is the sole and entire contract surface for this boundary. Under Java semantics, invoking nullableLength(null) now dereferences null and throws NullPointerException instead of returning 0. Because the declared postcondition is part of the published module boundary (the Javadoc is the only in-repo contract), the diff silently changes the boundary's behavior for a documented input class while leaving the boundary declaration stale. This is a verified source-level contract mismatch on the boundary itself; whether the guard removal was intentional (stale comment) or accidental (regression) cannot be decided from the repository.",
+      "claimKind": "STATIC_CORRECTNESS",
+      "codeReferences": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        },
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "confidence": 0.8,
+      "contributions": [
+        {
+          "candidateId": "397a05a2-cc96-4ae7-9742-75af3f796855",
+          "codeReferences": [
+            {
+              "endLine": 20,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+              "side": "diff",
+              "sourceType": "CODE",
+              "startLine": 6
+            },
+            {
+              "endLine": 19,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+              "side": "final",
+              "sourceType": "CODE",
+              "startLine": 1
+            }
+          ],
+          "disposition": "VERIFIED",
+          "evidenceIds": [
+            "626e7cde-f7b9-4e4a-84c9-fce98a59e73b",
+            "f6678a69-0a0a-486e-80d3-a65b98708648"
+          ],
+          "passId": "architecture",
+          "validationModelCallId": "111dda40-b81e-4b20-b552-791ff32ab684"
+        }
+      ],
+      "disposition": "VERIFIED",
+      "evidenceIds": [
+        "626e7cde-f7b9-4e4a-84c9-fce98a59e73b",
+        "f6678a69-0a0a-486e-80d3-a65b98708648"
+      ],
+      "findingId": "fb3e0e7d-5066-4e1c-a414-73f4fb8d5f28",
+      "passId": "architecture",
+      "reasoningSummary": {
+        "assumptions": [
+          "Java semantics: dereferencing null via String.length() throws NullPointerException, inferred statically rather than observed at runtime.",
+          "The in-file Javadoc is the authoritative contract for this boundary because no other contract artifact (interface, spec, test) exists in the snapshot.",
+          "No reflection or instrumentation rewrites the static method; the file is the compiled source."
+        ],
+        "conclusion": "Verified: the diff removes the null guard and the unchanged Javadoc still mandates 'return zero' for null; the final file confirms both. The boundary declaration and the boundary behavior now disagree for the documented null input. Residual uncertainty: which side is authoritative, and whether any external caller is affected, cannot be established — no callers, tests, interfaces, or specs exist in the fixed snapshot, and only src/main/java/acceptance/TextLengths.java is in scope. Static analysis only; no compilation or execution was performed.",
+        "counterexamples": [
+          "If the Javadoc is considered stale/obsolete and a null return of 0 is no longer desired, then the code is correct and it is the comment that is defective — the mismatch is still real but the guilty side flips; the repository contains no artifact that decides this.",
+          "If no code in the universe ever calls nullableLength(null), the mismatch is latent and produces no runtime harm until such a call occurs; absence of in-repo callers means no observed failure here.",
+          "If every external caller is compiled against the new behavior and treats NPE as acceptable, the boundary is merely implicit rather than violated in practice — unverifiable from this snapshot."
+        ],
+        "executionPath": "Caller -> TextLengths.nullableLength(String) (final class, private ctor, static dispatch, no override) -> body `return text.length();` -> null dereference -> NullPointerException, instead of the documented `return 0`.",
+        "rule": "A public static method's documented postcondition is part of the module's published boundary; a change that alters behavior for a documented input class without updating the boundary declaration leaves the boundary internally inconsistent and misleads all consumers reasoning from it.",
+        "trigger": "Invoke TextLengths.nullableLength(null) after the accumulated diff is applied."
+      },
+      "severity": "MEDIUM",
+      "suggestion": "Resolve the boundary contract explicitly rather than leaving it stale: either restore `text == null ? 0 : text.length()` so behavior matches the declared 'null returns zero' postcondition, or update/remove the line-7 Javadoc so the published boundary matches the new `return text.length();`. Then add a unit test pinning nullableLength(null) and requiredLength(null) so the boundary cannot drift silently on the next change. The requiredLength local-variable extraction is semantics-preserving and needs no architectural action.",
+      "title": "nullableLength silently changes its null-input contract while the module boundary (Javadoc) still advertises the old one",
+      "validationModelCallId": "111dda40-b81e-4b20-b552-791ff32ab684",
+      "validationSummary": {
+        "assumptionsResolved": true,
+        "basis": "Architecture-pass materials: diff excerpt s14 lines 6-20 shows the nullableLength null guard removed (`-  return text == null ? 0 : text.length();` / `+  return text.length();`) while the Javadoc line 'Null is an allowed input and must return zero.' is untouched context; final file s15 lines 1-19 confirms the mismatch is live at the boundary (line 8 Javadoc, line 10 body `return text.length();`), the class is `public final` with a `private TextLengths()` constructor and only two static methods, so the static method is the entire contract surface with no override/dispatch alternative. Repository-wide searches in prior passes (e10, e3) found no other Java files, callers, tests, interfaces or specs, so the in-file Javadoc is the only in-repo contract artifact.",
+        "counterexampleChecked": "Checked the candidate's own counterexamples: (a) 'Javadoc is stale, code is correct' — this does not refute the claim, because the claim is precisely the mismatch between boundary declaration and boundary behavior and explicitly declines to adjudicate which side is authoritative; the mismatch remains real under either assignment of guilt. (b) 'no caller ever passes null' — makes the mismatch latent rather than nonexistent; the contract for a documented input class is still silently changed, so this bounds impact (external callers unassessable) but does not refute the defect. (c) 'external callers treat NPE as acceptable' — speculative and unverifiable from the snapshot; it describes tolerance of the new behavior, not absence of the boundary change. No counterexample refutes the factual core (guard removed, Javadoc unchanged, mismatch live in final file).",
+        "counterexampleHolds": false
+      }
+    },
+    {
+      "candidateId": "750cd0ba-bc67-4e6e-8a28-f5a84f3ecb92",
+      "category": "Contract/Test Coverage",
+      "claim": "The cumulative diff removes the null guard from TextLengths.nullableLength, changing the body from `return text == null ? 0 : text.length();` to `return text.length();`. The method's own Javadoc, untouched by the diff and still present at final line 7, declares 'Null is an allowed input and must return zero.' With the guard removed, invoking nullableLength(null) dereferences null and throws NullPointerException instead of returning 0. Thus the documented contract for the null input is no longer satisfied: a documented postcondition (return zero for null) is falsified by the current implementation. Separately, no test artifact exists anywhere in the snapshot — glob_files '**/*.java' returns only this one file, and repository-wide searches for 'TextLengths' and 'nullableLength' find no test referencing either name — so this behavioral regression is untestable/uncaught within the repository: nothing in the snapshot would fail if nullableLength(null) now throws. The class is final with a private constructor and the method is static, so there is no override or alternate dispatch path that could restore the documented behavior. The NPE is inferred from Java semantics rather than observed at runtime, and the repository contains no external specification to decide whether the Javadoc or the code is authoritative — the defect established here is a concrete implementation/Javadoc contract mismatch plus the absence of any test coverage, not an assertion that external callers fail.",
+      "claimKind": "STATIC_CORRECTNESS",
+      "codeReferences": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        },
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "confidence": 0.72,
+      "contributions": [
+        {
+          "candidateId": "750cd0ba-bc67-4e6e-8a28-f5a84f3ecb92",
+          "codeReferences": [
+            {
+              "endLine": 20,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+              "side": "diff",
+              "sourceType": "CODE",
+              "startLine": 6
+            },
+            {
+              "endLine": 19,
+              "path": "src/main/java/acceptance/TextLengths.java",
+              "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+              "side": "final",
+              "sourceType": "CODE",
+              "startLine": 1
+            }
+          ],
+          "disposition": "VERIFIED",
+          "evidenceIds": [
+            "b82703e1-dead-4907-9eb0-6f359463a164",
+            "9887f7a7-1e16-425a-9de8-176f1266407c",
+            "99b89dc2-1490-44e3-8a75-ee66fa723478"
+          ],
+          "passId": "testing",
+          "validationModelCallId": "9895ef9b-82fa-4134-88ef-159bbb76a8c6"
+        }
+      ],
+      "disposition": "VERIFIED",
+      "evidenceIds": [
+        "b82703e1-dead-4907-9eb0-6f359463a164",
+        "9887f7a7-1e16-425a-9de8-176f1266407c",
+        "99b89dc2-1490-44e3-8a75-ee66fa723478"
+      ],
+      "findingId": "4f84c44a-55ea-42aa-815d-eab1cfaefa0c",
+      "passId": "testing",
+      "reasoningSummary": {
+        "assumptions": [
+          "Java `null.length()` dereference throws NullPointerException (standard language semantics).",
+          "The in-file Javadoc at line 7 is the intended contract for nullableLength.",
+          "The fixed snapshot contains the complete repository; no tests exist outside the globbed paths."
+        ],
+        "conclusion": "Confirmed mismatch between the unchanged Javadoc postcondition and the new implementation of nullableLength, plus confirmed absence of any test that would detect it. Confined to one 19-line file; no callers or tests exist to establish runtime impact, and which side is authoritative is unresolved.",
+        "counterexamples": [
+          "If the Javadoc is stale and the intended contract is now 'null is invalid', then the code is correct and only the comment is wrong — the repository provides no external spec to decide, so the mismatch is real but the authoritative side is undetermined.",
+          "If callers never pass null, the changed branch is unreachable in practice and no runtime failure occurs; however no callers exist in the snapshot, so reachability cannot be assessed.",
+          "The behavior change would be caught only by a test calling nullableLength(null); no such test exists, so 'uncaught by tests' holds but 'causes production failure' is not established."
+        ],
+        "executionPath": "Caller -> TextLengths.nullableLength(String) line 10 -> `return text.length();` -> NullPointerException on null; the Javadoc at line 7 still promises 0. A test suite search (glob '**/*.java'; search 'nullableLength') yields no test artifact, so no existing test would fail.",
+        "rule": "A method's source-level documentation defines a postcondition its implementation must satisfy; changing the implementation while leaving the documented postcondition intact creates an inconsistency. A behavioral contract change in a repository with no tests for that behavior cannot be detected by the existing test suite.",
+        "trigger": "Invoking TextLengths.nullableLength(null): previously returns 0, now dereferences null and throws NullPointerException. Detection of the change would require a test exercising nullableLength(null), which does not exist in the snapshot."
+      },
+      "severity": "MEDIUM",
+      "suggestion": "Restore `return text == null ? 0 : text.length();` if null must return zero, or update the line 7 Javadoc to declare that null now throws NullPointerException, so the code and its documented contract agree. Additionally add a unit test asserting the chosen behavior for nullableLength(null) (e.g. assertEquals(0, ...) or assertThrows(NullPointerException.class, ...)) and for requiredLength(null), since the snapshot contains no test that would currently fail on this change.",
+      "title": "nullableLength null-guard removal contradicts its unchanged Javadoc, with no test able to catch it",
+      "validationModelCallId": "9895ef9b-82fa-4134-88ef-159bbb76a8c6",
+      "validationSummary": {
+        "assumptionsResolved": true,
+        "basis": "Diff (s17, lines 6-20) shows the nullableLength body changed from `return text == null ? 0 : text.length();` (line 9, '-') to `return text.length();` (line 10, '+'). Final file (s18, line 10) confirms the new body, while the Javadoc at final line 8 still reads 'Null is an allowed input and must return zero.' Both Diff and final source were read in the active testing pass. The behavior change and the Javadoc/implementation mismatch are directly established by the original materials.",
+        "counterexampleChecked": "The strongest counterexample: if the Javadoc is stale and null is now intended to be invalid, the code would be correct and only the comment wrong — the repo contains no external spec to arbitrate (no callers, tests, interfaces; e15 reports glob/search finding only the single file). This counterexample does not refute the claim, because the claim is explicitly limited to 'implementation/Javadoc contract mismatch plus absence of test coverage', and explicitly disclaims establishing that external callers fail or that the code side is wrong; the mismatch stands under either reading of authority.",
+        "counterexampleHolds": false
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "capturedAt": "2026-10-16T10:59:37.091684Z",
+      "coverage": "FULL",
+      "evidenceId": "29d460e4-e7fc-461f-ac53-0992d22d35a9",
+      "evidenceType": "CODE",
+      "producerId": "c93f5c97-d3be-42aa-a8b5-01fa5d11ca57",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Final file content of src/main/java/acceptance/TextLengths.java. Confirms the post-change implementation: nullableLength body is `return text.length();` while its Javadoc still states 'Null is an allowed input and must return zero.'; requiredLength retains Objects.requireNonNull and the extracted local variable. Class is final with a private constructor, so all behavior is static API surface; no other members exist."
+    },
+    {
+      "capturedAt": "2026-10-16T11:00:45.435794Z",
+      "coverage": "FULL",
+      "evidenceId": "4e630c86-6590-4cb2-8609-bd6b404e5bcf",
+      "evidenceType": "CODE",
+      "producerId": "ea74cacb-4442-40a0-8088-f244507fa7fd",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Final file content of src/main/java/acceptance/TextLengths.java, read in full during the security pass. Confirms post-change implementation: nullableLength body is `return text.length();` while its Javadoc still states 'Null is an allowed input and must return zero.'; requiredLength retains Objects.requireNonNull(text, \"text\") and the extracted local variable. Class is final with a private constructor; the only members are the two static methods, so the class is closed to override/redefinition and all behavior is static API surface."
+    },
+    {
+      "capturedAt": "2026-10-16T10:59:37.110157Z",
+      "coverage": "FULL",
+      "evidenceId": "6081dbc7-7688-4857-af72-43768ae1d565",
+      "evidenceType": "CODE",
+      "producerId": "c93f5c97-d3be-42aa-a8b5-01fa5d11ca57",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Repository-wide search for `TextLengths` and `nullableLength` outside the target file returned no matches: no callers, no tests, no other referencing files in the repository. Impact surface on external callers therefore cannot be established from the repository; behavioral conclusions rest on the in-file Javadoc contract alone."
+    },
+    {
+      "capturedAt": "2026-10-16T11:01:52.777022Z",
+      "coverage": "FULL",
+      "evidenceId": "626e7cde-f7b9-4e4a-84c9-fce98a59e73b",
+      "evidenceType": "CODE",
+      "producerId": "437e1cd8-5ce3-40bb-a3ec-8259077d88bf",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        }
+      ],
+      "summary": "Architecture-pass cumulative diff for src/main/java/acceptance/TextLengths.java (hunk @@ -7,12 +7,13 @@). Two changes: (1) nullableLength body changed from `return text == null ? 0 : text.length();` to `return text.length();` — the null guard removal is the only structural/behavioral change to the null-handling path; (2) requiredLength body changed from `return text.length();` to `int length = text.length(); return length;` after an unchanged `Objects.requireNonNull(text, \"text\")`, a semantics-preserving local extraction. Both Javadoc contract lines ('Null is an allowed input and must return zero.' and 'Null is invalid and must throw NullPointerException.') remain unchanged in the diff context."
+    },
+    {
+      "capturedAt": "2026-10-16T11:01:23.708227Z",
+      "coverage": "FULL",
+      "evidenceId": "6fcdc8c7-5b58-43b5-bbb5-19e7e0da3fb3",
+      "evidenceType": "CODE",
+      "producerId": "6fe36ce4-1ac1-4665-a43f-c778378d0613",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Final file content of src/main/java/acceptance/TextLengths.java, read in the performance pass. Only 19 lines; the class is final with a private constructor and exactly two static methods, so all behavior is static API surface. Neither method contains a loop, collection, allocation, synchronization, or I/O — there is no performance-relevant logic in the file. nullableLength body is `return text.length();` (line 10) while its Javadoc still states 'Null is an allowed input and must return zero.'; requiredLength retains Objects.requireNonNull and the extracted local variable."
+    },
+    {
+      "capturedAt": "2026-10-16T11:00:12.729450Z",
+      "coverage": "FULL",
+      "evidenceId": "84c606cb-47bf-4a82-bb30-82da6e47f54c",
+      "evidenceType": "CODE",
+      "producerId": "ca9b6da9-f79d-400b-83f6-27146e1821a9",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        }
+      ],
+      "summary": "Cumulative diff for src/main/java/acceptance/TextLengths.java. nullableLength body changed from `return text == null ? 0 : text.length();` to `return text.length();` — the null guard was removed. requiredLength changed only by extracting `int length = text.length(); return length;` after an unchanged `Objects.requireNonNull(text, \"text\")`, which is semantics-preserving. Both Javadoc contract lines ('Null is an allowed input and must return zero.' / 'Null is invalid and must throw NullPointerException.') remain unchanged in the diff context."
+    },
+    {
+      "capturedAt": "2026-10-16T11:00:12.746308Z",
+      "coverage": "FULL",
+      "evidenceId": "978d3c91-54fb-41c3-814c-344200771303",
+      "evidenceType": "CODE",
+      "producerId": "ca9b6da9-f79d-400b-83f6-27146e1821a9",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Final file content of src/main/java/acceptance/TextLengths.java. Confirms post-change implementation: nullableLength body is `return text.length();` while its Javadoc still states 'Null is an allowed input and must return zero.'; requiredLength retains Objects.requireNonNull(text, \"text\") and the extracted local variable. Class is final with a private constructor; the only members are the two static methods, so all behavior is static API surface."
+    },
+    {
+      "capturedAt": "2026-10-16T11:02:33.123108Z",
+      "coverage": "FULL",
+      "evidenceId": "9887f7a7-1e16-425a-9de8-176f1266407c",
+      "evidenceType": "CODE",
+      "producerId": "421925b9-a5e8-4383-8013-c9a28cf1dc9a",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Final file content of src/main/java/acceptance/TextLengths.java (19 lines). Confirms post-change implementation: line 7 Javadoc 'Null is an allowed input and must return zero.' coexists with line 10 body `return text.length();`; requiredLength retains Objects.requireNonNull and the extracted local. `public final class` with `private TextLengths() {}` constructor and exactly two static methods — the entire API surface."
+    },
+    {
+      "capturedAt": "2026-10-16T11:02:33.139216Z",
+      "coverage": "FULL",
+      "evidenceId": "99b89dc2-1490-44e3-8a75-ee66fa723478",
+      "evidenceType": "CODE",
+      "producerId": "421925b9-a5e8-4383-8013-c9a28cf1dc9a",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Repository-wide search in testing pass: glob_files '**/*.java' returns exactly one file (src/main/java/acceptance/TextLengths.java, 487 bytes); search_code 'nullableLength' hits only the definition at line 9; search_code 'TextLengths' hits only lines 5 and 6. No callers, tests, benchmarks, interfaces, or external specifications exist. Impact on external call sites and which side (Javadoc vs code) is authoritative cannot be established from the repository."
+    },
+    {
+      "capturedAt": "2026-10-16T11:01:23.726754Z",
+      "coverage": "FULL",
+      "evidenceId": "a702d1ea-6dc3-482f-b6ca-4c19d7685539",
+      "evidenceType": "CODE",
+      "producerId": "6fe36ce4-1ac1-4665-a43f-c778378d0613",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Repository-wide glob (glob_files '**/*.java') and code search (search_code 'TextLengths', search_code 'nullableLength') in the performance pass returned exactly one file, src/main/java/acceptance/TextLengths.java (487 bytes, tracked, REGULAR_FILE); scannedBytes=487, skippedFiles=0, scanComplete=true. No callers, tests, benchmarks, or hot-path call sites exist in the snapshot, so the runtime performance impact of the changed method cannot be observed or bounded."
+    },
+    {
+      "capturedAt": "2026-10-16T11:01:23.690179Z",
+      "coverage": "FULL",
+      "evidenceId": "a9319c9d-3a52-436d-8e91-416a96a8cee3",
+      "evidenceType": "CODE",
+      "producerId": "6fe36ce4-1ac1-4665-a43f-c778378d0613",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        }
+      ],
+      "summary": "Cumulative diff for src/main/java/acceptance/TextLengths.java, read in the performance pass. nullableLength body changed from `return text == null ? 0 : text.length();` to `return text.length();` — the null guard was removed, introducing a new null dereference on the null path. requiredLength changed only by extracting `int length = text.length(); return length;` after an unchanged `Objects.requireNonNull(text, \"text\")`, which is semantics-preserving (no extra allocation, no loop, no I/O). Both Javadoc contract lines ('Null is an allowed input and must return zero.' / 'Null is invalid and must throw NullPointerException.') remain unchanged in the diff context."
+    },
+    {
+      "capturedAt": "2026-10-16T11:02:33.107068Z",
+      "coverage": "FULL",
+      "evidenceId": "b82703e1-dead-4907-9eb0-6f359463a164",
+      "evidenceType": "CODE",
+      "producerId": "421925b9-a5e8-4383-8013-c9a28cf1dc9a",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        }
+      ],
+      "summary": "Cumulative diff (git_diff) for src/main/java/acceptance/TextLengths.java, hunk @@ -7,12 +7,13 @@. Sole semantic change: nullableLength body from `return text == null ? 0 : text.length();` to `return text.length();` (null guard removed). requiredLength: `Objects.requireNonNull(text, \"text\")` unchanged, then `return text.length();` replaced by `int length = text.length(); return length;` (semantics-preserving local extraction). Both Javadoc lines ('Null is an allowed input and must return zero.' / 'Null is invalid and must throw NullPointerException.') appear unchanged as diff context."
+    },
+    {
+      "capturedAt": "2026-10-16T10:59:37.077933Z",
+      "coverage": "FULL",
+      "evidenceId": "ed913591-ca69-4721-a69a-b64728849d2b",
+      "evidenceType": "CODE",
+      "producerId": "c93f5c97-d3be-42aa-a8b5-01fa5d11ca57",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        }
+      ],
+      "summary": "Cumulative diff for src/main/java/acceptance/TextLengths.java. nullableLength changed from `return text == null ? 0 : text.length();` to `return text.length();` — the null guard was removed. requiredLength changed only by extracting `int length = text.length(); return length;` after `Objects.requireNonNull(text, \"text\")`, which is semantics-preserving. The Javadoc contract lines (`Null is an allowed input and must return zero.` / `Null is invalid and must throw NullPointerException.`) remain unchanged in the diff context."
+    },
+    {
+      "capturedAt": "2026-10-16T11:00:45.418302Z",
+      "coverage": "FULL",
+      "evidenceId": "f1ef2cd6-2ca0-4810-9883-878b622d95d0",
+      "evidenceType": "CODE",
+      "producerId": "ea74cacb-4442-40a0-8088-f244507fa7fd",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        }
+      ],
+      "summary": "Cumulative diff for src/main/java/acceptance/TextLengths.java, re-read directly in the security pass. nullableLength body changed from `return text == null ? 0 : text.length();` to `return text.length();` — the null guard was removed. requiredLength changed only by extracting `int length = text.length(); return length;` after an unchanged `Objects.requireNonNull(text, \"text\")`, which is semantics-preserving. Both Javadoc contract lines ('Null is an allowed input and must return zero.' / 'Null is invalid and must throw NullPointerException.') remain unchanged in the diff context, i.e. the contract comment was not updated alongside the behavior change."
+    },
+    {
+      "capturedAt": "2026-10-16T11:01:52.795265Z",
+      "coverage": "FULL",
+      "evidenceId": "f6678a69-0a0a-486e-80d3-a65b98708648",
+      "evidenceType": "CODE",
+      "producerId": "437e1cd8-5ce3-40bb-a3ec-8259077d88bf",
+      "producerType": "MODEL_SUBMISSION",
+      "runId": "0c84091a-8047-4f60-9c4e-500e7e26aa04",
+      "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+      "sourceRefs": [
+        {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        }
+      ],
+      "summary": "Architecture-pass final file content of src/main/java/acceptance/TextLengths.java (19 lines, 487 bytes). Class is `public final` with a `private TextLengths() {}` constructor and exactly two static methods — the entire API surface is closed to subclassing and consists only of nullableLength/requiredLength. Line 7 Javadoc still reads 'Null is an allowed input and must return zero.' while line 10 body is `return text.length();` (the mismatch is live in the final file). requiredLength retains Objects.requireNonNull(text, \"text\") and the extracted local. No other members, fields, loops, allocations, synchronization, or I/O exist in the file."
+    }
+  ],
+  "passResults": [
+    {
+      "checkedScope": [
+        "src/main/java/acceptance/TextLengths.java"
+      ],
+      "coverage": "FULL",
+      "findingIds": [
+        "94b9c5c8-83f8-4aae-8a53-2a500987e9dc"
+      ],
+      "incompleteReasons": [],
+      "limitations": [
+        "Only one file exists in scope (src/main/java/acceptance/TextLengths.java); the repository contains no other Java sources, tests, or callers referencing TextLengths or nullableLength, so the impact on external call sites could not be observed and remains unassessed.",
+        "Behavioral conclusions rest on the in-file Javadoc contract because no external contract definition, interface, or test file was available to cross-check the documented postcondition.",
+        "Static analysis only: no compilation or execution of the code was performed, so the NullPointerException on null input is inferred from Java semantics rather than observed at runtime.",
+        "Coverage of the selected excerpts does not constitute inspection of any other file, since no other files were present in the fixed snapshot."
+      ],
+      "passId": "correctness",
+      "scopeKind": "FIXED_DIFF",
+      "selected": true,
+      "skipReason": null,
+      "status": "COMPLETED",
+      "unvalidatedCandidates": 0,
+      "usage": {
+        "inputTokens": 41989,
+        "modelCalls": 8,
+        "outputTokens": 5667
+      }
+    },
+    {
+      "checkedScope": [
+        "src/main/java/acceptance/TextLengths.java"
+      ],
+      "coverage": "FULL",
+      "findingIds": [
+        "b4bbe9c6-532a-4288-85cc-4e07d31469e0"
+      ],
+      "incompleteReasons": [],
+      "limitations": [
+        "Only one file exists in scope (src/main/java/acceptance/TextLengths.java); the repository contains no other Java sources, tests, or callers referencing TextLengths or nullableLength, so the impact on external call sites could not be observed and remains unassessed.",
+        "Behavioral conclusions rest on the in-file Javadoc contract because no external contract definition, interface, or test file was available to cross-check the documented postcondition; which side (Javadoc or code) is authoritative cannot be determined from the repository.",
+        "Static analysis only: no compilation or execution of the code was performed, so the NullPointerException on null input is inferred from Java semantics rather than observed at runtime.",
+        "Coverage of the selected excerpts does not constitute inspection of any other file, since no other files were present in the fixed snapshot."
+      ],
+      "passId": "consistency",
+      "scopeKind": "FINAL_FILES",
+      "selected": true,
+      "skipReason": null,
+      "status": "COMPLETED",
+      "unvalidatedCandidates": 0,
+      "usage": {
+        "inputTokens": 20768,
+        "modelCalls": 5,
+        "outputTokens": 3139
+      }
+    },
+    {
+      "checkedScope": [
+        "src/main/java/acceptance/TextLengths.java"
+      ],
+      "coverage": "FULL",
+      "findingIds": [
+        "db780146-3725-4185-9e3c-2eb83d3df78c"
+      ],
+      "incompleteReasons": [],
+      "limitations": [
+        "Only one file exists in the fixed snapshot (src/main/java/acceptance/TextLengths.java); glob **/*.java, search_code 'TextLengths', and search_code 'nullableLength' return no other files, callers, tests, interfaces, or specifications, so the impact of the behavioral change on external call sites cannot be established and remains unassessed.",
+        "The only contract available is the in-file Javadoc; no external spec, interface, or test defines the intended postcondition, so which side (Javadoc or code) is authoritative cannot be determined from the repository.",
+        "Static analysis only; no compilation or execution was performed, so the NullPointerException on null input is inferred from Java semantics rather than observed at runtime.",
+        "Coverage of the selected excerpts does not constitute inspection of any other file, since no other files were present in the fixed snapshot.",
+        "The security pass received no candidates from prior passes and produced none of its own; prior-pass conclusions were treated as clues only and re-derived from the original diff and final file."
+      ],
+      "passId": "security",
+      "scopeKind": "FIXED_DIFF",
+      "selected": true,
+      "skipReason": null,
+      "status": "COMPLETED",
+      "unvalidatedCandidates": 0,
+      "usage": {
+        "inputTokens": 25485,
+        "modelCalls": 5,
+        "outputTokens": 3987
+      }
+    },
+    {
+      "checkedScope": [
+        "src/main/java/acceptance/TextLengths.java"
+      ],
+      "coverage": "FULL",
+      "findingIds": [],
+      "incompleteReasons": [],
+      "limitations": [
+        "Only one file exists in the fixed snapshot (src/main/java/acceptance/TextLengths.java); glob_files '**/*.java', search_code 'TextLengths' and search_code 'nullableLength' returned no other files, callers, benchmarks, or tests, so the runtime performance impact of the changed methods on call sites cannot be established and remains unassessed.",
+        "The target file contains no loop, collection, allocation, synchronization, or I/O; the only changed methods are trivial one-line delegations to String.length() with no asymptotic or constant-factor implication. This makes the performance pass effectively vacuous rather than proof of an absence of performance defects elsewhere.",
+        "The Javadoc-contract mismatch on nullableLength (null no longer returns 0) is a correctness/consistency concern already substantiated in prior passes, not a performance defect; it is recorded here as out-of-scope context and deliberately not re-raised as a performance candidate.",
+        "Static analysis only; the repository was not compiled or executed, so any runtime behavior (including NPE on null input) is inferred from Java semantics rather than observed.",
+        "Coverage of the selected excerpts does not constitute inspection of any other file, since no other files were present in the fixed snapshot."
+      ],
+      "passId": "performance",
+      "scopeKind": "FIXED_DIFF",
+      "selected": true,
+      "skipReason": null,
+      "status": "COMPLETED",
+      "unvalidatedCandidates": 0,
+      "usage": {
+        "inputTokens": 30448,
+        "modelCalls": 5,
+        "outputTokens": 2956
+      }
+    },
+    {
+      "checkedScope": [
+        "src/main/java/acceptance/TextLengths.java"
+      ],
+      "coverage": "FULL",
+      "findingIds": [
+        "fb3e0e7d-5066-4e1c-a414-73f4fb8d5f28"
+      ],
+      "incompleteReasons": [],
+      "limitations": [
+        "Only one file exists in the fixed snapshot (src/main/java/acceptance/TextLengths.java); glob_files '**/*.java', search_code 'TextLengths', and search_code 'nullableLength' returned no other files, callers, tests, interfaces, or specifications, so the architecture-level impact on external consumers of the TextLengths boundary cannot be established and remains unassessed.",
+        "The only contract artifact available is the in-file Javadoc; no external spec, module descriptor, interface, or test defines the intended boundary postcondition, so which side (Javadoc declaration or method body) is authoritative cannot be determined from the repository.",
+        "These are the only two members on the class surface (both static, class final, constructor private); the architecture pass therefore inspected the complete boundary surface of the in-scope file, but coverage of the selected excerpts does not constitute inspection of any other file, since no other files were present.",
+        "Static analysis only; the repository was not compiled or executed, so the NullPointerException on null input is inferred from Java semantics rather than observed at runtime.",
+        "The requiredLength change (extracting `int length = text.length(); return length;`) was examined as an architectural change and found to be behavior-preserving and boundary-preserving; it is deliberately not raised as a candidate."
+      ],
+      "passId": "architecture",
+      "scopeKind": "FINAL_FILES",
+      "selected": true,
+      "skipReason": null,
+      "status": "COMPLETED",
+      "unvalidatedCandidates": 0,
+      "usage": {
+        "inputTokens": 34026,
+        "modelCalls": 5,
+        "outputTokens": 3527
+      }
+    },
+    {
+      "checkedScope": [
+        "src/main/java/acceptance/TextLengths.java"
+      ],
+      "coverage": "FULL",
+      "findingIds": [
+        "4f84c44a-55ea-42aa-815d-eab1cfaefa0c"
+      ],
+      "incompleteReasons": [],
+      "limitations": [
+        "Only one file exists in the fixed snapshot (src/main/java/acceptance/TextLengths.java); glob_files '**/*.java', search_code 'TextLengths', and search_code 'nullableLength' returned no callers, tests, benchmarks, interfaces, or specifications, so the impact of the change on external call sites and the testability/completeness of the module cannot be established and remain unassessed.",
+        "The only contract artifact available is the in-file Javadoc; no external spec, interface, module descriptor, or test defines the intended postcondition, so which side (Javadoc declaration or method body) is authoritative cannot be determined from the repository.",
+        "Static analysis only; the repository was not compiled or executed, so the NullPointerException on null input is inferred from Java semantics rather than observed at runtime.",
+        "The absence of tests is established only by repository-wide glob and code search (scannedBytes=487, skippedFiles=0, scanComplete=true); a test could exist outside the scanned Java glob or in a non-Java form not covered by these searches.",
+        "Coverage of the selected excerpts does not constitute inspection of any other file, since no other files were present in the snapshot."
+      ],
+      "passId": "testing",
+      "scopeKind": "FIXED_DIFF",
+      "selected": true,
+      "skipReason": null,
+      "status": "COMPLETED",
+      "unvalidatedCandidates": 0,
+      "usage": {
+        "inputTokens": 39573,
+        "modelCalls": 5,
+        "outputTokens": 3602
+      }
+    }
+  ]
+}
