@@ -125,3 +125,13 @@ Run `47145d56-1f5c-4341-8198-4bb4207cf255`，29/60请求，管理¥0.461080，�
 ## 2026-10-16 POSITION_V1 单次真实验收
 
 详见 `docs/review-harness-batch-6-position-real-acceptance.md`。新Run `0c84091a-8047-4f60-9c4e-500e7e26aa04`，33次，六Pass COMPLETED，SUCCEEDED/RELEASED，Result3.0；24条位置绑定回放一致。管理计费¥0.567602，全部SETTLED，无预留/超支/未知。null回归检出、良性重构REJECTED；最终同一null问题仍有5条跨Pass重复Finding，去重未召回，另有摘要行号偏差。保留全部原始证据，不据此批准整批。证据根 `C:\Users\ROG\AppData\Local\Temp\code-weave-b6-position-real-qmb0wiq8`。无CC、无重跑、无产品修改、未提交推送。
+
+
+## 2026-10-16 基线6ef9a01：最小语义去重单次真实验收
+
+一个新Run `187831ef-ae30-453c-9a01-81b8cd86a60e`；六Pass COMPLETED，SUCCEEDED/RELEASED，Result3.0。38次，Usage344723tokens，管理保守计费¥0.890296（不是实际账单），38份SETTLED，无预留/超支/未知。null回归检出、良性重构c2 REJECTED。9项原始判断形成1组/36条重叠边，但模型三次仅选择5条VERIFIED，排除4条RISK；首次额外字段被Schema拒绝，后两次整组句柄不匹配被拒绝。两次纠错耗尽后原样保留九项，未强并，没有接受的去重审计/合并。执行闭环和安全拒绝正确，真实合法整组决策与确认后合并未通过/未验；混合组分立本身符合冻结范围。详见 `docs/review-harness-batch-6-dedup-real-acceptance.md`。不追加付费、不改产品、不运行CC、不提交推送，交设计窗口复核。
+
+
+## 2026-10-16T22:15:45.331511+08:00 兼容性预分区单次真实复验
+
+HEAD6ef9a01＋已复审未提交补修；79产品文件及差异运行前后不漂移。唯一新Run `8640c4ef-6925-4e7f-adcd-04ad5c5434e4`，六Pass COMPLETED，SUCCEEDED/RELEASED，Result3.0；38次、327996tokens，管理保守计费¥0.850254（非实际账单），38份SETTLED，无预留/超支/未知。原始12项按键拆成5项RISK＋7项VERIFIED，完整分别交付。5项RISK在036获合法整组肯定，经SYSTEM审计与Checkpoint rev163确认后合并为一条，保留5贡献、9Evidence、1代码引用并集；真实合并成功路径已验但仅限该RISK组。另一组回复重复JSON键并漏c11，共享两次纠错耗尽后保留七项，最终8条，未强并。null回归检出、良性c2排除；c11架构Finding存在“相反null处理”及行号事实偏差待复核，报告质量不能判全通过。详见 `docs/review-harness-batch-6-dedup-partition-real-acceptance.md`。本轮不改产品或设计，无追加付费/CC、未提交推送，交设计窗口独立复核。

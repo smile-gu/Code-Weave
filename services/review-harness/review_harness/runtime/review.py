@@ -36,7 +36,7 @@ from review_harness.domain.position import (
     PassPositionValidationBatch,
     PositionValidationBatch,
 )
-from review_harness.domain.provider import strict_json
+from review_harness.domain.provider import DuplicateJSONKeyError, strict_json
 from review_harness.domain.review import (
     EvidenceCandidate,
     Finding,
@@ -218,6 +218,13 @@ def parse_submission(text, model):
                 "column": error.colno,
                 "position": error.pos,
             },
+        ) from None
+    except DuplicateJSONKeyError:
+        raise SubmissionIssue(
+            "JSON_INVALID",
+            stage="JSON",
+            code="PROVIDER_STRUCTURED_OUTPUT_INVALID",
+            json_error={"errorType": "DUPLICATE_KEY"},
         ) from None
     except (ValueError, TypeError):
         raise SubmissionIssue(
@@ -422,6 +429,15 @@ class RealReviewExecutor:
                     "Use jsonError coordinates (one-based line/column, zero-based character position) "
                     "in the original rejected submission when present. Correct and resubmit the complete object; "
                     "the platform will not trim or accept a JSON prefix. Nothing was published."
+                )
+            if (
+                issue.json_error
+                and issue.json_error.get("errorType") == "DUPLICATE_KEY"
+            ):
+                correction_feedback["instruction"] = (
+                    "Regenerate the complete JSON object with each key exactly once within each object. "
+                    "Duplicate keys are invalid even when their values are identical; never use first/last wins. "
+                    "The same field name in separate objects is legal. Nothing was published."
                 )
             if issue.reason == "SCOPE_INVALID" and issue.path == ("checkedScope",):
                 _, scope = await self.engine.anchors(context, signal)

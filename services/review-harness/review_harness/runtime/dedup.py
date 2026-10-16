@@ -124,9 +124,21 @@ def unmerged(finding):
 
 
 def comparison_groups(findings):
-    """Bound connected components without implying cross-block equivalence."""
+    """Partition known-incompatible judgments before source connectivity or blocking."""
+    partitions = {}
+    for finding in sorted(findings, key=ordering):
+        key = (finding.claimKind, finding.disposition)
+        partitions.setdefault(key, []).append(finding)
+    components = sorted(
+        (
+            (key, component)
+            for key, members in partitions.items()
+            for component in recall_groups(members)
+        ),
+        key=lambda item: ordering(item[1][0]),
+    )
     comparisons, limitations = [], []
-    for component_index, component in enumerate(recall_groups(findings)):
+    for component_index, (key, component) in enumerate(components):
         if len(component) > 32:
             limitations.append(
                 "Possible duplicates remain: source component exceeds 32; cross-block comparisons omitted."
@@ -138,6 +150,11 @@ def comparison_groups(findings):
                     (
                         group,
                         {
+                            "strategy": "compatible-partition-v1",
+                            "partitionKey": {
+                                "claimKind": key[0],
+                                "disposition": key[1],
+                            },
                             "componentIndex": component_index,
                             "componentSize": len(component),
                             "blockIndex": block_index,
@@ -151,4 +168,7 @@ def comparison_groups(findings):
                         },
                     )
                 )
+    comparisons.sort(key=lambda item: ordering(item[0][0]))
+    for index, (_, grouping) in enumerate(comparisons):
+        grouping["groupIndex"] = index
     return comparisons, limitations

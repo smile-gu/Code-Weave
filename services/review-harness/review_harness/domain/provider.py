@@ -15,6 +15,10 @@ ToolName = Literal[
 ]
 
 
+class DuplicateJSONKeyError(ValueError):
+    """Safe duplicate-key classification without untrusted names or values."""
+
+
 def strict_json(raw: str | bytes, *, limit=1024 * 1024):
     """Reject duplicate keys/non-finite numbers before business validation."""
     if len(raw if isinstance(raw, bytes) else raw.encode("utf-8")) > limit:
@@ -24,7 +28,7 @@ def strict_json(raw: str | bytes, *, limit=1024 * 1024):
         result = {}
         for name, value in items:
             if name in result:
-                raise ValueError("Duplicate JSON key")
+                raise DuplicateJSONKeyError("Duplicate JSON key")
             result[name] = value
         return result
 

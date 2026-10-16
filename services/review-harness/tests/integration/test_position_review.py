@@ -3,6 +3,7 @@
 import asyncio
 import copy
 import json
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -20,6 +21,8 @@ from tests.snapshot_fixture import publish_snapshot
     "mode",
     [
         "corrected",
+        "c11-corrected",
+        "c11-core",
         "multipass",
         "bad-user-quote",
         "provenance-change",
@@ -76,6 +79,23 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
         + ("if (x == null) return 0; " if guarded else "")
         + "return x.intValue(); }\n}\n"
     )
+    quality = None
+    if mode.startswith("c11-"):
+        quality = json.loads(
+            (
+                Path(__file__).parents[1] / "fixtures/c11-known-quality-failure.json"
+            ).read_bytes()
+        )
+        source = quality["source"]
+        payload["input"]["message"] = (
+            "Review null-contract correctness against the fixed source."
+        )
+    fact_line = 10 if quality else 2
+    corrected_claim = (
+        "Both methods reject null with NPE through different mechanisms; nullableLength violates its retained null-to-zero contract."
+        if quality
+        else "Package-private value(null) throws instead of returning zero."
+    )
     publish_snapshot(
         settings.snapshot_root, payload, {"src/Demo.java": source.encode()}
     )
@@ -130,7 +150,7 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
             corrected = copy.deepcopy(original)
             corrected.update(
                 title="Package-private method dereferences null",
-                claim="Package-private value(null) throws instead of returning zero.",
+                claim=corrected_claim,
             )
             corrected["reasoningSummary"].update(
                 assumptions=[
@@ -138,10 +158,20 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
                 ],
                 conclusion="Null regression within accessible scope",
             )
+            if quality:
+                corrected["title"] = "Retained null-to-zero contract is violated"
+                corrected["reasoningSummary"].update(
+                    assumptions=[
+                        "Both methods reject null; explicit and implicit checks differ in mechanism"
+                    ],
+                    conclusion=corrected_claim,
+                )
             # The original claim may legitimately be retained in another field:
             # CORRECTED compares the selected field, not every string globally.
             corrected["suggestion"] = (
-                "Historical rejected description: " + original["claim"]
+                "Restore the nullableLength null guard to honor its contract."
+                if quality
+                else "Historical rejected description: " + original["claim"]
             )
             if mode == "provenance-change":
                 corrected["codeSelections"][0]["sourceHandle"] = "s999"
@@ -149,22 +179,26 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
                 corrected["claim"] = original["claim"] + (
                     "  " if mode == "whitespace-field" else ""
                 )
-            disposition = "REJECTED" if mode in {"core", "benign"} else "VERIFIED"
+            disposition = (
+                "REJECTED" if mode in {"core", "benign", "c11-core"} else "VERIFIED"
+            )
             check = {
                 "candidateHandle": original["candidateHandle"],
                 "candidateField": "/claim",
                 "sourceSelection": {
                     "sourceHandle": source_view["sourceHandle"],
-                    "startLine": 2,
-                    "endLine": 2,
+                    "startLine": fact_line,
+                    "endLine": fact_line,
                 },
                 "outcome": "CORE_CONTRADICTED"
-                if mode in {"core", "core-verified"}
+                if mode in {"core", "core-verified", "c11-core"}
                 else "SUPPORTED"
                 if mode == "benign"
                 else "CORRECTED",
                 "explanation": "Compare access, null guard and defect eligibility against original code, independently of the request description",
-                "userQuote": "The public value method",
+                "userQuote": "Review null-contract correctness"
+                if quality
+                else "The public value method",
             }
             if mode == "bad-user-quote":
                 check["userQuote"] = "Invented user description"
@@ -174,12 +208,13 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
                 "validationSummary": {
                     "basis": "Original source decides implementation facts",
                     "counterexampleChecked": "Guard and access checked",
-                    "counterexampleHolds": mode in {"core", "contradiction"},
+                    "counterexampleHolds": mode
+                    in {"core", "contradiction", "c11-core"},
                     "assumptionsResolved": True,
                 },
                 "factChecks": [check],
             }
-            if mode not in {"core", "core-verified", "benign"}:
+            if mode not in {"core", "core-verified", "benign", "c11-core"}:
                 item["correctedCandidate"] = corrected
             value = {"validationVersion": "POSITION_V1", "validations": [item]}
             if mode == "legacy-fields":
@@ -222,12 +257,18 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
                 and s.get("observedInPass", "correctness")
                 == anchors.get("activePass", "correctness")
             )
-            selection = {"sourceHandle": source_handle, "startLine": 1, "endLine": 3}
+            selection = {
+                "sourceHandle": source_handle,
+                "startLine": 1,
+                "endLine": len(source.splitlines()),
+            }
             claim = (
                 "The public method dereferences null."
                 if mode != "benign"
                 else "The guard safely returns zero for null; no defect."
             )
+            if quality:
+                claim = quality["observation"]["publishedClaim"]
             candidate = {
                 "passId": anchors.get("activePass", "correctness"),
                 "category": "Null behavior",
@@ -324,14 +365,11 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
             return
         assert status["status"] == "SUCCEEDED", status
         result = (await client.get(url + "/result")).json()
-        if mode in {"core", "benign"}:
+        if mode in {"core", "benign", "c11-core"}:
             assert result["findings"] == []
         else:
             assert len(result["findings"]) == 1
-            assert (
-                result["findings"][0]["claim"]
-                == "Package-private value(null) throws instead of returning zero."
-            )
+            assert result["findings"][0]["claim"] == corrected_claim
         executor = (
             app.state.supervisor.executor.multipass
             if mode == "multipass"
@@ -353,7 +391,8 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
         assert record["validationProtocol"] == "POSITION_V1"
         assert record["bindings"][0]["candidateField"] == "/claim"
         assert (
-            record["bindings"][0]["sourceQuote"] == source.splitlines(keepends=True)[1]
+            record["bindings"][0]["sourceQuote"]
+            == source.splitlines(keepends=True)[fact_line - 1]
         )
         assert (
             "candidateText"

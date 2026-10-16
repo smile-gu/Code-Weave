@@ -1,0 +1,733 @@
+{
+  "classification": "KNOWN_MODEL_QUALITY_FAILURE",
+  "runId": "8640c4ef-6925-4e7f-adcd-04ad5c5434e4",
+  "record": {
+    "bindings": [
+      {
+        "authorizedSourceRef": {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        },
+        "candidateField": "/claim",
+        "candidateHandle": "c10",
+        "candidateId": "4d1a9dd4-352f-46d8-bd40-97d4c74ac1d0",
+        "candidateText": "In the fixed snapshot, src/main/java/acceptance/TextLengths.java line 9-11 defines `nullableLength` as `return text.length();`, dereferencing its argument unconditionally, while line 8 retains the Javadoc `/** Null is an allowed input and must return zero. */`. The diff (s14) shows the body was previously `return text == null ? 0 : text.length();`, i.e., the null guard that implemented the documented contract was removed while the contract text was left unchanged. Since this file is the only artifact in the module (no interfaces, no external modules, no tests), the Javadoc is the module's sole published contract for this public static method, and it now conflicts with the implementation: `nullableLength(null)` yields a NullPointerException instead of the documented 0. Architecturally this is a public-API contract violation: the module boundary exposes a method whose advertised precondition ('null allowed') no longer matches its enforced precondition.",
+        "candidateVersion": "sha256:a1a26a5399cbee4ab97ee9c78de42327296e7e88629622d55a9ca5a217ce2aa7",
+        "checkIndex": 0,
+        "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+        "materialCoverage": "FULL",
+        "materialRedactionState": "NONE",
+        "sourceBinding": {
+          "coverage": "FULL",
+          "expectedCursor": null,
+          "observedRanges": [
+            [
+              1,
+              19
+            ]
+          ],
+          "passId": "architecture",
+          "pendingLine": null,
+          "redactionState": "NONE",
+          "source": {
+            "endLine": 19,
+            "path": "src/main/java/acceptance/TextLengths.java",
+            "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+            "side": "final",
+            "sourceType": "CODE",
+            "startLine": 1
+          },
+          "sourceHandle": "s15"
+        },
+        "sourceIndex": 0,
+        "sourceQuote": "    /** Null is an allowed input and must return zero. */\n    public static int nullableLength(String text) {\n        return text.length();\n    }\n",
+        "sourceSelection": {
+          "endLine": 11,
+          "sourceHandle": "s15",
+          "startLine": 8
+        },
+        "validationIndex": 0
+      },
+      {
+        "authorizedSourceRef": {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        },
+        "candidateField": "/claim",
+        "candidateHandle": "c10",
+        "candidateId": "4d1a9dd4-352f-46d8-bd40-97d4c74ac1d0",
+        "candidateText": "In the fixed snapshot, src/main/java/acceptance/TextLengths.java line 9-11 defines `nullableLength` as `return text.length();`, dereferencing its argument unconditionally, while line 8 retains the Javadoc `/** Null is an allowed input and must return zero. */`. The diff (s14) shows the body was previously `return text == null ? 0 : text.length();`, i.e., the null guard that implemented the documented contract was removed while the contract text was left unchanged. Since this file is the only artifact in the module (no interfaces, no external modules, no tests), the Javadoc is the module's sole published contract for this public static method, and it now conflicts with the implementation: `nullableLength(null)` yields a NullPointerException instead of the documented 0. Architecturally this is a public-API contract violation: the module boundary exposes a method whose advertised precondition ('null allowed') no longer matches its enforced precondition.",
+        "candidateVersion": "sha256:a1a26a5399cbee4ab97ee9c78de42327296e7e88629622d55a9ca5a217ce2aa7",
+        "checkIndex": 1,
+        "evidenceId": "d460a7b1-ddcd-410f-9d16-016d19167074",
+        "materialCoverage": "FULL",
+        "materialRedactionState": "NONE",
+        "sourceBinding": {
+          "coverage": "FULL",
+          "expectedCursor": null,
+          "observedRanges": [
+            [
+              6,
+              20
+            ]
+          ],
+          "passId": "architecture",
+          "pendingLine": null,
+          "redactionState": "NONE",
+          "source": {
+            "endLine": 20,
+            "path": "src/main/java/acceptance/TextLengths.java",
+            "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+            "side": "diff",
+            "sourceType": "CODE",
+            "startLine": 6
+          },
+          "sourceHandle": "s14"
+        },
+        "sourceIndex": 0,
+        "sourceQuote": "     /** Null is an allowed input and must return zero. */\n     public static int nullableLength(String text) {\n-        return text == null ? 0 : text.length();\n+        return text.length();\n",
+        "sourceSelection": {
+          "endLine": 10,
+          "sourceHandle": "s14",
+          "startLine": 7
+        },
+        "validationIndex": 0
+      },
+      {
+        "authorizedSourceRef": {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        },
+        "candidateField": "/reasoningSummary/trigger",
+        "candidateHandle": "c10",
+        "candidateId": "4d1a9dd4-352f-46d8-bd40-97d4c74ac1d0",
+        "candidateText": "Call `TextLengths.nullableLength(null)` against the fixed version; the method body `return text.length();` (line 9-11) executes without any null check.",
+        "candidateVersion": "sha256:a1a26a5399cbee4ab97ee9c78de42327296e7e88629622d55a9ca5a217ce2aa7",
+        "checkIndex": 2,
+        "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+        "materialCoverage": "FULL",
+        "materialRedactionState": "NONE",
+        "sourceBinding": {
+          "coverage": "FULL",
+          "expectedCursor": null,
+          "observedRanges": [
+            [
+              1,
+              19
+            ]
+          ],
+          "passId": "architecture",
+          "pendingLine": null,
+          "redactionState": "NONE",
+          "source": {
+            "endLine": 19,
+            "path": "src/main/java/acceptance/TextLengths.java",
+            "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+            "side": "final",
+            "sourceType": "CODE",
+            "startLine": 1
+          },
+          "sourceHandle": "s15"
+        },
+        "sourceIndex": 0,
+        "sourceQuote": "    public static int nullableLength(String text) {\n        return text.length();\n    }\n",
+        "sourceSelection": {
+          "endLine": 11,
+          "sourceHandle": "s15",
+          "startLine": 9
+        },
+        "validationIndex": 0
+      },
+      {
+        "authorizedSourceRef": {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        },
+        "candidateField": "/reasoningSummary/rule",
+        "candidateHandle": "c10",
+        "candidateId": "4d1a9dd4-352f-46d8-bd40-97d4c74ac1d0",
+        "candidateText": "A public method's retained in-module contract artifact (its Javadoc) must describe its actual behavior; a change that invalidates the documented precondition of a public static method without updating the contract is an interface-contract defect. The snapshot contains exactly one file and no other contract source, so the in-file Javadoc is authoritative.",
+        "candidateVersion": "sha256:a1a26a5399cbee4ab97ee9c78de42327296e7e88629622d55a9ca5a217ce2aa7",
+        "checkIndex": 3,
+        "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+        "materialCoverage": "FULL",
+        "materialRedactionState": "NONE",
+        "sourceBinding": {
+          "coverage": "FULL",
+          "expectedCursor": null,
+          "observedRanges": [
+            [
+              1,
+              19
+            ]
+          ],
+          "passId": "architecture",
+          "pendingLine": null,
+          "redactionState": "NONE",
+          "source": {
+            "endLine": 19,
+            "path": "src/main/java/acceptance/TextLengths.java",
+            "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+            "side": "final",
+            "sourceType": "CODE",
+            "startLine": 1
+          },
+          "sourceHandle": "s15"
+        },
+        "sourceIndex": 0,
+        "sourceQuote": "    /** Null is an allowed input and must return zero. */\n    public static int nullableLength(String text) {\n        return text.length();\n",
+        "sourceSelection": {
+          "endLine": 10,
+          "sourceHandle": "s15",
+          "startLine": 8
+        },
+        "validationIndex": 0
+      },
+      {
+        "authorizedSourceRef": {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        },
+        "candidateField": "/claim",
+        "candidateHandle": "c11",
+        "candidateId": "ef7f06b4-1c9e-4cf3-960a-0cf768e2293a",
+        "candidateText": "The diff (s14) and final source (s15) show the two public static methods on TextLengths now have opposite null handling but their Javadocs read as a deliberate pair: `nullableLength` is documented 'Null is an allowed input and must return zero.' and `requiredLength` is documented 'Null is invalid and must throw NullPointerException.' The implementation of requiredLength (lines 13-17, `Objects.requireNonNull(text, \"text\")`) still enforces its documented precondition, so after the diff the pair is asymmetric at the implementation level while symmetric at the contract level. Any architectural reasoning that treats 'nullable* vs required*' as a naming-based precondition contract (the only stated design signal in the module) is now violated for the nullable side, meaning the module's naming/Javadoc conventions no longer predict behavior for one of its two public APIs.",
+        "candidateVersion": "sha256:7ac7ae74de7f063080f30fa48e7f22cb08b660cfc2ae44e7ad27ec2d4fb88cd0",
+        "checkIndex": 0,
+        "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+        "materialCoverage": "FULL",
+        "materialRedactionState": "NONE",
+        "sourceBinding": {
+          "coverage": "FULL",
+          "expectedCursor": null,
+          "observedRanges": [
+            [
+              1,
+              19
+            ]
+          ],
+          "passId": "architecture",
+          "pendingLine": null,
+          "redactionState": "NONE",
+          "source": {
+            "endLine": 19,
+            "path": "src/main/java/acceptance/TextLengths.java",
+            "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+            "side": "final",
+            "sourceType": "CODE",
+            "startLine": 1
+          },
+          "sourceHandle": "s15"
+        },
+        "sourceIndex": 0,
+        "sourceQuote": "    /** Null is an allowed input and must return zero. */\n    public static int nullableLength(String text) {\n        return text.length();\n    }\n\n    /** Null is invalid and must throw NullPointerException. */\n    public static int requiredLength(String text) {\n        Objects.requireNonNull(text, \"text\");\n        int length = text.length();\n        return length;\n",
+        "sourceSelection": {
+          "endLine": 17,
+          "sourceHandle": "s15",
+          "startLine": 8
+        },
+        "validationIndex": 1
+      },
+      {
+        "authorizedSourceRef": {
+          "endLine": 20,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+          "side": "diff",
+          "sourceType": "CODE",
+          "startLine": 6
+        },
+        "candidateField": "/claim",
+        "candidateHandle": "c11",
+        "candidateId": "ef7f06b4-1c9e-4cf3-960a-0cf768e2293a",
+        "candidateText": "The diff (s14) and final source (s15) show the two public static methods on TextLengths now have opposite null handling but their Javadocs read as a deliberate pair: `nullableLength` is documented 'Null is an allowed input and must return zero.' and `requiredLength` is documented 'Null is invalid and must throw NullPointerException.' The implementation of requiredLength (lines 13-17, `Objects.requireNonNull(text, \"text\")`) still enforces its documented precondition, so after the diff the pair is asymmetric at the implementation level while symmetric at the contract level. Any architectural reasoning that treats 'nullable* vs required*' as a naming-based precondition contract (the only stated design signal in the module) is now violated for the nullable side, meaning the module's naming/Javadoc conventions no longer predict behavior for one of its two public APIs.",
+        "candidateVersion": "sha256:7ac7ae74de7f063080f30fa48e7f22cb08b660cfc2ae44e7ad27ec2d4fb88cd0",
+        "checkIndex": 1,
+        "evidenceId": "d460a7b1-ddcd-410f-9d16-016d19167074",
+        "materialCoverage": "FULL",
+        "materialRedactionState": "NONE",
+        "sourceBinding": {
+          "coverage": "FULL",
+          "expectedCursor": null,
+          "observedRanges": [
+            [
+              6,
+              20
+            ]
+          ],
+          "passId": "architecture",
+          "pendingLine": null,
+          "redactionState": "NONE",
+          "source": {
+            "endLine": 20,
+            "path": "src/main/java/acceptance/TextLengths.java",
+            "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+            "side": "diff",
+            "sourceType": "CODE",
+            "startLine": 6
+          },
+          "sourceHandle": "s14"
+        },
+        "sourceIndex": 0,
+        "sourceQuote": "     /** Null is an allowed input and must return zero. */\n     public static int nullableLength(String text) {\n-        return text == null ? 0 : text.length();\n+        return text.length();\n     }\n \n     /** Null is invalid and must throw NullPointerException. */\n     public static int requiredLength(String text) {\n         Objects.requireNonNull(text, \"text\");\n-        return text.length();\n+        int length = text.length();\n+        return length;\n     }\n",
+        "sourceSelection": {
+          "endLine": 19,
+          "sourceHandle": "s14",
+          "startLine": 7
+        },
+        "validationIndex": 1
+      },
+      {
+        "authorizedSourceRef": {
+          "endLine": 19,
+          "path": "src/main/java/acceptance/TextLengths.java",
+          "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+          "side": "final",
+          "sourceType": "CODE",
+          "startLine": 1
+        },
+        "candidateField": "/reasoningSummary/trigger",
+        "candidateHandle": "c11",
+        "candidateId": "ef7f06b4-1c9e-4cf3-960a-0cf768e2293a",
+        "candidateText": "Static reading of the module: compare nullableLength (lines 9-11, no null check) with requiredLength (lines 13-17, Objects.requireNonNull) against their paired Javadoc lines 8 and 12.",
+        "candidateVersion": "sha256:7ac7ae74de7f063080f30fa48e7f22cb08b660cfc2ae44e7ad27ec2d4fb88cd0",
+        "checkIndex": 2,
+        "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+        "materialCoverage": "FULL",
+        "materialRedactionState": "NONE",
+        "sourceBinding": {
+          "coverage": "FULL",
+          "expectedCursor": null,
+          "observedRanges": [
+            [
+              1,
+              19
+            ]
+          ],
+          "passId": "architecture",
+          "pendingLine": null,
+          "redactionState": "NONE",
+          "source": {
+            "endLine": 19,
+            "path": "src/main/java/acceptance/TextLengths.java",
+            "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+            "side": "final",
+            "sourceType": "CODE",
+            "startLine": 1
+          },
+          "sourceHandle": "s15"
+        },
+        "sourceIndex": 0,
+        "sourceQuote": "    public static int nullableLength(String text) {\n        return text.length();\n    }\n\n    /** Null is invalid and must throw NullPointerException. */\n    public static int requiredLength(String text) {\n        Objects.requireNonNull(text, \"text\");\n        int length = text.length();\n        return length;\n",
+        "sourceSelection": {
+          "endLine": 17,
+          "sourceHandle": "s15",
+          "startLine": 9
+        },
+        "validationIndex": 1
+      }
+    ],
+    "investigationId": "a3fb68b0-f845-411e-8f30-764830bc5791",
+    "manifestSha256": "sha256:0eb71f4e59d7ab1cc35dec7f3f4e1167ed09b65cbc3bc040d5e09b6fe2c753ed",
+    "modelCallId": "a559fa76-0ec8-4abe-98e3-ed007ecd717c",
+    "passId": "architecture",
+    "recordVersion": "1.0",
+    "resolved": {
+      "validations": [
+        {
+          "candidateId": "4d1a9dd4-352f-46d8-bd40-97d4c74ac1d0",
+          "correctedCandidate": null,
+          "disposition": "VERIFIED",
+          "factChecks": [
+            {
+              "candidateText": "In the fixed snapshot, src/main/java/acceptance/TextLengths.java line 9-11 defines `nullableLength` as `return text.length();`, dereferencing its argument unconditionally, while line 8 retains the Javadoc `/** Null is an allowed input and must return zero. */`. The diff (s14) shows the body was previously `return text == null ? 0 : text.length();`, i.e., the null guard that implemented the documented contract was removed while the contract text was left unchanged. Since this file is the only artifact in the module (no interfaces, no external modules, no tests), the Javadoc is the module's sole published contract for this public static method, and it now conflicts with the implementation: `nullableLength(null)` yields a NullPointerException instead of the documented 0. Architecturally this is a public-API contract violation: the module boundary exposes a method whose advertised precondition ('null allowed') no longer matches its enforced precondition.",
+              "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+              "explanation": "Final source confirms line 8 retains the Javadoc and line 10 dereferences text unconditionally with no null check; the described contract/implementation conflict is present verbatim.",
+              "outcome": "SUPPORTED",
+              "sourceIndex": 0,
+              "sourceQuote": "    /** Null is an allowed input and must return zero. */\n    public static int nullableLength(String text) {\n        return text.length();\n    }\n",
+              "userQuote": null
+            },
+            {
+              "candidateText": "In the fixed snapshot, src/main/java/acceptance/TextLengths.java line 9-11 defines `nullableLength` as `return text.length();`, dereferencing its argument unconditionally, while line 8 retains the Javadoc `/** Null is an allowed input and must return zero. */`. The diff (s14) shows the body was previously `return text == null ? 0 : text.length();`, i.e., the null guard that implemented the documented contract was removed while the contract text was left unchanged. Since this file is the only artifact in the module (no interfaces, no external modules, no tests), the Javadoc is the module's sole published contract for this public static method, and it now conflicts with the implementation: `nullableLength(null)` yields a NullPointerException instead of the documented 0. Architecturally this is a public-API contract violation: the module boundary exposes a method whose advertised precondition ('null allowed') no longer matches its enforced precondition.",
+              "evidenceId": "d460a7b1-ddcd-410f-9d16-016d19167074",
+              "explanation": "Diff shows the removed line `return text == null ? 0 : text.length();` replaced by `return text.length();` while the Javadoc line above the signature is unchanged, establishing that the guard was removed without updating the contract text.",
+              "outcome": "SUPPORTED",
+              "sourceIndex": 0,
+              "sourceQuote": "     /** Null is an allowed input and must return zero. */\n     public static int nullableLength(String text) {\n-        return text == null ? 0 : text.length();\n+        return text.length();\n",
+              "userQuote": null
+            },
+            {
+              "candidateText": "Call `TextLengths.nullableLength(null)` against the fixed version; the method body `return text.length();` (line 9-11) executes without any null check.",
+              "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+              "explanation": "Trigger path is exact: nullableLength is public static and its body unconditionally dereferences `text`, so passing null yields NullPointerException rather than the documented 0.",
+              "outcome": "SUPPORTED",
+              "sourceIndex": 0,
+              "sourceQuote": "    public static int nullableLength(String text) {\n        return text.length();\n    }\n",
+              "userQuote": null
+            },
+            {
+              "candidateText": "A public method's retained in-module contract artifact (its Javadoc) must describe its actual behavior; a change that invalidates the documented precondition of a public static method without updating the contract is an interface-contract defect. The snapshot contains exactly one file and no other contract source, so the in-file Javadoc is authoritative.",
+              "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+              "explanation": "The only in-module contract artifact for the public API is the adjacent Javadoc, which now contradicts enforced behavior; the rule as stated matches the observed material.",
+              "outcome": "SUPPORTED",
+              "sourceIndex": 0,
+              "sourceQuote": "    /** Null is an allowed input and must return zero. */\n    public static int nullableLength(String text) {\n        return text.length();\n",
+              "userQuote": null
+            }
+          ],
+          "validationSummary": {
+            "assumptionsResolved": true,
+            "basis": "Final source s15 lines 8-11 show Javadoc 'Null is an allowed input and must return zero.' directly above nullableLength whose body is unconditionally `return text.length();`; diff s14 lines 7-10 confirm the removed guard `return text == null ? 0 : text.length();` and the unchanged Javadoc. Source scope is a single public static method on a public final utility class, so the in-file Javadoc is the module's only contract artifact.",
+            "counterexampleChecked": "Checked the counterexample that the Javadoc is stale/authoritative-free and that no null-passing caller exists in-snapshot. The snapshot contains exactly one file with no other contract artifacts, and the diff shows the retained Javadoc line alone with the guard removed; regardless of caller presence, the contract text contradicts the shipped behavior at the module boundary (nullableLength(null) throws NPE instead of returning 0). The counterexample refutes only the existence of an observed runtime victim, not the contract-vs-implementation contradiction, so it does not refute the claim.",
+            "counterexampleHolds": false
+          }
+        },
+        {
+          "candidateId": "ef7f06b4-1c9e-4cf3-960a-0cf768e2293a",
+          "correctedCandidate": null,
+          "disposition": "VERIFIED",
+          "factChecks": [
+            {
+              "candidateText": "The diff (s14) and final source (s15) show the two public static methods on TextLengths now have opposite null handling but their Javadocs read as a deliberate pair: `nullableLength` is documented 'Null is an allowed input and must return zero.' and `requiredLength` is documented 'Null is invalid and must throw NullPointerException.' The implementation of requiredLength (lines 13-17, `Objects.requireNonNull(text, \"text\")`) still enforces its documented precondition, so after the diff the pair is asymmetric at the implementation level while symmetric at the contract level. Any architectural reasoning that treats 'nullable* vs required*' as a naming-based precondition contract (the only stated design signal in the module) is now violated for the nullable side, meaning the module's naming/Javadoc conventions no longer predict behavior for one of its two public APIs.",
+              "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+              "explanation": "Final source confirms the paired Javadocs at lines 8 and 13, nullableLength with no null check at lines 9-11, and requiredLength still enforcing its documented precondition via Objects.requireNonNull at lines 14-17.",
+              "outcome": "SUPPORTED",
+              "sourceIndex": 0,
+              "sourceQuote": "    /** Null is an allowed input and must return zero. */\n    public static int nullableLength(String text) {\n        return text.length();\n    }\n\n    /** Null is invalid and must throw NullPointerException. */\n    public static int requiredLength(String text) {\n        Objects.requireNonNull(text, \"text\");\n        int length = text.length();\n        return length;\n",
+              "userQuote": null
+            },
+            {
+              "candidateText": "The diff (s14) and final source (s15) show the two public static methods on TextLengths now have opposite null handling but their Javadocs read as a deliberate pair: `nullableLength` is documented 'Null is an allowed input and must return zero.' and `requiredLength` is documented 'Null is invalid and must throw NullPointerException.' The implementation of requiredLength (lines 13-17, `Objects.requireNonNull(text, \"text\")`) still enforces its documented precondition, so after the diff the pair is asymmetric at the implementation level while symmetric at the contract level. Any architectural reasoning that treats 'nullable* vs required*' as a naming-based precondition contract (the only stated design signal in the module) is now violated for the nullable side, meaning the module's naming/Javadoc conventions no longer predict behavior for one of its two public APIs.",
+              "evidenceId": "d460a7b1-ddcd-410f-9d16-016d19167074",
+              "explanation": "Diff confirms only the nullableLength guard was removed (line 9-) and replaced (line 10+), while requiredLength's Objects.requireNonNull was left intact and only refactored to a local variable — the asymmetry originates in this hunk.",
+              "outcome": "SUPPORTED",
+              "sourceIndex": 0,
+              "sourceQuote": "     /** Null is an allowed input and must return zero. */\n     public static int nullableLength(String text) {\n-        return text == null ? 0 : text.length();\n+        return text.length();\n     }\n \n     /** Null is invalid and must throw NullPointerException. */\n     public static int requiredLength(String text) {\n         Objects.requireNonNull(text, \"text\");\n-        return text.length();\n+        int length = text.length();\n+        return length;\n     }\n",
+              "userQuote": null
+            },
+            {
+              "candidateText": "Static reading of the module: compare nullableLength (lines 9-11, no null check) with requiredLength (lines 13-17, Objects.requireNonNull) against their paired Javadoc lines 8 and 12.",
+              "evidenceId": "bc65f541-0a23-4b41-aa49-86808ae539d0",
+              "explanation": "Static comparison is exact: nullableLength dereferences without check while requiredLength calls Objects.requireNonNull, against their paired Javadocs at lines 8 and 13.",
+              "outcome": "SUPPORTED",
+              "sourceIndex": 0,
+              "sourceQuote": "    public static int nullableLength(String text) {\n        return text.length();\n    }\n\n    /** Null is invalid and must throw NullPointerException. */\n    public static int requiredLength(String text) {\n        Objects.requireNonNull(text, \"text\");\n        int length = text.length();\n        return length;\n",
+              "userQuote": null
+            }
+          ],
+          "validationSummary": {
+            "assumptionsResolved": true,
+            "basis": "Final source s15 lines 8-17 and diff s14 lines 7-18 show nullableLength (no null check) and requiredLength (Objects.requireNonNull + return) as the two public static methods, each with paired Javadoc lines stating complementary preconditions. requiredLength still enforces its documented precondition; nullableLength no longer does, making the pair asymmetric in implementation while the Javadocs describe it as symmetric.",
+            "counterexampleChecked": "Checked the counterexample that the methods were never intended as a symmetric pair. Their naming (nullable*/required*), adjacent placement in the same utility class, and explicitly paired Javadoc lines ('Null is an allowed input...' vs 'Null is invalid...') establish them as a deliberate complementary pair; the asymmetry is therefore a real contract-predictability break at the boundary, not cosmetic. The lack of an in-snapshot caller only removes an observed runtime victim, not the inconsistency. The counterexample does not refute the claim.",
+            "counterexampleHolds": false
+          }
+        }
+      ]
+    },
+    "reviewThreadId": "05fa5f21-ade2-4026-8c93-41a76d1945e9",
+    "runId": "8640c4ef-6925-4e7f-adcd-04ad5c5434e4",
+    "snapshotId": "3ae808d8-a0bd-4794-b220-1f142d18d2f0",
+    "stateRevision": 125,
+    "stateVersion": "6.0",
+    "submitted": {
+      "validationVersion": "POSITION_V1",
+      "validations": [
+        {
+          "candidateHandle": "c10",
+          "correctedCandidate": null,
+          "disposition": "VERIFIED",
+          "factChecks": [
+            {
+              "candidateField": "/claim",
+              "candidateHandle": "c10",
+              "explanation": "Final source confirms line 8 retains the Javadoc and line 10 dereferences text unconditionally with no null check; the described contract/implementation conflict is present verbatim.",
+              "outcome": "SUPPORTED",
+              "sourceSelection": {
+                "endLine": 11,
+                "sourceHandle": "s15",
+                "startLine": 8
+              },
+              "userQuote": null
+            },
+            {
+              "candidateField": "/claim",
+              "candidateHandle": "c10",
+              "explanation": "Diff shows the removed line `return text == null ? 0 : text.length();` replaced by `return text.length();` while the Javadoc line above the signature is unchanged, establishing that the guard was removed without updating the contract text.",
+              "outcome": "SUPPORTED",
+              "sourceSelection": {
+                "endLine": 10,
+                "sourceHandle": "s14",
+                "startLine": 7
+              },
+              "userQuote": null
+            },
+            {
+              "candidateField": "/reasoningSummary/trigger",
+              "candidateHandle": "c10",
+              "explanation": "Trigger path is exact: nullableLength is public static and its body unconditionally dereferences `text`, so passing null yields NullPointerException rather than the documented 0.",
+              "outcome": "SUPPORTED",
+              "sourceSelection": {
+                "endLine": 11,
+                "sourceHandle": "s15",
+                "startLine": 9
+              },
+              "userQuote": null
+            },
+            {
+              "candidateField": "/reasoningSummary/rule",
+              "candidateHandle": "c10",
+              "explanation": "The only in-module contract artifact for the public API is the adjacent Javadoc, which now contradicts enforced behavior; the rule as stated matches the observed material.",
+              "outcome": "SUPPORTED",
+              "sourceSelection": {
+                "endLine": 10,
+                "sourceHandle": "s15",
+                "startLine": 8
+              },
+              "userQuote": null
+            }
+          ],
+          "validationSummary": {
+            "assumptionsResolved": true,
+            "basis": "Final source s15 lines 8-11 show Javadoc 'Null is an allowed input and must return zero.' directly above nullableLength whose body is unconditionally `return text.length();`; diff s14 lines 7-10 confirm the removed guard `return text == null ? 0 : text.length();` and the unchanged Javadoc. Source scope is a single public static method on a public final utility class, so the in-file Javadoc is the module's only contract artifact.",
+            "counterexampleChecked": "Checked the counterexample that the Javadoc is stale/authoritative-free and that no null-passing caller exists in-snapshot. The snapshot contains exactly one file with no other contract artifacts, and the diff shows the retained Javadoc line alone with the guard removed; regardless of caller presence, the contract text contradicts the shipped behavior at the module boundary (nullableLength(null) throws NPE instead of returning 0). The counterexample refutes only the existence of an observed runtime victim, not the contract-vs-implementation contradiction, so it does not refute the claim.",
+            "counterexampleHolds": false
+          }
+        },
+        {
+          "candidateHandle": "c11",
+          "correctedCandidate": null,
+          "disposition": "VERIFIED",
+          "factChecks": [
+            {
+              "candidateField": "/claim",
+              "candidateHandle": "c11",
+              "explanation": "Final source confirms the paired Javadocs at lines 8 and 13, nullableLength with no null check at lines 9-11, and requiredLength still enforcing its documented precondition via Objects.requireNonNull at lines 14-17.",
+              "outcome": "SUPPORTED",
+              "sourceSelection": {
+                "endLine": 17,
+                "sourceHandle": "s15",
+                "startLine": 8
+              },
+              "userQuote": null
+            },
+            {
+              "candidateField": "/claim",
+              "candidateHandle": "c11",
+              "explanation": "Diff confirms only the nullableLength guard was removed (line 9-) and replaced (line 10+), while requiredLength's Objects.requireNonNull was left intact and only refactored to a local variable — the asymmetry originates in this hunk.",
+              "outcome": "SUPPORTED",
+              "sourceSelection": {
+                "endLine": 19,
+                "sourceHandle": "s14",
+                "startLine": 7
+              },
+              "userQuote": null
+            },
+            {
+              "candidateField": "/reasoningSummary/trigger",
+              "candidateHandle": "c11",
+              "explanation": "Static comparison is exact: nullableLength dereferences without check while requiredLength calls Objects.requireNonNull, against their paired Javadocs at lines 8 and 13.",
+              "outcome": "SUPPORTED",
+              "sourceSelection": {
+                "endLine": 17,
+                "sourceHandle": "s15",
+                "startLine": 9
+              },
+              "userQuote": null
+            }
+          ],
+          "validationSummary": {
+            "assumptionsResolved": true,
+            "basis": "Final source s15 lines 8-17 and diff s14 lines 7-18 show nullableLength (no null check) and requiredLength (Objects.requireNonNull + return) as the two public static methods, each with paired Javadoc lines stating complementary preconditions. requiredLength still enforces its documented precondition; nullableLength no longer does, making the pair asymmetric in implementation while the Javadocs describe it as symmetric.",
+            "counterexampleChecked": "Checked the counterexample that the methods were never intended as a symmetric pair. Their naming (nullable*/required*), adjacent placement in the same utility class, and explicitly paired Javadoc lines ('Null is an allowed input...' vs 'Null is invalid...') establish them as a deliberate complementary pair; the asymmetry is therefore a real contract-predictability break at the boundary, not cosmetic. The lack of an in-snapshot caller only removes an observed runtime victim, not the inconsistency. The counterexample does not refute the claim.",
+            "counterexampleHolds": false
+          }
+        }
+      ]
+    },
+    "validationProtocol": "POSITION_V1"
+  },
+  "observation": {
+    "candidateHandle": "c11",
+    "candidateId": "ef7f06b4-1c9e-4cf3-960a-0cf768e2293a",
+    "findingId": "b81583ad-9312-40d7-b1b5-459623483c38",
+    "publishedClaim": "The diff (s14) and final source (s15) show the two public static methods on TextLengths now have opposite null handling but their Javadocs read as a deliberate pair: `nullableLength` is documented 'Null is an allowed input and must return zero.' and `requiredLength` is documented 'Null is invalid and must throw NullPointerException.' The implementation of requiredLength (lines 13-17, `Objects.requireNonNull(text, \"text\")`) still enforces its documented precondition, so after the diff the pair is asymmetric at the implementation level while symmetric at the contract level. Any architectural reasoning that treats 'nullable* vs required*' as a naming-based precondition contract (the only stated design signal in the module) is now violated for the nullable side, meaning the module's naming/Javadoc conventions no longer predict behavior for one of its two public APIs.",
+    "publishedValidationSummary": {
+      "assumptionsResolved": true,
+      "basis": "Final source s15 lines 8-17 and diff s14 lines 7-18 show nullableLength (no null check) and requiredLength (Objects.requireNonNull + return) as the two public static methods, each with paired Javadoc lines stating complementary preconditions. requiredLength still enforces its documented precondition; nullableLength no longer does, making the pair asymmetric in implementation while the Javadocs describe it as symmetric.",
+      "counterexampleChecked": "Checked the counterexample that the methods were never intended as a symmetric pair. Their naming (nullable*/required*), adjacent placement in the same utility class, and explicitly paired Javadoc lines ('Null is an allowed input...' vs 'Null is invalid...') establish them as a deliberate complementary pair; the asymmetry is therefore a real contract-predictability break at the boundary, not cosmetic. The lack of an in-snapshot caller only removes an observed runtime victim, not the inconsistency. The counterexample does not refute the claim.",
+      "counterexampleHolds": false
+    },
+    "sourceLines": [
+      {
+        "line": 8,
+        "text": "    /** Null is an allowed input and must return zero. */"
+      },
+      {
+        "line": 9,
+        "text": "    public static int nullableLength(String text) {"
+      },
+      {
+        "line": 10,
+        "text": "        return text.length();"
+      },
+      {
+        "line": 11,
+        "text": "    }"
+      },
+      {
+        "line": 12,
+        "text": ""
+      },
+      {
+        "line": 13,
+        "text": "    /** Null is invalid and must throw NullPointerException. */"
+      },
+      {
+        "line": 14,
+        "text": "    public static int requiredLength(String text) {"
+      },
+      {
+        "line": 15,
+        "text": "        Objects.requireNonNull(text, \"text\");"
+      },
+      {
+        "line": 16,
+        "text": "        int length = text.length();"
+      },
+      {
+        "line": 17,
+        "text": "        return length;"
+      }
+    ],
+    "analysisType": "Offline static Java semantics; no execution of source or CC",
+    "observation": "For null, nullableLength dereferences null and requiredLength explicitly rejects null; both throw NullPointerException. The published claim now have opposite null handling is inaccurate. Explicit versus implicit rejection differs in mechanism, not in whether null is accepted. Javadoc for requiredLength is line13, not line12. Core nullableLength contract regression remains supported.",
+    "status": "Unmodified historical finding; independent design review required, no correction applied"
+  },
+  "source": "package acceptance;\n\nimport java.util.Objects;\n\npublic final class TextLengths {\n    private TextLengths() {}\n\n    /** Null is an allowed input and must return zero. */\n    public static int nullableLength(String text) {\n        return text.length();\n    }\n\n    /** Null is invalid and must throw NullPointerException. */\n    public static int requiredLength(String text) {\n        Objects.requireNonNull(text, \"text\");\n        int length = text.length();\n        return length;\n    }\n}\n",
+  "limitation": "Historical SUPPORTED was structurally accepted; legal references do not prove semantic truth. Scripted CORRECTED/REJECTED tests prove channels only.",
+  "originalFinding": {
+    "candidateId": "ef7f06b4-1c9e-4cf3-960a-0cf768e2293a",
+    "category": "Boundary/Precondition Asymmetry Between Sibling Methods",
+    "claim": "The diff (s14) and final source (s15) show the two public static methods on TextLengths now have opposite null handling but their Javadocs read as a deliberate pair: `nullableLength` is documented 'Null is an allowed input and must return zero.' and `requiredLength` is documented 'Null is invalid and must throw NullPointerException.' The implementation of requiredLength (lines 13-17, `Objects.requireNonNull(text, \"text\")`) still enforces its documented precondition, so after the diff the pair is asymmetric at the implementation level while symmetric at the contract level. Any architectural reasoning that treats 'nullable* vs required*' as a naming-based precondition contract (the only stated design signal in the module) is now violated for the nullable side, meaning the module's naming/Javadoc conventions no longer predict behavior for one of its two public APIs.",
+    "claimKind": "STATIC_CORRECTNESS",
+    "codeReferences": [
+      {
+        "endLine": 19,
+        "path": "src/main/java/acceptance/TextLengths.java",
+        "sha256": "sha256:ac4913ff2f507143ed638f1e62d45c4efc526fb6010c4518e7435d4f58dd247f",
+        "side": "final",
+        "sourceType": "CODE",
+        "startLine": 1
+      },
+      {
+        "endLine": 20,
+        "path": "src/main/java/acceptance/TextLengths.java",
+        "sha256": "sha256:910158ceb715c5fcbd592cb832e93e828dbfa34cea7e913f30cf87114e702e1f",
+        "side": "diff",
+        "sourceType": "CODE",
+        "startLine": 6
+      }
+    ],
+    "confidence": 0.82,
+    "disposition": "VERIFIED",
+    "evidenceIds": [
+      "d460a7b1-ddcd-410f-9d16-016d19167074",
+      "bc65f541-0a23-4b41-aa49-86808ae539d0"
+    ],
+    "findingId": "b81583ad-9312-40d7-b1b5-459623483c38",
+    "passId": "architecture",
+    "reasoningSummary": {
+      "assumptions": [
+        "The naming convention and paired Javadoc are the module's intended architectural contract, as no other design artifacts exist in the snapshot.",
+        "requiredLength's refactor to a local variable is behavior-preserving (verified against diff hunk)."
+      ],
+      "conclusion": "The module's naming/Javadoc convention no longer reliably predicts enforced behavior for nullableLength, while the sibling it is documented against still honors its contract. This is an architectural consistency defect at the module's public boundary, fixable by aligning implementation and documentation on both sides.",
+      "counterexamples": [
+        "If the two methods were never intended as a symmetric pair and nullableLength's name is merely historical, the asymmetry is cosmetic rather than a contract defect — but the unchanged Javadoc line 8 argues against treating it as purely cosmetic.",
+        "No caller in the snapshot couples the two methods, so no runtime path currently exercises the asymmetry; the finding is about contract predictability, not an observed failure."
+      ],
+      "executionPath": "read_file final source lines 8-17 → nullableLength Javadoc + unconditional dereference; requiredLength Javadoc + Objects.requireNonNull + return; git_diff s14 confirms only the nullableLength guard was removed while requiredLength's null check was left intact.",
+      "rule": "In a single-type utility module whose only design signal is method naming plus paired Javadoc, sibling methods advertised as complementary preconditions should enforce those preconditions; a change that makes one side violate its naming/Javadoc while the other keeps enforcing it removes the naming as a reliable contract indicator.",
+      "trigger": "Static reading of the module: compare nullableLength (lines 9-11, no null check) with requiredLength (lines 13-17, Objects.requireNonNull) against their paired Javadoc lines 8 and 12."
+    },
+    "severity": "MEDIUM",
+    "suggestion": "Make the pair internally consistent: restore nullableLength's null-tolerant body to match its name and Javadoc, or explicitly re-document both methods so the naming convention and preconditions are aligned and no longer misleading for API consumers.",
+    "title": "Sibling methods on the same type now enforce divergent null preconditions while their Javadoc pairs imply a deliberate symmetric design",
+    "validationModelCallId": "a559fa76-0ec8-4abe-98e3-ed007ecd717c",
+    "validationSummary": {
+      "assumptionsResolved": true,
+      "basis": "Final source s15 lines 8-17 and diff s14 lines 7-18 show nullableLength (no null check) and requiredLength (Objects.requireNonNull + return) as the two public static methods, each with paired Javadoc lines stating complementary preconditions. requiredLength still enforces its documented precondition; nullableLength no longer does, making the pair asymmetric in implementation while the Javadocs describe it as symmetric.",
+      "counterexampleChecked": "Checked the counterexample that the methods were never intended as a symmetric pair. Their naming (nullable*/required*), adjacent placement in the same utility class, and explicitly paired Javadoc lines ('Null is an allowed input...' vs 'Null is invalid...') establish them as a deliberate complementary pair; the asymmetry is therefore a real contract-predictability break at the boundary, not cosmetic. The lack of an in-snapshot caller only removes an observed runtime victim, not the inconsistency. The counterexample does not refute the claim.",
+      "counterexampleHolds": false
+    }
+  },
+  "originalCandidate": {
+    "candidateHandle": "c11",
+    "category": "Boundary/Precondition Asymmetry Between Sibling Methods",
+    "claim": "The diff (s14) and final source (s15) show the two public static methods on TextLengths now have opposite null handling but their Javadocs read as a deliberate pair: `nullableLength` is documented 'Null is an allowed input and must return zero.' and `requiredLength` is documented 'Null is invalid and must throw NullPointerException.' The implementation of requiredLength (lines 13-17, `Objects.requireNonNull(text, \"text\")`) still enforces its documented precondition, so after the diff the pair is asymmetric at the implementation level while symmetric at the contract level. Any architectural reasoning that treats 'nullable* vs required*' as a naming-based precondition contract (the only stated design signal in the module) is now violated for the nullable side, meaning the module's naming/Javadoc conventions no longer predict behavior for one of its two public APIs.",
+    "claimKind": "STATIC_CORRECTNESS",
+    "codeSelections": [
+      {
+        "endLine": 19,
+        "sourceHandle": "s15",
+        "startLine": 1
+      },
+      {
+        "endLine": 20,
+        "sourceHandle": "s14",
+        "startLine": 6
+      }
+    ],
+    "confidence": 0.82,
+    "evidenceLinks": [
+      {
+        "handle": "e10",
+        "kind": "SAVED"
+      },
+      {
+        "handle": "e11",
+        "kind": "SAVED"
+      }
+    ],
+    "passId": "architecture",
+    "reasoningSummary": {
+      "assumptions": [
+        "The naming convention and paired Javadoc are the module's intended architectural contract, as no other design artifacts exist in the snapshot.",
+        "requiredLength's refactor to a local variable is behavior-preserving (verified against diff hunk)."
+      ],
+      "conclusion": "The module's naming/Javadoc convention no longer reliably predicts enforced behavior for nullableLength, while the sibling it is documented against still honors its contract. This is an architectural consistency defect at the module's public boundary, fixable by aligning implementation and documentation on both sides.",
+      "counterexamples": [
+        "If the two methods were never intended as a symmetric pair and nullableLength's name is merely historical, the asymmetry is cosmetic rather than a contract defect — but the unchanged Javadoc line 8 argues against treating it as purely cosmetic.",
+        "No caller in the snapshot couples the two methods, so no runtime path currently exercises the asymmetry; the finding is about contract predictability, not an observed failure."
+      ],
+      "executionPath": "read_file final source lines 8-17 → nullableLength Javadoc + unconditional dereference; requiredLength Javadoc + Objects.requireNonNull + return; git_diff s14 confirms only the nullableLength guard was removed while requiredLength's null check was left intact.",
+      "rule": "In a single-type utility module whose only design signal is method naming plus paired Javadoc, sibling methods advertised as complementary preconditions should enforce those preconditions; a change that makes one side violate its naming/Javadoc while the other keeps enforcing it removes the naming as a reliable contract indicator.",
+      "trigger": "Static reading of the module: compare nullableLength (lines 9-11, no null check) with requiredLength (lines 13-17, Objects.requireNonNull) against their paired Javadoc lines 8 and 12."
+    },
+    "severity": "MEDIUM",
+    "suggestion": "Make the pair internally consistent: restore nullableLength's null-tolerant body to match its name and Javadoc, or explicitly re-document both methods so the naming convention and preconditions are aligned and no longer misleading for API consumers.",
+    "title": "Sibling methods on the same type now enforce divergent null preconditions while their Javadoc pairs imply a deliberate symmetric design"
+  },
+  "validationRequestTrace": "028.request.json"
+}

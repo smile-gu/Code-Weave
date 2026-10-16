@@ -58,7 +58,7 @@ def test_real_wordings_merge_only_after_exact_group_confirmation():
 
 
 @pytest.fixture
-async def aggregation_case(database, payload, workspaces, tmp_path):
+async def aggregation_case(database, payload, workspaces, tmp_path, request):
     from review_harness.application.evidence import EvidenceService
     from review_harness.domain.model import canonical, sha256
     from review_harness.domain.multipass_state import MultipassRegistry, PassOutcome
@@ -77,7 +77,8 @@ async def aggregation_case(database, payload, workspaces, tmp_path):
     from tests.snapshot_fixture import publish_snapshot
 
     fixtures = Path(__file__).parents[1] / "fixtures"
-    data = json.loads((fixtures / "position-real-dedup-findings.json").read_bytes())
+    fixture_name = getattr(request, "param", "position-real-dedup-findings.json")
+    data = json.loads((fixtures / fixture_name).read_bytes())
     source = (fixtures / "position-real-TextLengths.java").read_bytes()
     diff = (fixtures / "position-real-changes.diff").read_bytes()
     payload["snapshot"]["snapshotId"] = str(uuid4())
@@ -112,14 +113,27 @@ async def aggregation_case(database, payload, workspaces, tmp_path):
         control["sent"].append(body)
         if control["before_response"]:
             control["before_response"]()
+        group = next(
+            value["untrustedDedupGroup"]
+            for message in body["messages"]
+            if "untrustedDedupGroup" in (message.get("content") or "")
+            for value in [
+                json.loads(
+                    message["content"].split("Untrusted fixed input data: ", 1)[-1]
+                )
+            ]
+            if isinstance(value, dict) and "untrustedDedupGroup" in value
+        )
         content = {
-            "candidateHandles": ["c1", "c2", "c3", "c4", "c5"],
+            "candidateHandles": [item["candidateHandle"] for item in group],
             "sameRootCause": True,
             "sameTrigger": True,
             "sameFix": True,
-            "rationale": "All five remove the nullableLength null guard; null enters the same dereference; restoring the guard fixes the shared regression. Optional testing advice differs.",
+            "rationale": "All supplied members describe the nullableLength null-guard regression; null enters the same dereference; restoring the guard fixes the shared regression. Optional testing advice differs.",
         }
         content.update(control["decision"])
+        if control.get("reply"):
+            content = control["reply"](group, content)
         value = response()
         value["choices"][0]["message"]["content"] = control.get(
             "raw", canonical(content).decode()
@@ -141,7 +155,10 @@ async def aggregation_case(database, payload, workspaces, tmp_path):
     )
     executor = MultipassExecutor(engine, evidence, PassStore(database, runs), fees)
     state = await engine.initial(context, signal)
-    originals = real_findings()
+    originals = [
+        PassFinding.model_validate({k: v for k, v in f.items() if k != "contributions"})
+        for f in data["findings"]
+    ]
     records = []
     for item in data["evidence"]:
         record = EvidenceRecord.model_validate(
@@ -149,12 +166,14 @@ async def aggregation_case(database, payload, workspaces, tmp_path):
         )
         await evidence.store.save(run, record)
         records.append(record)
+    seeded_calls = set()
     for phase in state.reviewPlan.selectedPasses:
         if phase != "correctness":
             await fees.begin_phase(run.run_id, phase)
         for f in originals:
-            if f.passId != phase:
+            if f.passId != phase or f.validationModelCallId in seeded_calls:
                 continue
+            seeded_calls.add(f.validationModelCallId)
             call = intent(payload).model_copy(
                 update={"modelCallId": f.validationModelCallId, "purpose": "VALIDATION"}
             )
@@ -675,3 +694,57 @@ async def test_original_identity_or_source_corruption_is_fatal_before_comparison
     with pytest.raises(HarnessError):
         await executor._deduplicate(context, state, outcomes, signal)
     assert control["sent"] == []
+
+
+@pytest.mark.parametrize(
+    "mode", ["recover", "persistent", "missing", "extra", "duplicate"]
+)
+async def test_duplicate_keys_feedback_at_http_boundary(aggregation_case, mode):
+    executor, context, state, outcomes, signal, control = aggregation_case
+
+    recover = mode == "recover"
+
+    def reply(group, content):
+        if len(control["sent"]) == 1 or mode == "persistent":
+            control["raw"] = (
+                json.dumps(content)[:-1]
+                + ',"sameFix":true,"password":"offline-credential-value"}'
+            )
+        else:
+            control.pop("raw", None)
+            if mode == "missing":
+                content["candidateHandles"].pop()
+            elif mode == "extra":
+                content["candidateHandles"].append("c999")
+            elif mode == "duplicate":
+                content["candidateHandles"][-1] = content["candidateHandles"][0]
+        if len(control["sent"]) > 1:
+            messages = control["sent"][-1]["messages"]
+            feedback = next(
+                json.loads(m["content"])
+                for m in reversed(messages)
+                if '"platformSubmissionFeedback"' in (m.get("content") or "")
+            )
+            assert "offline-credential-value" not in json.dumps(messages)
+            if len(control["sent"]) > 2 and mode not in {"persistent", "recover"}:
+                assert feedback["platformSubmissionFeedback"]["stage"] != "JSON"
+                return content
+            assert feedback["platformSubmissionFeedback"]["jsonError"] == {
+                "errorType": "DUPLICATE_KEY"
+            }
+            assert "each key exactly once" in feedback["instruction"]
+            assert "first/last" in feedback["instruction"]
+            assert any(
+                '"sameFix"' in (m.get("content") or "") and m["role"] == "assistant"
+                for m in messages
+            )
+        return content
+
+    control["reply"] = reply
+    saved, findings, limits = await executor._deduplicate(
+        context, state, outcomes, signal
+    )
+    assert len(control["sent"]) == (2 if recover else 3)
+    assert len(findings) == (1 if recover else 5)
+    assert saved.correctionCount == (1 if recover else 2)
+    assert bool(limits) is not recover
