@@ -83,3 +83,45 @@ Run `FAILED / REVIEW_EXECUTION_FAILED`，资源 `RELEASED`。correctness INCOMPL
 | ruff-format | 2026-10-14T12:23:02.064329+00:00 → 2026-10-14T12:23:02.192203+00:00 | 0 | ruff-format.log / .json |
 
 剩余限制：具体类型保持和工具身份回归通过，不证明模型语义判断正确、六维真实质量或完整Java在线启动路径。原真实失败未关闭为成功，剩余59次/费用余额不自动授权新Run。待设计窗口独立复审后另授权小粒度提交/新的受控真实复验；未提交/推送/新增付费/真实CC/下一批。
+
+
+## 2026-10-16 补修后单次真实复验（未通过）
+
+记录时间：2026-10-16T16:34:46+08:00。基线 `30a0054f7ab3ec8ed865ce2ff0f18ccd25d7809a`。授权为一个新六 Pass Run、¥3、发送最多60次、失败不重跑；未运行真实CC、未提交或推送。
+
+证据根：`C:/Users/ROG/AppData/Local/Temp/code-weave-b6-retest-_4vctj40`。Run：`aec9c177-2b77-451c-869c-c20d7550c264`。沿用64固定Snapshot字节与固定用户输入，新Run/Thread、独立数据库；未恢复旧失败Run。旧原件和费用保留。
+
+### 预检和发送事实
+
+官方价格来源 https://api-docs.deepseek.com/zh-cn/quick_start/pricing/ ，于2026-10-16T08:29:25.403393Z核实，资料SHA256 `5a7b1832592387340f2fc456399b34b89b05f3fa167c2e35909e2fa4afe021e3`。保守价格输入2元/百万、输出8元/百万；Profile `official-flash-20261016-b6-retest`，6小时有效。认证Readiness、Capabilities及账本预检通过。仓库外严格发送门禁预验70并发仅放行60次，未知尝试占次数、各purpose共用计数、发送前持久确认，HTTP retries=0；隔离Mock预跑12请求通过，仅证明装配协议。
+
+真实入口为Python正式认证ASGI Run入口、Java已保存固定Snapshot，不覆盖Java在线Review启动API。本轮15/60请求，全部调用LOCAL_CLOSED、有有效Usage且remoteOutcomeUnknown=false。输入81135、输出14586、总95721 Token。保守管理支出¥0.278958，reservedMicros=0、overrunMicros=0；此非控制台实际账单。
+
+### 结果、定位与质量
+
+UTC 08:30:22创建、08:31:56终止。FAILED / PROVIDER_STRUCTURED_OUTPUT_INVALID，diagnosticId `b0fc9b3e-7cf6-4ed0-a2b3-8ebf07a10d8b`，资源RELEASED，无Result。
+
+correctness COMPLETED（7调用）；consistency INCOMPLETE（8调用）；security/performance/architecture/testing SKIPPED。前一轮Registry异常本次未再出现，真实git_diff及read_file成功进入Evidence和验证，但不能据此声称全部分页边界真实覆盖。
+
+最后Checkpoint保留consistency三份验证回复及两次JSON_INVALID反馈。对原文执行标准json.loads三份均报Extra data，位置分别2883/5144/5145（0基），长度5305/5146/5147；不是仅凭通用错误码猜测。证据 `real/offline-json-replay.json`。未自动修剪、多取JSON、放宽Schema或再次发送。这里只确认已保存正文非法；本轮未保存完整Provider原始信封，不能声称核对过finish_reason或传输层原始正文。
+
+correctness账本已有2个Finding：HIGH null回归有源码、Diff和Evidence支持；LOW Finding却明确描述requiredLength为行为保持、无正确性影响的安全重构，并被验证为VERIFIED。正确反例未被说成null缺陷，但被纳入Finding，属于结果质量偏差，需设计复核；不能把Pass COMPLETED当作质量通过。consistency非法回复尚未通过Schema，不能当作已生效验证。
+
+### 统一结论和未验
+
+本次单次执行与停止保护已核对；六Pass闭环失败，无最终Result，Java严格导入/UI/Handoff在本轮未验。真实六Pass质量、最终去重汇总均未验。既往离线全量属于历史证据，本轮未重跑产品矩阵，未改产品代码。未进行故障补修、未付费重跑、未运行真实Coding。保持原件，由设计窗口决定JSON纠错与良性候选进入Finding的后续处理。
+
+
+### 2026-10-16T17:08:06+08:00：R02/R03离线定位与最小补修交付
+
+三次验证请求重建摘要及Token计量逐一匹配原记录；原反馈仅JSON_INVALID。补充有界结构错误位置、单对象纠错要求，以及调查/验证的Finding资格说明，仍用REJECTED路径。181项不重复受影响用例通过，另4项重复核对通过；Ruff/格式/差异检查通过。详见[离线补修记录](review-harness-batch-6-json-and-finding-quality-fix.md)。原15请求失败、费用和Ledger保持；本轮零付费、零CC、未提交推送。真实验收仍未通过，补修待设计独立复审。
+
+
+### 2026-10-16T17:34:21+08:00：R02/R03补修后单次受控真实复验（失败停止）
+
+Run `47145d56-1f5c-4341-8198-4bb4207cf255`，29/60请求，管理¥0.461080，全部Usage已知且SETTLED、预留0、FAILED/RELEASED、无Result。correctness/consistency/security/performance完成，architecture不完整，testing跳过。一次JSON语法错误收到具体位置和完整拒绝正文后，下一请求成功修正；良性c2/c5均REJECTED。实际停止是architecture验证用省略号拼接candidateText，FACT_QUOTE_INVALID；该Pass此前已用完两次Schema纠错额度。详见[本轮真实复验与离线定位](review-harness-batch-6-quality-real-retest.md)。未改产品、未重跑、未CC、未提交推送，真实验收仍未通过。
+
+
+## 2026-10-16 POSITION_V1 单次真实验收
+
+详见 `docs/review-harness-batch-6-position-real-acceptance.md`。新Run `0c84091a-8047-4f60-9c4e-500e7e26aa04`，33次，六Pass COMPLETED，SUCCEEDED/RELEASED，Result3.0；24条位置绑定回放一致。管理计费¥0.567602，全部SETTLED，无预留/超支/未知。null回归检出、良性重构REJECTED；最终同一null问题仍有5条跨Pass重复Finding，去重未召回，另有摘要行号偏差。保留全部原始证据，不据此批准整批。证据根 `C:\Users\ROG\AppData\Local\Temp\code-weave-b6-position-real-qmb0wiq8`。无CC、无重跑、无产品修改、未提交推送。

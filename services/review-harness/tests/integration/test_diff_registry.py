@@ -164,8 +164,9 @@ def publish_git_diff(tmp_path, payload, snapshots):
 
 
 @pytest.mark.parametrize("multipass", [False, True])
+@pytest.mark.parametrize("position", [False, True])
 async def test_production_diff_pages_persist_and_reach_model_without_cross_pass_observation(
-    database, payload, workspaces, tmp_path, multipass
+    database, payload, workspaces, tmp_path, multipass, position
 ):
     import asyncio
     import json
@@ -178,6 +179,10 @@ async def test_production_diff_pages_persist_and_reach_model_without_cross_pass_
     from review_harness.domain.graph import GraphMessage, ToolCall, pending_calls
     from review_harness.domain.model import utc_now
     from review_harness.domain.multipass_state import MultipassState, PassInvestigation
+    from review_harness.domain.position import (
+        PositionMultipassState,
+        PositionReviewState,
+    )
     from review_harness.domain.real_graph import HandleReviewGraphState
     from review_harness.infrastructure.artifacts import ArtifactService
     from review_harness.infrastructure.checkpoints import Checkpoints
@@ -221,7 +226,11 @@ async def test_production_diff_pages_persist_and_reach_model_without_cross_pass_
         adapter,
         model_calls=ModelCallStore(database),
         evidence=evidence,
-        state_type=MultipassState if multipass else HandleReviewGraphState,
+        state_type=(PositionMultipassState if multipass else PositionReviewState)
+        if position
+        else MultipassState
+        if multipass
+        else HandleReviewGraphState,
     )
     executor = RealReviewExecutor(engine, evidence)
     try:

@@ -31,8 +31,9 @@ def test_runtime_schemas_match_strict_production_types(name):
     ].model_json_schema()
 
 
+@pytest.mark.parametrize("state_version", ["4.0", "6.0"])
 async def test_state4_compacts_closed_history_before_message_collection_overflow(
-    database, payload, workspaces, tmp_path
+    database, payload, workspaces, tmp_path, state_version
 ):
     import asyncio
 
@@ -66,6 +67,8 @@ async def test_state4_compacts_closed_history_before_message_collection_overflow
         )
         return httpx.Response(200, stream=httpx.ByteStream(canonical(value)))
 
+    from review_harness.domain.position import PositionMultipassState
+
     engine = ContextEngine(
         workspaces.settings,
         runs,
@@ -76,12 +79,35 @@ async def test_state4_compacts_closed_history_before_message_collection_overflow
             SecretStr("offline-only"), transport=httpx.MockTransport(server)
         ),
         model_calls=ModelCallStore(database),
-        state_type=MultipassState,
+        state_type=PositionMultipassState if state_version == "6.0" else MultipassState,
     )
     passes = PassStore(database, runs)
     engine.pass_store = passes
     try:
         state = await engine.initial(context, signal)
+        if state_version == "6.0":
+            from review_harness.domain.graph import ArtifactRef
+
+            record = await engine.artifacts.publish(
+                context,
+                canonical(
+                    {
+                        "recordVersion": "1.0",
+                        "validationProtocol": "POSITION_V1",
+                        **state.identity(),
+                    }
+                ).decode(),
+                "TOOL_OUTPUT",
+                "position_validation",
+                signal,
+                producer_type="SYSTEM",
+                call_id=str(uuid4()),
+                media_type="application/json",
+            )
+            ref = ArtifactRef.model_validate(
+                {k: record.wire()[k] for k in ArtifactRef.model_fields}
+            )
+            state = state.updated(validationRecordRefs=[ref.model_dump()])
         state = state.updated(
             messages=[
                 GraphMessage(
@@ -97,6 +123,9 @@ async def test_state4_compacts_closed_history_before_message_collection_overflow
         await passes.begin(run.run_id, "correctness", state.revision, state.digest())
         fitted = await Compactor(engine).fit(context, state, signal)
         assert fitted.summaryVersion == 1 and fitted.compactionCount == 1
+        if state_version == "6.0":
+            assert fitted.validationRecordRefs == state.validationRecordRefs
+            assert ref in fitted.artifactRefs
         assert (
             len(fitted.messages) < 96
             and fitted.modelCallCount == 1

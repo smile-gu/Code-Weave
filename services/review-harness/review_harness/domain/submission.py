@@ -12,10 +12,12 @@ class SubmissionIssue(HarnessError):
         stage="REFERENCE",
         code="EVIDENCE_REFERENCE_INVALID",
         schema_violations=(),
+        json_error=None,
     ):
         super().__init__(code, 422, "提交引用未通过校验")
         self.reason, self.path, self.stage = reason, tuple(path), stage
         self.schema_violations = tuple(schema_violations)
+        self.json_error = json_error
 
     def at(self, *prefix):
         return SubmissionIssue(
@@ -27,6 +29,7 @@ class SubmissionIssue(HarnessError):
                 {**item, "fieldPath": [*prefix, *item["fieldPath"]]}
                 for item in self.schema_violations
             ],
+            json_error=self.json_error,
         )
 
     def diagnostic(self):
@@ -38,6 +41,8 @@ class SubmissionIssue(HarnessError):
         }
         if self.schema_violations:
             result["schemaViolations"] = list(self.schema_violations)
+        if self.json_error is not None:
+            result["jsonError"] = self.json_error
         if len(self.path) >= 2 and self.path[0] in {"evidenceCandidates", "candidates"}:
             key = (
                 "evidenceCandidateIndex"

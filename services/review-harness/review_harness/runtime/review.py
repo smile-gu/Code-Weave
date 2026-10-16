@@ -1,5 +1,6 @@
 """Autonomous investigation loop; deterministic source, validation and delivery gates."""
 
+import json
 import re
 from typing import TypedDict
 from uuid import uuid4
@@ -7,6 +8,12 @@ from uuid import uuid4
 from langgraph.graph import END, START, StateGraph
 from pydantic import ValidationError
 
+from review_harness.application.position_validation import (
+    candidate_fields,
+    position_validation_view,
+    resolve_position_validation,
+    uses_positions,
+)
 from review_harness.application.redaction import redact, redact_structure
 from review_harness.domain.graph import (
     ArtifactRef,
@@ -24,6 +31,10 @@ from review_harness.domain.multipass_state import (
     PassLocalValidationBatch,
     PassOutcome,
     current_candidates,
+)
+from review_harness.domain.position import (
+    PassPositionValidationBatch,
+    PositionValidationBatch,
 )
 from review_harness.domain.provider import strict_json
 from review_harness.domain.review import (
@@ -44,6 +55,17 @@ SCOPE_INSTRUCTION = (
     "checkedScope must copy complete file paths verbatim from scope.targetPaths; "
     "do not append line numbers, method names or descriptions, or use directory names or excluded paths. "
     "Put line ranges in codeSelections or evidence selections instead."
+)
+
+FINDING_QUALIFICATION = (
+    "Factually accurate descriptions alone do not qualify as defects. "
+    "Do not submit behavior-preserving observations as candidates; retain them as checked scope or excluded hypotheses. "
+    "A VERIFIED finding requires a supported defect: a violated requirement/invariant, a concrete trigger and an adverse consequence, "
+    "not merely proof that the described code behavior exists. During validation, benign observations must be REJECTED, "
+    "even if every factual description is supported. RISK requires a plausible adverse consequence with explicitly unresolved "
+    "environmental assumptions. SUGGESTION requires a concrete improvement objective and justified value; optional observations "
+    "with no improvement need must not automatically become suggestions. Judge the complete claim and evidence, not keywords "
+    "or quoted phrases such as 'no risk'. Never change a disposition mechanically to make the report nonempty. "
 )
 
 SUBMISSION = (
@@ -107,6 +129,23 @@ LOCAL_VALIDATION = (
     + canonical(LocalValidationBatch.model_json_schema()).decode()
 )
 
+POSITION_VALIDATION = (
+    "Validate candidates independently, every candidate in candidateMaterials exactly once by candidateHandle. "
+    "Protocol POSITION_V1: factChecks select a complete candidateField JSON Pointer verbatim from that candidate's candidateFields, "
+    "and a sourceSelection with sourceHandle/startLine/endLine from its exclusive candidateFactSources/materials. "
+    "The platform extracts the original field and source text; do not submit candidateText, sourceQuote or fallback quotations. "
+    "Use one-based inclusive physical coordinates in the displayed coordinateKind: DIFF_PHYSICAL_LINE is the Diff text, "
+    "SOURCE_FILE_LINE is the source file, ARTIFACT_PHYSICAL_LINE is the Artifact body. Never convert Diff lines to file lines. "
+    "Select only complete observed lines within one authorized Evidence material, no holes or half lines; keep the extracted source text within 4096 characters. "
+    "User input defines expected behavior, never implementation facts; userQuote remains an optional exact original user quotation. "
+    "Check key facts, necessary assumptions and impact scope and the strongest counterexample. CORE_CONTRADICTED requires REJECTED; UNRESOLVED cannot be VERIFIED. "
+    "For CORRECTED provide correctedCandidate with the selected field actually changed; compare the same pointer in original and corrected versions. "
+    "Preserve candidateHandle/passId/claimKind/evidenceLinks/codeSelections exactly. Never merely claim checked or rewrite provenance. "
+    "counterexampleHolds means a counterexample refutes the claim, not an example triggering the bug. "
+    "Return exactly one JSON object with validationVersion=POSITION_V1 according to this schema. Schema: "
+    + canonical(PositionValidationBatch.model_json_schema()).decode()
+)
+
 
 def schema_expected(schema, location):
     """Project constraints from our schema, never from rejected model values."""
@@ -164,6 +203,22 @@ def redacted_submission(text):
 def parse_submission(text, model):
     try:
         clean, _ = redact_structure(strict_json(text, limit=65536))
+    except json.JSONDecodeError as error:
+        # Coordinates refer to the original submitted text. Never expose an
+        # arbitrary parser message or a fragment of possibly sensitive input.
+        raise SubmissionIssue(
+            "JSON_INVALID",
+            stage="JSON",
+            code="PROVIDER_STRUCTURED_OUTPUT_INVALID",
+            json_error={
+                "errorType": "EXTRA_DATA"
+                if error.msg == "Extra data"
+                else "SYNTAX_INVALID",
+                "line": error.lineno,
+                "column": error.colno,
+                "position": error.pos,
+            },
+        ) from None
     except (ValueError, TypeError):
         raise SubmissionIssue(
             "JSON_INVALID", stage="JSON", code="PROVIDER_STRUCTURED_OUTPUT_INVALID"
@@ -251,6 +306,8 @@ class RealReviewExecutor:
         validation_materials=None,
         dedup_handles=None,
     ):
+        if purpose in {"INVESTIGATION", "VALIDATION"}:
+            instruction = FINDING_QUALIFICATION + instruction
         if apply_submission and not hasattr(state, "handleRegistry"):
             instruction += (
                 " Submission phase: CANDIDATES_ALLOWED. Candidate evidenceIds must be UUIDs copied from acknowledged evidenceRecords; new evidence cannot be referenced in this same submission."
@@ -309,7 +366,14 @@ class RealReviewExecutor:
                         context, state, submission, response, signal
                     )
                 if purpose == "VALIDATION":
-                    if hasattr(state, "handleRegistry"):
+                    position_result = None
+                    local_submission = submission
+                    if uses_positions(state):
+                        position_result = resolve_position_validation(
+                            state, submission, validation_materials
+                        )
+                        submission = position_result.validation
+                    elif hasattr(state, "handleRegistry"):
                         from review_harness.application.local_handles import (
                             resolve_validation,
                         )
@@ -319,8 +383,23 @@ class RealReviewExecutor:
                         )
                     goal, _ = await self.engine.anchors(context, signal)
                     self._validate_corrections(
-                        state, submission, validation_materials, goal
+                        state,
+                        submission,
+                        validation_materials,
+                        goal,
+                        position_bindings=position_result.bindings
+                        if position_result is not None
+                        else None,
                     )
+                    if position_result is not None:
+                        state = await self._position_record(
+                            context,
+                            state,
+                            response,
+                            local_submission,
+                            position_result,
+                            signal,
+                        )
                     state = await self._assistant(
                         context, state, response, signal, structured=True
                     )
@@ -335,10 +414,18 @@ class RealReviewExecutor:
             diagnostic = await self._rejection(context, state, response, issue, signal)
             if state.correctionCount >= 2:
                 raise issue
-            scope_feedback = {}
+            correction_feedback = {}
+            if issue.stage == "JSON":
+                correction_feedback["instruction"] = (
+                    "Return exactly one JSON object matching the supplied schema, "
+                    "with no trailing characters, second object or Markdown fences. "
+                    "Use jsonError coordinates (one-based line/column, zero-based character position) "
+                    "in the original rejected submission when present. Correct and resubmit the complete object; "
+                    "the platform will not trim or accept a JSON prefix. Nothing was published."
+                )
             if issue.reason == "SCOPE_INVALID" and issue.path == ("checkedScope",):
                 _, scope = await self.engine.anchors(context, signal)
-                scope_feedback = {
+                correction_feedback = {
                     "allowedCheckedScope": scope["targetPaths"],
                     "instruction": SCOPE_INSTRUCTION,
                 }
@@ -351,7 +438,7 @@ class RealReviewExecutor:
                         "platformSubmissionFeedback": issue.diagnostic(),
                         "diagnosticArtifactRef": diagnostic.model_dump(),
                         "instruction": "Correct only the rejected submission using trusted evidenceReferences. Nothing in this submission was published.",
-                        **scope_feedback,
+                        **correction_feedback,
                         **(
                             {
                                 "allowedHandles": {
@@ -746,7 +833,47 @@ class RealReviewExecutor:
             signal,
         )
 
-    def _validate_corrections(self, state, validation, materials, goal):
+    async def _position_record(
+        self, context, state, response, submitted, resolved, signal
+    ):
+        record = canonical(
+            {
+                "recordVersion": "1.0",
+                "validationProtocol": "POSITION_V1",
+                **state.identity(),
+                "stateRevision": state.revision,
+                "modelCallId": response.modelCallId,
+                "submitted": submitted.model_dump(),
+                "resolved": resolved.validation.model_dump(),
+                "bindings": resolved.bindings,
+            }
+        )
+        artifact = await self.engine.artifacts.publish(
+            context,
+            record.decode(),
+            "TOOL_OUTPUT",
+            "position_validation",
+            signal,
+            producer_type="SYSTEM",
+            call_id=response.modelCallId,
+            media_type="application/json",
+        )
+        if artifact.coverage != "FULL" or artifact.sha256 != sha256(record):
+            raise graph_error("VALIDATION_RECORD_PERSISTENCE_FAILED")
+        ref = ArtifactRef.model_validate(
+            {k: artifact.wire()[k] for k in ArtifactRef.model_fields}
+        )
+        return state.updated(
+            validationRecordRefs=[
+                *[r.model_dump() for r in state.validationRecordRefs],
+                ref.model_dump(),
+            ],
+            revision=state.revision + 1,
+        )
+
+    def _validate_corrections(
+        self, state, validation, materials, goal, *, position_bindings=None
+    ):
         """Allow factual revisions without changing acknowledged provenance."""
         candidates = {c.candidateId: c for c in current_candidates(state)}
         ids = [v.candidateId for v in validation.validations]
@@ -848,12 +975,33 @@ class RealReviewExecutor:
                     check.outcome == "CORRECTED"
                     and result.disposition != "REJECTED"
                     and result.correctedCandidate is not None
+                    and position_bindings is None
                     and any(
                         check.candidateText in text
                         for text in texts(result.correctedCandidate.model_dump())
                     )
                 ):
                     invalid("FACT_CORRECTION_UNCHANGED", *path)
+                if (
+                    position_bindings is not None
+                    and check.outcome == "CORRECTED"
+                    and result.disposition != "REJECTED"
+                    and result.correctedCandidate is not None
+                ):
+                    binding = next(
+                        b
+                        for b in position_bindings
+                        if (b["validationIndex"], b["checkIndex"])
+                        == (index, check_index)
+                    )
+                    corrected_text = candidate_fields(result.correctedCandidate).get(
+                        binding["candidateField"]
+                    )
+                    if (
+                        corrected_text is None
+                        or corrected_text.strip() == check.candidateText.strip()
+                    ):
+                        invalid("FACT_CORRECTION_UNCHANGED", *path)
             corrected = result.correctedCandidate
             if corrected is None:
                 continue
@@ -932,17 +1080,31 @@ class RealReviewExecutor:
                     validation_handle_view,
                 )
 
-                extra[0]["content"] = validation_handle_view(state, materials)
+                extra[0]["content"] = (
+                    position_validation_view(state, materials)
+                    if uses_positions(state)
+                    else validation_handle_view(state, materials)
+                )
             state, validation_response, validation = await self._json(
                 context,
                 state,
                 signal,
-                PassLocalValidationBatch
+                (
+                    PassPositionValidationBatch
+                    if isinstance(state, MultipassState)
+                    else PositionValidationBatch
+                )
+                if uses_positions(state)
+                else PassLocalValidationBatch
                 if isinstance(state, MultipassState)
                 else LocalValidationBatch
                 if handle_protocol
                 else ValidationBatch,
-                LOCAL_VALIDATION if handle_protocol else VALIDATION,
+                POSITION_VALIDATION
+                if uses_positions(state)
+                else LOCAL_VALIDATION
+                if handle_protocol
+                else VALIDATION,
                 purpose="VALIDATION",
                 messages=extra,
                 validation_materials=materials,

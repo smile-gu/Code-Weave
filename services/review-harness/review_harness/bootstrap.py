@@ -8,7 +8,7 @@ from sqlalchemy.engine import make_url
 from review_harness.application.evidence import EvidenceService
 from review_harness.application.recovery import recover_runs
 from review_harness.application.service import RunService
-from review_harness.domain.real_graph import HandleReviewGraphState
+from review_harness.domain.position import PositionMultipassState, PositionReviewState
 from review_harness.infrastructure.artifacts import ArtifactService
 from review_harness.infrastructure.checkpoints import Checkpoints
 from review_harness.infrastructure.persistence.database import Database
@@ -87,11 +87,10 @@ async def lifespan(app):
                 model_calls=ModelCallStore(
                     database, price_catalog=PriceCatalog(settings.price_profile_path)
                 ),
-                state_type=HandleReviewGraphState,
+                state_type=PositionReviewState,
                 evidence=evidence,
             )
             supervisor.executor = RealReviewExecutor(engine, evidence, app.state.tools)
-            from review_harness.domain.multipass_state import MultipassState
             from review_harness.infrastructure.persistence.fees import FeeLedger
             from review_harness.infrastructure.persistence.passes import PassStore
             from review_harness.runtime.multipass import (
@@ -109,7 +108,7 @@ async def lifespan(app):
                 model_calls=ModelCallStore(
                     database, price_catalog=PriceCatalog(settings.price_profile_path)
                 ),
-                state_type=MultipassState,
+                state_type=PositionMultipassState,
                 evidence=evidence,
             )
             multi = MultipassExecutor(

@@ -118,6 +118,17 @@ class HandleReviewGraphState(RealReviewGraphState):
 
 
 def parse_state(value):
+    if value.get("stateVersion") in {"5.0", "6.0"}:
+        from review_harness.domain.position import (
+            PositionMultipassState,
+            PositionReviewState,
+        )
+
+        return (
+            PositionMultipassState
+            if value["stateVersion"] == "6.0"
+            else PositionReviewState
+        ).model_validate(value)
     if value.get("stateVersion") == "4.0":
         from review_harness.domain.multipass_state import MultipassState
 

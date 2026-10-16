@@ -96,3 +96,8 @@ Provider档案仍引用已核对的官方1M容量来源，256K为本平台自定
 ## 2026-10-13 局部句柄协议（冻结43）
 
 真实入口State3.0：平台s/e/c，模型n仅本批；同批新Evidence+Candidate可COMPLETE。Registry绑定Run/Snapshot且保存观察范围/原Source和UUID映射，模型用局部选择、验证c专属s原文，平台解析回既有内部UUID/FactCheck。Evidence批事务与Checkpoint独立，精确确认后才采用，失确认停止不重分配/重放。半行/未展示/转存预览/脱敏/候选专属与修正门禁保留；纯文本压缩不建映射。内部Schema及fixtures独立，外部Result2.0、Java/UI字段不变；256K与字节/集合限额不扩大。旧State2严格读取、Fake不迁移，生产无自动旧Run续跑。交付与新鲜证据见docs/review-harness-batch-5-local-handles.md；仅离线、未提交/推送、不进入批次6。
+
+
+## 2026-10-16 验证位置引用（批次6局部冻结）
+
+生产新Run采用State5（单Pass）/State6（多Pass）及固定POSITION_V1局部验证协议；模型选择已枚举候选字段与来源完整行，平台从候选授权Evidence安全材料提取原文，仍经原内部FactCheck门禁。State2/3/4严格读回与旧协议保留，禁止字段猜版本或重放历史失败Run。接受后的原文/位置/版本绑定保存于不可变SYSTEM验证Artifact并由Checkpoint引用；二者非原子提交，失确认停止。外部Result2/3、Evidence事务、两次共享纠错和资源/费用预算不改。交付与阶段/最终影响测试计数见[位置引用实施记录](../review-harness-batch-6-position-reference-delivery.md)，本轮未付费、未提交推送，待独立复审。

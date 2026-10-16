@@ -45,7 +45,10 @@ class Compactor:
         if not prefix:
             raise graph_error("COMPACTION_SOURCE_EXCEEDS_BUDGET")
         # One trusted collection feeds both the durable Summary and retained State.
-        refs = {r.artifactId: r for r in state.artifactRefs}
+        refs = {
+            r.artifactId: r
+            for r in [*state.artifactRefs, *getattr(state, "validationRecordRefs", [])]
+        }
         sources = {canonical(r.model_dump()): r for r in state.sourceRefs}
         evidence_ids, candidate_ids = set(state.evidenceRefs), set(state.candidateRefs)
         if state.summaryArtifactRef:
@@ -178,7 +181,7 @@ class Compactor:
                 closed_prefixes(current.messages)
             )
             count_pressure = (
-                getattr(current, "stateVersion", None) == "4.0"
+                getattr(current, "stateVersion", None) in {"4.0", "6.0"}
                 and len(current.messages) >= 96
                 and can_compact
             )

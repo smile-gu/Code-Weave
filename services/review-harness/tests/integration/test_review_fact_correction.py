@@ -7,10 +7,10 @@ import httpx
 import pytest
 from pydantic import SecretStr
 
-from review_harness.api.app import create_app
 from review_harness.domain.model import canonical, sha256
 from tests.integration.test_deepseek_adapter import response
 from tests.integration.test_lifecycle import client_for, settings_for
+from tests.legacy_runtime_fixture import quote_protocol_app as create_app
 from tests.snapshot_fixture import publish_snapshot
 
 
@@ -38,6 +38,13 @@ from tests.snapshot_fixture import publish_snapshot
         (False, "other-evidence"),
         (False, "contradiction-recover"),
         (False, "contradiction-persistent"),
+        (False, "json-tail-recover"),
+        (False, "json-tail-persistent"),
+        (False, "eligibility-benign"),
+        (False, "eligibility-bug"),
+        (False, "eligibility-risk"),
+        (False, "eligibility-suggestion"),
+        (False, "eligibility-quoted"),
     ],
 )
 async def test_conflicting_user_description_is_corrected_or_rejected(
@@ -59,6 +66,30 @@ async def test_conflicting_user_description_is_corrected_or_rejected(
     source = b"class Demo { int value(Integer x) { return x.intValue(); } }\n"
     if core_invalid is True:
         source = b"class Demo { int value(Integer x) { if (x == null) return 0; return x.intValue(); } }\n"
+    quality_cases = {
+        "eligibility-benign": (
+            "Extracted local preserves behavior; no correction needed.",
+            "REJECTED",
+        ),
+        "eligibility-bug": (
+            "Null input dereferences x instead of returning zero.",
+            "VERIFIED",
+        ),
+        "eligibility-risk": (
+            "Null callers outside the examined repository may experience failures; their existence is unconfirmed.",
+            "RISK",
+        ),
+        "eligibility-suggestion": (
+            "Add a null-contract unit test to detect future regressions; this is a preventive improvement, not a proven behavioral defect.",
+            "SUGGESTION",
+        ),
+        "eligibility-quoted": (
+            'The note says "no correctness risk", but value(null) dereferences x and violates the null contract.',
+            "VERIFIED",
+        ),
+    }
+    if tamper == "eligibility-benign":
+        source = b"class Demo { int value(Integer x) { if (x == null) return 0; int value = x.intValue(); return value; } }\n"
     publish_snapshot(settings.snapshot_root, payload, {"src/Demo.java": source})
     requests = []
     reference = None
@@ -75,6 +106,15 @@ async def test_conflicting_user_description_is_corrected_or_rejected(
         value = response()
         message = value["choices"][0]["message"]
         if "Validate candidates" in data["messages"][0]["content"]:
+            if tamper in quality_cases:
+                assert (
+                    "Factually accurate descriptions alone do not qualify as defects"
+                    in data["messages"][0]["content"]
+                )
+                assert (
+                    "benign observations must be REJECTED"
+                    in data["messages"][0]["content"]
+                )
             original = anchors["candidates"][0]
             projection = next(
                 json.loads(m["content"].removeprefix("Untrusted fixed input data: "))[
@@ -338,6 +378,69 @@ async def test_conflicting_user_description_is_corrected_or_rejected(
                 )
                 reply["evidenceCandidates"].append(extra)
                 message["content"] = json.dumps(reply)
+        if (
+            tamper in {"json-tail-recover", "json-tail-persistent"}
+            and "Validate candidates" in data["messages"][0]["content"]
+        ):
+            validation_requests = [
+                r
+                for r in requests
+                if "Validate candidates" in r["messages"][0]["content"]
+            ]
+            if len(validation_requests) > 1:
+                feedback = next(
+                    json.loads(m["content"])
+                    for m in reversed(data["messages"])
+                    if m["role"] == "user"
+                    and "platformSubmissionFeedback" in (m.get("content") or "")
+                )
+                assert (
+                    feedback["platformSubmissionFeedback"]["jsonError"]["errorType"]
+                    == "EXTRA_DATA"
+                )
+                assert "exactly one JSON object" in feedback["instruction"]
+                rejected = next(
+                    m["content"]
+                    for m in reversed(data["messages"])
+                    if m["role"] == "assistant"
+                )
+                assert rejected.endswith("]}")
+                assert '"factChecks"' in rejected
+                assert "candidateMaterials" in json.dumps(data)
+                assert data["response_format"] == {"type": "json_object"}
+            if tamper == "json-tail-persistent" or len(validation_requests) == 1:
+                message["content"] += "]}"
+        if tamper in quality_cases and "response_format" in data:
+            assert (
+                "Do not submit behavior-preserving observations as candidates"
+                in data["messages"][0]["content"]
+                or "Validate candidates" in data["messages"][0]["content"]
+            )
+            reply = json.loads(message["content"])
+            claim, disposition = quality_cases[tamper]
+            if "validations" in reply:
+                item = reply["validations"][0]
+                item.pop("correctedCandidate", None)
+                item["disposition"] = disposition
+                item["validationSummary"].update(
+                    basis="Evaluate issue eligibility separately from factual accuracy against original source.",
+                    counterexampleHolds=False,
+                    assumptionsResolved=tamper != "eligibility-risk",
+                )
+                item["factChecks"][0].update(
+                    candidateText=claim,
+                    sourceQuote=source.decode().strip(),
+                    outcome="SUPPORTED",
+                    explanation="Source supports the observation; disposition separately judges whether a qualifying issue exists.",
+                )
+                item["factChecks"][0].pop("userQuote", None)
+            else:
+                for item in reply["candidates"]:
+                    item.update(title=claim, claim=claim)
+                    item["reasoningSummary"].update(assumptions=[], conclusion=claim)
+                    if tamper == "eligibility-risk":
+                        item["claimKind"] = "ENVIRONMENT_DEPENDENT"
+            message["content"] = json.dumps(reply)
         return httpx.Response(200, stream=httpx.ByteStream(canonical(value)))
 
     app = create_app(settings, provider_transport=httpx.MockTransport(server))
@@ -364,6 +467,7 @@ async def test_conflicting_user_description_is_corrected_or_rejected(
             "unchanged-correction",
             "other-evidence",
             "contradiction-persistent",
+            "json-tail-persistent",
         }:
             assert run["status"] == "FAILED", run
             assert run["failure"]["code"] in {
@@ -381,7 +485,15 @@ async def test_conflicting_user_description_is_corrected_or_rejected(
             return
         assert run["status"] == "SUCCEEDED", run
         result = (await client.get(url + "/result")).json()
-        if core_invalid:
+        if tamper in quality_cases:
+            expected = quality_cases[tamper][1]
+            if expected == "REJECTED":
+                assert result["findings"] == []
+            else:
+                assert len(result["findings"]) == 1
+                assert result["findings"][0]["disposition"] == expected
+                assert result["findings"][0]["claim"] == quality_cases[tamper][0]
+        elif core_invalid:
             assert result["findings"] == []
         elif tamper in {"quantitative", "unresolved"}:
             assert result["findings"][0]["disposition"] == "RISK"

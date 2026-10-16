@@ -17,8 +17,8 @@ class MultipassExecutor:
     wallclock_seconds = 10800
 
     def __init__(self, engine, evidence, passes, fees):
-        if engine.state_type is not MultipassState:
-            raise ValueError("Multipass execution requires State4")
+        if not issubclass(engine.state_type, MultipassState):
+            raise ValueError("Multipass execution requires a versioned multipass State")
         self.engine, self.evidence, self.passes, self.fees = (
             engine,
             evidence,

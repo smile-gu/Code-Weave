@@ -1,0 +1,482 @@
+{
+  "$defs": {
+    "LineSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceHandle": {
+          "maxLength": 16,
+          "pattern": "^s[1-9][0-9]*$",
+          "title": "Sourcehandle",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceHandle",
+        "startLine",
+        "endLine"
+      ],
+      "title": "LineSelection",
+      "type": "object"
+    },
+    "NewEvidenceLink": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "NEW",
+          "title": "Kind",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 16,
+          "pattern": "^n[1-9][0-9]*$",
+          "title": "Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "key"
+      ],
+      "title": "NewEvidenceLink",
+      "type": "object"
+    },
+    "PassConfirmedCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "category": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Category",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Title",
+          "type": "string"
+        },
+        "claim": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Claim",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reasoningSummary": {
+          "$ref": "#/$defs/ReasoningSummary"
+        },
+        "suggestion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "claimKind": {
+          "enum": [
+            "STATIC_CORRECTNESS",
+            "ENVIRONMENT_DEPENDENT",
+            "QUANTITATIVE"
+          ],
+          "title": "Claimkind",
+          "type": "string"
+        },
+        "evidenceLinks": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "NEW": "#/$defs/NewEvidenceLink",
+                "SAVED": "#/$defs/SavedEvidenceLink"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/NewEvidenceLink"
+              },
+              {
+                "$ref": "#/$defs/SavedEvidenceLink"
+              }
+            ]
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Evidencelinks",
+          "type": "array"
+        },
+        "codeSelections": {
+          "items": {
+            "$ref": "#/$defs/SourceSelection"
+          },
+          "maxItems": 16,
+          "title": "Codeselections",
+          "type": "array"
+        },
+        "candidateHandle": {
+          "maxLength": 16,
+          "pattern": "^c[1-9][0-9]*$",
+          "title": "Candidatehandle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "passId",
+        "category",
+        "title",
+        "claim",
+        "severity",
+        "confidence",
+        "reasoningSummary",
+        "suggestion",
+        "claimKind",
+        "evidenceLinks",
+        "codeSelections",
+        "candidateHandle"
+      ],
+      "title": "PassConfirmedCandidate",
+      "type": "object"
+    },
+    "PassPositionValidation": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateHandle": {
+          "maxLength": 16,
+          "pattern": "^c[1-9][0-9]*$",
+          "title": "Candidatehandle",
+          "type": "string"
+        },
+        "disposition": {
+          "enum": [
+            "VERIFIED",
+            "RISK",
+            "SUGGESTION",
+            "REJECTED"
+          ],
+          "title": "Disposition",
+          "type": "string"
+        },
+        "validationSummary": {
+          "$ref": "#/$defs/ValidationSummary"
+        },
+        "correctedCandidate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PassConfirmedCandidate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "factChecks": {
+          "items": {
+            "$ref": "#/$defs/PositionFactCheck"
+          },
+          "maxItems": 16,
+          "title": "Factchecks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "candidateHandle",
+        "disposition",
+        "validationSummary"
+      ],
+      "title": "PassPositionValidation",
+      "type": "object"
+    },
+    "PositionFactCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateHandle": {
+          "maxLength": 16,
+          "pattern": "^c[1-9][0-9]*$",
+          "title": "Candidatehandle",
+          "type": "string"
+        },
+        "candidateField": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^/",
+          "title": "Candidatefield",
+          "type": "string"
+        },
+        "sourceSelection": {
+          "$ref": "#/$defs/LineSelection"
+        },
+        "userQuote": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Userquote"
+        },
+        "outcome": {
+          "enum": [
+            "SUPPORTED",
+            "CORRECTED",
+            "CORE_CONTRADICTED",
+            "UNRESOLVED"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "explanation": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Explanation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidateHandle",
+        "candidateField",
+        "sourceSelection",
+        "outcome",
+        "explanation"
+      ],
+      "title": "PositionFactCheck",
+      "type": "object"
+    },
+    "ReasoningSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Rule",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Trigger",
+          "type": "string"
+        },
+        "executionPath": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Executionpath",
+          "type": "string"
+        },
+        "assumptions": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "counterexamples": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Counterexamples",
+          "type": "array"
+        },
+        "conclusion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Conclusion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "trigger",
+        "executionPath",
+        "assumptions",
+        "counterexamples",
+        "conclusion"
+      ],
+      "title": "ReasoningSummary",
+      "type": "object"
+    },
+    "SavedEvidenceLink": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "SAVED",
+          "title": "Kind",
+          "type": "string"
+        },
+        "handle": {
+          "maxLength": 16,
+          "pattern": "^e[1-9][0-9]*$",
+          "title": "Handle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "handle"
+      ],
+      "title": "SavedEvidenceLink",
+      "type": "object"
+    },
+    "SourceSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceHandle": {
+          "maxLength": 16,
+          "pattern": "^s[1-9][0-9]*$",
+          "title": "Sourcehandle",
+          "type": "string"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startline"
+        },
+        "endLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endline"
+        }
+      },
+      "required": [
+        "sourceHandle"
+      ],
+      "title": "SourceSelection",
+      "type": "object"
+    },
+    "ValidationSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Basis",
+          "type": "string"
+        },
+        "counterexampleChecked": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Counterexamplechecked",
+          "type": "string"
+        },
+        "counterexampleHolds": {
+          "title": "Counterexampleholds",
+          "type": "boolean"
+        },
+        "assumptionsResolved": {
+          "title": "Assumptionsresolved",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "basis",
+        "counterexampleChecked",
+        "counterexampleHolds",
+        "assumptionsResolved"
+      ],
+      "title": "ValidationSummary",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "validationVersion": {
+      "const": "POSITION_V1",
+      "title": "Validationversion",
+      "type": "string"
+    },
+    "validations": {
+      "items": {
+        "$ref": "#/$defs/PassPositionValidation"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Validations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "validationVersion",
+    "validations"
+  ],
+  "title": "PassPositionValidationBatch",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-position-validation-multipass-v1.schema.json"
+}
