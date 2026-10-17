@@ -373,7 +373,12 @@ class ReviewResultV3(StrictModel):
         from review_harness.application.report import render_multipass_report
 
         expected = render_multipass_report(
-            self.passResults, self.findings, self.coverageStatus
+            self.passResults,
+            self.findings,
+            self.coverageStatus,
+            locale="en"
+            if self.reportDraft.markdown.startswith("# Multi-pass review draft\n\n")
+            else "zh-CN",
         )
         if self.reportDraft != expected:
             raise ValueError("Report must match structured pass facts and findings")

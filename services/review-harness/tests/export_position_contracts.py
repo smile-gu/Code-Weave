@@ -9,9 +9,11 @@ from review_harness.domain.position import (
     PositionReviewState,
     PositionValidationBatch,
 )
+from review_harness.domain.source_submission import SourceInvestigation
 
 ROOT = Path(__file__).resolve().parents[3] / "contracts/schemas"
 MODELS = {
+    "review-source-investigation-v1": SourceInvestigation,
     "review-graph-state-v5": PositionReviewState,
     "review-graph-state-v6": PositionMultipassState,
     "review-position-validation-v1": PositionValidationBatch,

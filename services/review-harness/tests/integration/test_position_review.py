@@ -24,6 +24,11 @@ from tests.snapshot_fixture import publish_snapshot
         "c11-corrected",
         "c11-core",
         "multipass",
+        "multipass-source-intake",
+        "source-intake",
+        "source-storage-failure",
+        "source-checkpoint-unconfirmed",
+        "self-partial",
         "bad-user-quote",
         "provenance-change",
         "unchanged-field",
@@ -43,6 +48,11 @@ from tests.snapshot_fixture import publish_snapshot
 async def test_position_protocol_uses_original_fields_and_preserves_delivery_gates(
     database, tmp_path, payload, mode
 ):
+    use_source_intake = mode.startswith("source-") or mode == "multipass-source-intake"
+    if mode == "multipass-source-intake":
+        mode = "multipass"
+    if mode in {"source-storage-failure", "source-checkpoint-unconfirmed"}:
+        mode = mode.removeprefix("source-")
     settings = settings_for(database, tmp_path).model_copy(
         update={
             "execution_mode": "REAL",
@@ -104,6 +114,10 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
 
     async def server(request):
         data = json.loads(request.content)
+        assert (
+            "Report language: Simplified Chinese (zh-CN)"
+            in data["messages"][0]["content"]
+        )
         requests.append(data)
         reply = response()
         choice = reply["choices"][0]
@@ -304,11 +318,21 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
                     ],
                     "checkedScope": ["src/Demo.java"],
                     "scopeKind": "FINAL_FILES",
-                    "coverage": "FULL",
+                    "coverage": "PARTIAL" if mode == "self-partial" else "FULL",
                     "limitations": ["Only fixed source inspected"],
                     "incompleteReasons": [],
                 }
             )
+            if use_source_intake:
+                value = json.loads(choice["message"]["content"])
+                value["submissionVersion"] = "SOURCE_V1"
+                value.pop("evidenceCandidates")
+                value["candidates"][0].pop("evidenceLinks")
+                value["candidates"][0].pop("codeSelections")
+                value["candidates"][0]["location"] = selection
+                value["candidates"][0]["supportingSources"] = []
+                choice["message"]["content"] = json.dumps(value)
+                assert "SOURCE_V1" in data["messages"][0]["content"]
         return httpx.Response(200, stream=httpx.ByteStream(canonical(reply)))
 
     app = create_app(settings, provider_transport=httpx.MockTransport(server))
@@ -365,6 +389,16 @@ async def test_position_protocol_uses_original_fields_and_preserves_delivery_gat
             return
         assert status["status"] == "SUCCEEDED", status
         result = (await client.get(url + "/result")).json()
+        if mode == "self-partial":
+            assert result["passResults"][0]["status"] == "INCOMPLETE"
+            assert (
+                "REVIEW_COVERAGE_PARTIAL"
+                in result["passResults"][0]["incompleteReasons"]
+            )
+            assert (
+                "SOURCE_COVERAGE_PARTIAL"
+                not in result["passResults"][0]["incompleteReasons"]
+            )
         if mode in {"core", "benign", "c11-core"}:
             assert result["findings"] == []
         else:

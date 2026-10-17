@@ -46,6 +46,7 @@ from review_harness.domain.review import (
     ValidationBatch,
 )
 from review_harness.domain.snapshot import WorkCancelled
+from review_harness.domain.source_submission import SourceInvestigation
 from review_harness.domain.submission import SubmissionIssue
 from review_harness.runtime.compaction import Compactor
 from review_harness.runtime.provider_profile import PROFILE
@@ -116,6 +117,17 @@ LOCAL_SUBMISSION = (
     + SCOPE_INSTRUCTION
     + " Schema: "
     + canonical(LocalInvestigation.model_json_schema()).decode()
+)
+SOURCE_SUBMISSION = (
+    "Return exactly one JSON object with submissionVersion=SOURCE_V1. "
+    "For each candidate give one code location using an observed sourceHandle and inclusive line range, "
+    "plus supportingSources only when additional original material is needed. "
+    "The platform creates Evidence, IDs and associations; never output evidenceCandidates, evidenceLinks, codeSelections or UUIDs. "
+    "Use only sources observed in the active Pass; do not claim unseen ranges. "
+    "Source availability and static-review limitations are different: no test execution alone does not imply missing source pages. "
+    + SCOPE_INSTRUCTION
+    + " Schema: "
+    + canonical(SourceInvestigation.model_json_schema()).decode()
 )
 LOCAL_VALIDATION = (
     "Validate candidates independently, every candidate in candidateMaterials exactly once by candidateHandle. "
@@ -355,7 +367,30 @@ class RealReviewExecutor:
             if response.toolCalls:
                 raise graph_error("PROVIDER_RESPONSE_INVALID")
             try:
-                submission = parse_submission(response.content, model)
+                if model is SourceInvestigation:
+                    # Historical strict payloads remain readable, never used as
+                    # a fallback for a malformed explicitly versioned intake.
+                    try:
+                        raw = strict_json(response.content, limit=65536)
+                    except (ValueError, TypeError):
+                        # Let the normal parser produce precise JSON diagnostics.
+                        raw = {"submissionVersion": None}
+                    intake_model = (
+                        SourceInvestigation
+                        if isinstance(raw, dict) and "submissionVersion" in raw
+                        else PassInvestigation
+                        if isinstance(state, MultipassState)
+                        else LocalInvestigation
+                    )
+                    submission = parse_submission(response.content, intake_model)
+                    if isinstance(submission, SourceInvestigation):
+                        from review_harness.application.source_submission import (
+                            compile_sources,
+                        )
+
+                        submission = compile_sources(state, submission)
+                else:
+                    submission = parse_submission(response.content, model)
                 if purpose == "DEDUP":
                     if len(set(submission.candidateHandles)) != len(
                         submission.candidateHandles
@@ -453,13 +488,22 @@ class RealReviewExecutor:
                     {
                         "platformSubmissionFeedback": issue.diagnostic(),
                         "diagnosticArtifactRef": diagnostic.model_dump(),
-                        "instruction": "Correct only the rejected submission using trusted evidenceReferences. Nothing in this submission was published.",
+                        "instruction": (
+                            "Correct the complete SOURCE_V1 object using allowedHandles.sources for location/supportingSources. "
+                            "The platform creates Evidence and links; do not submit evidenceCandidates/evidenceLinks/codeSelections. Nothing was published."
+                            if model is SourceInvestigation
+                            else "Correct only the rejected submission using trusted evidenceReferences. Nothing in this submission was published."
+                        ),
                         **correction_feedback,
                         **(
                             {
                                 "allowedHandles": {
                                     "sources": [
-                                        s.view() for s in state.handleRegistry.sources
+                                        s.view()
+                                        for s in state.handleRegistry.sources
+                                        if model is not SourceInvestigation
+                                        or not isinstance(state, MultipassState)
+                                        or s.passId == state.activePass
                                     ],
                                     "evidence": [
                                         e.evidenceHandle
@@ -1206,14 +1250,12 @@ class RealReviewExecutor:
         reasons = list(submission.incompleteReasons if submission else [])
         if budget_error:
             reasons.append(budget_error)
-        if (
-            coverage != "FULL"
-            or (
-                kind == "FINAL_FILES"
-                and any(inspections.get(p) != "FULL" for p in checked)
-            )
-            or (kind == "FIXED_DIFF" and not state.diffCompleted)
-        ):
+        source_partial = (
+            kind == "FINAL_FILES" and any(inspections.get(p) != "FULL" for p in checked)
+        ) or (kind == "FIXED_DIFF" and not state.diffCompleted)
+        if coverage != "FULL" and uses_positions(state):
+            reasons.append("REVIEW_COVERAGE_PARTIAL")
+        if source_partial or (coverage != "FULL" and not uses_positions(state)):
             coverage = "PARTIAL"
             reasons.append("SOURCE_COVERAGE_PARTIAL")
         if not checked:
@@ -1251,7 +1293,12 @@ class RealReviewExecutor:
                 "coverage": coverage,
                 "limitations": submission.limitations
                 if submission
-                else ["Investigation stopped at the platform budget."],
+                else [
+                    "模型提交未通过校验；未验证的候选问题未予发布。"
+                    if budget_error
+                    and budget_error.startswith("MODEL_OUTPUT_REJECTED_")
+                    else "调查因平台预算限制而停止。"
+                ],
                 "incompleteReasons": sorted(set(reasons)),
                 "unvalidatedCandidates": unvalidated,
                 "findingIds": [f.findingId for f in findings],
@@ -1319,12 +1366,16 @@ class RealReviewExecutor:
                 context,
                 self._step(self.engine.state_type.model_validate(channels["state"])),
                 signal,
-                PassInvestigation
+                SourceInvestigation
+                if uses_positions(self.last_state)
+                else PassInvestigation
                 if isinstance(self.last_state, MultipassState)
                 else LocalInvestigation
                 if "handleRegistry" in self.engine.state_type.model_fields
                 else InvestigationSubmission,
-                LOCAL_SUBMISSION
+                SOURCE_SUBMISSION
+                if uses_positions(self.last_state)
+                else LOCAL_SUBMISSION
                 if "handleRegistry" in self.engine.state_type.model_fields
                 else SUBMISSION,
                 apply_submission=True,

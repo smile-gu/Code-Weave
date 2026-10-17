@@ -253,7 +253,17 @@ async def test_pass_facts_are_serial_and_events_commit_with_their_sequence(
     assert (await runs.get_run(payload["runId"])).last_event_sequence == 4
 
 
-@pytest.mark.parametrize("find_candidates", [False, True, "old-source-correction"])
+@pytest.mark.parametrize(
+    "find_candidates",
+    [
+        False,
+        True,
+        "old-source-correction",
+        "submission-rejected",
+        "candidate-rejected",
+        "fatal-storage",
+    ],
+)
 async def test_six_passes_use_fresh_views_and_real_fee_mock_transport(
     database, payload, workspaces, tmp_path, find_candidates
 ):
@@ -278,6 +288,11 @@ async def test_six_passes_use_fresh_views_and_real_fee_mock_transport(
     from tests.snapshot_fixture import publish_snapshot
 
     source = "class Demo { int value(Integer x) { return x.intValue(); } }\n"
+    rejected_pass = find_candidates in {"submission-rejected", "candidate-rejected"}
+    generate_candidates = bool(find_candidates) and find_candidates not in {
+        "submission-rejected",
+        "fatal-storage",
+    }
     payload["snapshot"]["snapshotId"] = str(uuid4())
     publish_snapshot(
         workspaces.settings.snapshot_root, payload, {"src/Demo.java": source.encode()}
@@ -325,6 +340,8 @@ async def test_six_passes_use_fresh_views_and_real_fee_mock_transport(
                     "rationale": "Same source, trigger and guard fix",
                 }
             ).decode()
+        elif rejected_pass and phase == "security" and "response_format" in data:
+            choice["message"]["content"] = '{"invalid":'
         elif count == 1:
             assert not any(
                 "prior-pass-private-thought" in (m.get("content") or "")
@@ -357,7 +374,7 @@ async def test_six_passes_use_fresh_views_and_real_fee_mock_transport(
                 "prior-pass-private-thought: inspected finite source"
             )
         elif (
-            find_candidates
+            generate_candidates
             and "PassLocalValidationBatch" in data["messages"][0]["content"]
         ):
             c = anchors["candidates"][0]
@@ -400,7 +417,7 @@ async def test_six_passes_use_fresh_views_and_real_fee_mock_transport(
                 "limitations": ["Static mock only"],
                 "incompleteReasons": [],
             }
-            if find_candidates:
+            if generate_candidates:
                 code = next(
                     s
                     for s in anchors["sourceCatalog"]
@@ -482,24 +499,63 @@ async def test_six_passes_use_fresh_views_and_real_fee_mock_transport(
         state_type=MultipassState,
     )
     executor = MultipassExecutor(engine, evidence, PassStore(database, runs), ledger)
+    if find_candidates == "fatal-storage":
+        execute_pass = executor.investigator.execute
+
+        async def uncertain_storage(context, signal, *, state):
+            from review_harness.domain.graph import graph_error
+
+            if state.activePass == "security":
+                raise graph_error("EVIDENCE_STORE_WRITE_UNCERTAIN")
+            return await execute_pass(context, signal, state=state)
+
+        executor.investigator.execute = uncertain_storage
     try:
+        if find_candidates == "fatal-storage":
+            from review_harness.domain.model import HarnessError
+
+            with pytest.raises(HarnessError, match="EVIDENCE_STORE_WRITE_UNCERTAIN"):
+                await executor.execute(context, signal)
+            assert {phase for phase, _ in sent} == {"correctness", "consistency"}
+            return
         package = await executor.execute(context, signal)
-        assert [p.status for p in package.passResults] == ["COMPLETED"] * 6
+        assert [p.status for p in package.passResults] == (
+            [
+                "COMPLETED",
+                "COMPLETED",
+                "INCOMPLETE",
+                "COMPLETED",
+                "COMPLETED",
+                "COMPLETED",
+            ]
+            if rejected_pass
+            else ["COMPLETED"] * 6
+        )
+        if rejected_pass:
+            assert (
+                "MODEL_OUTPUT_REJECTED_PROVIDER_STRUCTURED_OUTPUT_INVALID"
+                in package.passResults[2].incompleteReasons
+            )
+            assert package.coverageStatus == "SELECTED_INCOMPLETE"
         corrected = find_candidates == "old-source-correction"
         expected_order = []
         for phase in package.reviewPlan.selectedPasses:
-            count = 4 if find_candidates else 3
+            count = 4 if generate_candidates else 3
+            if rejected_pass and phase == "security":
+                count = (
+                    5  # read, ready, initial rejection + two corrections; no validation
+                )
             if corrected and phase == "consistency":
                 count += 1
             expected_order.extend([phase] * count)
-        if find_candidates:
+        if generate_candidates:
             expected_order.append("testing")  # Dedup has its own paid-call phase.
         assert [phase for phase, _ in sent] == expected_order
         assert len(set(first_handles)) == 6
         assert package.diagnostics.feeSummary.spentMicros > 0
-        assert len(package.findings) == (1 if find_candidates else 0)
-        if find_candidates:
-            assert len(package.findings[0].contributions) == 6
+        assert len(package.findings) == (1 if generate_candidates else 0)
+        if generate_candidates:
+            assert len(package.findings[0].contributions) == (5 if rejected_pass else 6)
             assert package.diagnostics.dedupUsage.modelCalls == 1
         await executor.cleanup(context)
         await workspaces.cleanup(run)

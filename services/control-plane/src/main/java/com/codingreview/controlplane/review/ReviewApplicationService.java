@@ -188,6 +188,16 @@ public final class ReviewApplicationService {
 
     public Map<String, Object> view(ReviewExecution run) {
         var view = run.wire();
+        if (run.state().equals("FAILED") && run.diagnosticCode() == null) {
+            for (long sequence = run.eventCursor(); sequence > 0; sequence--) {
+                var event = ReviewProtocol.event(
+                        store.event(run, sequence), run.runId(), ReviewProtocol.protocolVersion(run));
+                if (event.path("eventType").asText().equals("REVIEW_RUN_FAILED")) {
+                    view.put("diagnosticCode", event.path("payload").path("failure").path("code").asText());
+                    break;
+                }
+            }
+        }
         if (ReviewProtocol.protocolVersion(run).equals("1.1")) {
             view.put(
                     "selectedPasses",

@@ -8,6 +8,7 @@ from review_harness.domain.graph import graph_error
 from review_harness.domain.model import HarnessError, canonical, sha256, utc_now
 from review_harness.domain.multipass import ReviewResultV3
 from review_harness.domain.multipass_state import MultipassState
+from review_harness.domain.submission import SubmissionIssue
 from review_harness.runtime.provider_profile import PROFILE
 from review_harness.runtime.review import RealReviewExecutor
 
@@ -98,6 +99,15 @@ class MultipassExecutor:
                     outcome = await self.investigator.execute(
                         context, signal, state=state
                     )
+            except SubmissionIssue as error:
+                # Only rejected model input is degradable. Storage/identity,
+                # unknown dispatch, cancellation and resource faults still raise.
+                outcome = await self.investigator._finish(
+                    context,
+                    self.investigator.last_state or state,
+                    signal,
+                    budget_error="MODEL_OUTPUT_REJECTED_" + error.code,
+                )
             except HarnessError as error:
                 if error.code not in {
                     "RUN_TIME_BUDGET_EXHAUSTED",
