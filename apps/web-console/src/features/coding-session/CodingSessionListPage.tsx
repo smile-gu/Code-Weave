@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Clock3, FolderGit2, Info, MessagesSquare, ShieldCheck } from 'lucide-react'
+import { ArrowRight, Clock3, FolderGit2, Info, MessagesSquare, ShieldCheck, Layers2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError } from '../../shared/api/http'
 import { createCodingSession, getRecentCodingSessions } from '../../shared/api/sessionApi'
@@ -61,27 +61,29 @@ export function CodingSessionListPage() {
     <div className="session-home">
       <section className="session-hero">
         <div>
-          <p className="eyebrow">CONTINUOUS CODING</p>
-          <h1>为持续开发准备<br />一个稳定工作区</h1>
+          <span className="welcome-mark"><Layers2 size={30} /></span>
+          <p className="eyebrow">YOUR CODE. A SECOND PERSPECTIVE.</p>
+          <h1>从一次有依据的修改开始</h1>
           <p>
-            Session 直接绑定真实 Git 工作区。后续每轮 Coding、Review 和整改都在同一仓库与会话上下文中衔接。
+            让 Coding 专注实现，让 Review 独立求证。<br />在同一个工作区里，把想法推进为经过审阅的代码。
           </p>
         </div>
         <div className="boundary-note session-boundary">
           <Info size={18} />
           <div>
-            <strong>当前阶段边界</strong>
+            <strong>你的代码，始终由你掌控</strong>
             <p>Coding Agent 会直接修改所选仓库；同一仓库同时只允许一个活跃 Session。</p>
           </div>
         </div>
       </section>
 
       <div className="session-grid">
-        <section className="form-panel session-form-panel">
+        <section className="form-panel session-form-panel" id="new-session">
           <div className="section-heading">
             <span><MessagesSquare size={16} /> 创建持续会话</span>
             <small>一个 Session 对应一个真实 Git 工作区</small>
           </div>
+          <p className="workspace-create-safety">直接绑定真实 Git 仓库；Coding 会修改源码。同一仓库仅允许一个活跃会话，不会自动提交或推送。</p>
           <form onSubmit={submit}>
             <label>
               <span>会话名称 <small>可选</small></span>

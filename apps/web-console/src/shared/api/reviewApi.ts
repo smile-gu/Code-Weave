@@ -1,5 +1,23 @@
 import { request } from './http'
 
+export type ReviewScope = { activeBaselineCommit: string; headCommit: string; branch: string; workspaceFingerprint: string; changedPaths: string[] }
+export type ReviewPrice = { digest: string; priceProfile: { priceProfileId: string; model: string; currency: string; inputCnyPerMillion: string; outputCnyPerMillion: string; expiresAt: string } }
+export function previewReview(sessionId: string) {
+  return request<ReviewScope>(`/api/v1/coding-sessions/${encodeURIComponent(sessionId)}/review-scope-preview`)
+}
+export function readReviewPrice(sessionId: string) {
+  return request<ReviewPrice>(`/api/v1/coding-sessions/${encodeURIComponent(sessionId)}/review-price-profile`)
+}
+export function startReview(sessionId: string, scope: ReviewScope, selectedPasses: string[], message: string, maxAmount: string, price: ReviewPrice) {
+  return request<ReviewRun>(`/api/v1/coding-sessions/${encodeURIComponent(sessionId)}/review-runs`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ expectedActiveBaselineCommit: scope.activeBaselineCommit, expectedHeadCommit: scope.headCommit,
+      expectedBranch: scope.branch, expectedWorkspaceFingerprint: scope.workspaceFingerprint, targetPaths: scope.changedPaths,
+      input: { message }, selectedPasses, feeAuthorization: { authorizationId: crypto.randomUUID(), currency: 'CNY', maxAmount,
+        confirmedAt: new Date().toISOString().replace(/(\.\d{3})Z$/, '$1000Z'), priceProfileId: price.priceProfile.priceProfileId, priceProfileDigest: price.digest } }),
+  })
+}
+
 export type ReviewRun = {
   runId: string
   snapshotId: string

@@ -42,7 +42,7 @@ describe('ReviewReportEditor', () => {
   fireEvent.change(screen.getByLabelText('裁决 1'), { target: { value: 'APPROVED_FOR_FIX' } })
   fireEvent.click(screen.getByRole('button', { name: '保存为新版本' }))
   await waitFor(() => expect(screen.getByText(/报告版本 2/)).toBeInTheDocument())
-  expect(screen.getByText(/原始等级：RISK/)).toBeInTheDocument()
+  expect(screen.getByText(/原始判断：待确认风险/)).toBeInTheDocument()
   const approve = screen.getByRole('button', { name: '保存批准选择' }); expect(approve).toBeDisabled()
   fireEvent.click(screen.getByLabelText('选择交付：Human title')); expect(approve).toBeDisabled()
   fireEvent.click(screen.getByLabelText('我确认本报告只有有限或不完整覆盖'))

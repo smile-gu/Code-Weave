@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { App } from './app/App'
 import './app/styles.css'
 import 'react-diff-view/style/index.css'
+import './app/workspace.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {

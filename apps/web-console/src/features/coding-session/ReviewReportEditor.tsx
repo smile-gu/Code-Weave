@@ -1,4 +1,5 @@
 import { ReviewHandoffPanel } from './ReviewHandoffPanel'
+import { reviewLabel } from './reviewLabels'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { ApiError } from '../../shared/api/http'
@@ -34,7 +35,7 @@ function RevisionForm({ view, disabled, requiresAcknowledgement, onIntent }: { v
     <small>人工修订保留原始等级、证据和假设。原报告仍可在下方查看。</small>
     {reviews.length === 0 && <p>没有可批准的 Finding，可关闭本次人工审阅。</p>}
     {reviews.map((item, index) => <fieldset key={item.findingId} disabled={readOnly}>
-      <legend>问题 {index + 1} · 原始等级：{item.originalDisposition}</legend>
+      <legend>问题 {index + 1} · 原始判断：{reviewLabel(item.originalDisposition)}</legend>
       <label>标题 {index + 1}<input aria-label={`标题 ${index + 1}`} value={item.title} onChange={e => update(index, 'title', e.target.value)} /></label>
       <label>描述 {index + 1}<textarea aria-label={`描述 ${index + 1}`} value={item.description} onChange={e => update(index, 'description', e.target.value)} /></label>
       <label>修改要求 {index + 1}<textarea aria-label={`修改要求 ${index + 1}`} value={item.fixInstructions} onChange={e => update(index, 'fixInstructions', e.target.value)} /></label>

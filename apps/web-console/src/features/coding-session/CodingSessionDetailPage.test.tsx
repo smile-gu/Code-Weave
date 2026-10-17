@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   advanceReviewBaseline,
+  submitCodingTurn,
   closeCodingSession,
   getCodingSession,
   getCodingSessionChanges,
@@ -161,6 +162,7 @@ describe('CodingSessionDetailPage', () => {
 
     expect(await screen.findByText('持续 Coding')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('告诉 Coding Agent 下一步要完成什么')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '模块交付' }))
     expect(await screen.findByText(/当前模块尚无通过基础验证的 Coding 结果/)).toBeInTheDocument()
     expect(screen.getByText(/Review、问题修复和最终自测全部完成后/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '确认模块提交并开始下一模块' })).toBeDisabled()
@@ -186,7 +188,23 @@ describe('CodingSessionDetailPage', () => {
     renderPage()
 
     expect(await screen.findByText(/已检测到 main 上的模块提交，其中 2 个文件/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '模块交付' }))
     expect(screen.getByRole('button', { name: '确认模块提交并开始下一模块' })).toBeEnabled()
+  })
+
+  it('preserves the unsent Coding draft across views without dispatching a Turn', async () => {
+    renderPage()
+    await screen.findByText('用户模块持续开发')
+    const draft = screen.getByPlaceholderText('告诉 Coding Agent 下一步要完成什么')
+    fireEvent.change(draft, { target: { value: '尚未发送的实现计划' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Review 审阅' }))
+    expect(screen.getByRole('button', { name: 'Review 审阅' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '代码变更' }))
+    expect(screen.getByText('当前累计代码变更')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Coding 对话' }))
+    expect(screen.getByPlaceholderText('告诉 Coding Agent 下一步要完成什么')).toHaveValue('尚未发送的实现计划')
+    expect(submitCodingTurn).not.toHaveBeenCalled()
   })
 
   it('renders assistant Markdown and the aggregated five-stage workflow', async () => {

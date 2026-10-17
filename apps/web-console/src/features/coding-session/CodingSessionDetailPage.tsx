@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle2, CircleAlert, FolderGit2, GitCommitHorizontal, RefreshCw, Send, Square } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, CircleAlert, FolderGit2, GitCommitHorizontal, RefreshCw, Send, Square, MessageSquare, ShieldCheck, FileDiff } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
@@ -78,6 +78,7 @@ export function CodingSessionDetailPage() {
     },
   })
   const [prompt, setPrompt] = useState('')
+  const [workspaceTab, setWorkspaceTab] = useState<'coding' | 'review' | 'changes' | 'baseline'>('coding')
   const submitMutation = useMutation({
     mutationFn: () => submitCodingTurn(sessionId, prompt),
     onSuccess: () => {
@@ -196,6 +197,15 @@ export function CodingSessionDetailPage() {
         <code title={session.sourceRepository}>{session.sourceRepository}</code>
       </section>
 
+      <nav className="workspace-view-tabs" aria-label="会话视图">
+        {([
+          ['coding', 'Coding 对话', MessageSquare], ['review', 'Review 审阅', ShieldCheck],
+          ['changes', '代码变更', FileDiff], ['baseline', '模块交付', GitCommitHorizontal],
+        ] as const).map(([value, label, Icon]) => <button key={value} type="button" aria-pressed={workspaceTab === value} aria-controls={`workspace-${value}`} onClick={() => setWorkspaceTab(value)}><Icon size={16} />{label}{value === 'coding' && activeTurn && <span className="tab-running-dot" />}</button>)}
+        <span className="workspace-view-note">独立审查 · 人工裁决</span>
+      </nav>
+
+      <div id="workspace-coding" hidden={workspaceTab !== 'coding'}>
       <section className="coding-conversation">
         <header className="conversation-heading">
           <span><CheckCircle2 size={18} /> 持续 Coding</span>
@@ -221,6 +231,7 @@ export function CodingSessionDetailPage() {
             </article>
           )) : (
             <div className="conversation-empty">
+              <span className="conversation-empty-mark"><MessageSquare size={25} /></span>
               <strong>开始第一次协作</strong>
               <p>在下方描述任务，Coding Agent 的执行过程和回复会连续展示在这里。</p>
             </div>
@@ -252,15 +263,24 @@ export function CodingSessionDetailPage() {
           </form>
         )}
       </section>
+      </div>
 
-      <ReviewDraftPanel key={sessionId} sessionId={sessionId} sessionActive={session.status === 'ACTIVE'} />
+      <div id="workspace-review" hidden={workspaceTab !== 'review'}>
+      <ReviewDraftPanel key={sessionId} sessionId={sessionId} sessionActive={session.status === 'ACTIVE'} codingActive={Boolean(activeTurn)} />
+      </div>
 
+      <div id="workspace-changes" hidden={workspaceTab !== 'changes'}>
+      {session.status === 'CLOSED' && <p className="workspace-empty-note">会话已关闭，不读取可能已经变化的工作区 Diff。</p>}
+      {session.status === 'ACTIVE' && activeTurn && <p className="workspace-empty-note">Coding 正在执行，结束后再读取累计变更。</p>}
       {session.status === 'ACTIVE' && changesQuery.isLoading && <section className="session-changes"><p>正在读取累计代码变更…</p></section>}
       {session.status === 'ACTIVE' && changesQuery.data && <section className="session-changes">
           <header><strong>当前累计代码变更</strong><small>相对当前活动审查基线</small></header>
         <DiffPanel changes={changesQuery.data} />
       </section>}
+      {session.status === 'ACTIVE' && changesQuery.isError && <p className="error-text" role="status">无法读取累计变更：{changesQuery.error.message}</p>}
+      </div>
 
+      <div id="workspace-baseline" hidden={workspaceTab !== 'baseline'}>
       {session.status === 'ACTIVE' && <section className="merge-panel">
         <GitCommitHorizontal size={21} />
         <div>
@@ -269,7 +289,7 @@ export function CodingSessionDetailPage() {
             ? `已检测到 ${baselineReadinessQuery.data.branch} 上的模块提交，其中 ${baselineReadinessQuery.data.changedFiles} 个文件与最近一次 Coding 验证结果一致。`
             : `当前模块暂不能归档：${baselineReadinessQuery.data?.blockers.map((code) => baselineBlockerLabels[code] ?? code).join('、') ?? '正在检查'}。`}</p>
           <p>请在 Review、问题修复和最终自测全部完成后，只为当前模块创建一次正式 Git Commit。平台不会自动提交或推送代码。</p>
-          <p>报告为只读草稿；Review 与最终自测是否完成仍由你确认，平台校验提交来源和代码指纹。</p>
+          <p>原始 Result 保持只读，人工修订独立存储；Review 与最终自测是否完成仍由你确认，平台校验提交来源和代码指纹。</p>
           <button type="button" className="secondary-button"
             disabled={baselineReadinessQuery.isFetching}
             onClick={() => void baselineReadinessQuery.refetch()}>
@@ -287,6 +307,8 @@ export function CodingSessionDetailPage() {
           {advanceBaselineMutation.isError && <p className="error-text">{advanceBaselineMutation.error.message}</p>}
         </div>
       </section>}
+      {session.status === 'CLOSED' && <p className="workspace-empty-note">已关闭的会话只保留历史，不推进活动基线。</p>}
+      </div>
     </div>
   )
 }
