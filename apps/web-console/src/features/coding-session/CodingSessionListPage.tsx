@@ -66,6 +66,17 @@ export function CodingSessionListPage() {
           <h1><span>让每一次代码变更，</span><span>清晰可控。</span></h1>
           <p>连接本地仓库，开始开发、审查与修复。</p>
         </div>
+        <div className="tech-hero-art" aria-hidden="true">
+          <svg viewBox="0 0 280 180" fill="none">
+            <path className="tech-trace-muted" d="M20 90 140 20 260 90 140 160Z" />
+            <path className="tech-trace-muted" d="m20 110 120 70 120-70M20 70l120-70 120 70" />
+            <path className="tech-trace" d="m64 90 76-44 76 44-76 44Z" />
+            <path className="tech-trace" d="m100 69 40 23 40-23m-80 42 40-23 40 23M140 46v24m0 40v24" />
+            <path className="tech-trace-bright" d="m109 80-17 10 17 10m62-20 17 10-17 10m-23-28-16 36" />
+            <circle cx="140" cy="20" r="3" className="tech-node" /><circle cx="20" cy="90" r="3" className="tech-node" /><circle cx="260" cy="90" r="3" className="tech-node" />
+          </svg>
+          <span className="tech-scan-beam" />
+        </div>
         <div className="boundary-note session-boundary">
           <Info size={18} />
           <div>

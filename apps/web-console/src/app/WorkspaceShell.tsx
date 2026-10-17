@@ -14,7 +14,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const sessions = useQuery({ queryKey: ['coding-sessions'], queryFn: () => getRecentCodingSessions(20), retry: false })
   const visible = sessions.data?.sessions.filter(session => `${session.title} ${session.sourceRepository}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())) ?? []
 
-  return <div className={`app-shell weave-workspace${collapsed ? ' sidebar-collapsed' : ''}`}>
+  return <div className={`app-shell weave-workspace tech-theme${collapsed ? ' sidebar-collapsed' : ''}`}>
     <a className="skip-link" href="#workspace-main">跳到工作区</a>
     <aside className="workspace-sidebar" aria-label="会话导航">
       <div className="sidebar-brand-row">

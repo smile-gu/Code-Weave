@@ -7,6 +7,7 @@ import { App } from './app/App'
 import './app/styles.css'
 import 'react-diff-view/style/index.css'
 import './app/workspace.css'
+import './app/tech-theme.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {
