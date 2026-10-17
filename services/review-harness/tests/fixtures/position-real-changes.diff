@@ -1,0 +1,20 @@
+diff --git a/src/main/java/acceptance/TextLengths.java b/src/main/java/acceptance/TextLengths.java
+index 2ba32d1..e8e56f6 100644
+--- a/src/main/java/acceptance/TextLengths.java
++++ b/src/main/java/acceptance/TextLengths.java
+@@ -7,12 +7,13 @@ public final class TextLengths {
+ 
+     /** Null is an allowed input and must return zero. */
+     public static int nullableLength(String text) {
+-        return text == null ? 0 : text.length();
++        return text.length();
+     }
+ 
+     /** Null is invalid and must throw NullPointerException. */
+     public static int requiredLength(String text) {
+         Objects.requireNonNull(text, "text");
+-        return text.length();
++        int length = text.length();
++        return length;
+     }
+ }

@@ -1,11 +1,27 @@
 import { useMemo } from 'react'
 import { Diff, Hunk, parseDiff } from 'react-diff-view'
 import { FileCode2 } from 'lucide-react'
-import type { RunChanges } from '../../shared/api/types'
+import type { WorkspaceChanges } from '../../shared/api/types'
+
+/** 去除 Git 写入 Diff 正文之前的诊断信息，兼容已经产生的历史 Run。 */
+export function normalizeUnifiedDiff(unifiedDiff: string) {
+  const headerIndex = unifiedDiff.search(/^diff --git /m)
+  return headerIndex > 0 ? unifiedDiff.slice(headerIndex) : unifiedDiff
+}
 
 /** 使用成熟 Unified Diff 组件展示本次 Run 的代码修改。 */
-export function DiffPanel({ changes }: { changes: RunChanges }) {
-  const parsedFiles = useMemo(() => parseDiff(changes.unifiedDiff), [changes.unifiedDiff])
+export function DiffPanel({ changes }: { changes: WorkspaceChanges }) {
+  const parsed = useMemo(() => {
+    const normalizedDiff = normalizeUnifiedDiff(changes.unifiedDiff)
+    if (!/^diff --git /m.test(normalizedDiff)) {
+      return { files: [], failed: true }
+    }
+    try {
+      return { files: parseDiff(normalizedDiff), failed: false }
+    } catch {
+      return { files: [], failed: true }
+    }
+  }, [changes.unifiedDiff])
 
   if (changes.totalFiles === 0) {
     return <div className="empty-state">任务已完成变更采集，但没有发现文件修改。</div>
@@ -23,7 +39,12 @@ export function DiffPanel({ changes }: { changes: RunChanges }) {
         ))}
       </aside>
       <div className="diff-files">
-        {parsedFiles.map((file, index) => (
+        {parsed.failed && (
+          <div className="empty-state error-text">
+            代码变更已经采集完成，但 Diff 内容暂时无法解析。请查看变更文件列表或服务日志。
+          </div>
+        )}
+        {!parsed.failed && parsed.files.map((file, index) => (
           <section className="diff-file" key={`${file.oldPath}-${file.newPath}-${index}`}>
             <header>
               <FileCode2 size={16} />

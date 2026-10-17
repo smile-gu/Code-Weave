@@ -1,0 +1,140 @@
+{
+  "review-fee-budget-v1": {
+    "positive": {
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "reviewPlan": {
+        "planVersion": "1.0",
+        "selectedPasses": [
+          "correctness",
+          "consistency",
+          "security",
+          "performance",
+          "architecture",
+          "testing"
+        ],
+        "executionBudget": {
+          "maxModelCallsPerPass": 300,
+          "maxModelCallsPerRun": 2000,
+          "maxDedupCalls": 10,
+          "requestTimeoutSeconds": 120,
+          "passTimeoutSeconds": 1800,
+          "runTimeoutSeconds": 10800,
+          "summaryTimeoutSeconds": 600
+        },
+        "feeAuthorization": {
+          "authorizationId": "11111111-1111-4111-8111-111111111111",
+          "currency": "CNY",
+          "maxAmount": "8.000001",
+          "confirmedAt": "2026-10-13T09:00:00.000000Z",
+          "priceProfileId": "offline-deepseek-profile-v1",
+          "priceProfileDigest": "sha256:c6792ede6b00c5881f2d15d2fbfde53fc439b1a1ccf7686fa41b8fe1f89fd47d"
+        }
+      },
+      "priceProfile": {
+        "profileVersion": "1.0",
+        "priceProfileId": "offline-deepseek-profile-v1",
+        "provider": "DEEPSEEK",
+        "model": "deepseek-flash",
+        "currency": "CNY",
+        "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+        "sourceDocumentSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "verifiedAt": "2026-10-13T00:00:00.000000Z",
+        "expiresAt": "2099-01-01T00:00:00.000000Z",
+        "inputCnyPerMillion": "2",
+        "outputCnyPerMillion": "8"
+      },
+      "runStartedAt": "2026-10-13T09:00:00.000000Z",
+      "activePhase": "correctness",
+      "phaseStartedAt": "2026-10-13T09:00:00.000000Z",
+      "revision": 2,
+      "spentMicros": 0,
+      "reservedMicros": 34850,
+      "overrunMicros": 0,
+      "reservedCalls": 1,
+      "modelCalls": 0,
+      "phaseCalls": 0,
+      "dedupCalls": 0,
+      "stopReason": null
+    },
+    "negative": {
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "reviewPlan": {
+        "planVersion": "1.0",
+        "selectedPasses": [
+          "correctness",
+          "consistency",
+          "security",
+          "performance",
+          "architecture",
+          "testing"
+        ],
+        "executionBudget": {
+          "maxModelCallsPerPass": 300,
+          "maxModelCallsPerRun": 2000,
+          "maxDedupCalls": 10,
+          "requestTimeoutSeconds": 120,
+          "passTimeoutSeconds": 1800,
+          "runTimeoutSeconds": 10800,
+          "summaryTimeoutSeconds": 600
+        },
+        "feeAuthorization": {
+          "authorizationId": "11111111-1111-4111-8111-111111111111",
+          "currency": "CNY",
+          "maxAmount": "8.000001",
+          "confirmedAt": "2026-10-13T09:00:00.000000Z",
+          "priceProfileId": "offline-deepseek-profile-v1",
+          "priceProfileDigest": "sha256:c6792ede6b00c5881f2d15d2fbfde53fc439b1a1ccf7686fa41b8fe1f89fd47d"
+        }
+      },
+      "priceProfile": {
+        "profileVersion": "1.0",
+        "priceProfileId": "offline-deepseek-profile-v1",
+        "provider": "DEEPSEEK",
+        "model": "deepseek-flash",
+        "currency": "CNY",
+        "sourceUrl": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+        "sourceDocumentSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "verifiedAt": "2026-10-13T00:00:00.000000Z",
+        "expiresAt": "2099-01-01T00:00:00.000000Z",
+        "inputCnyPerMillion": "2",
+        "outputCnyPerMillion": "8"
+      },
+      "runStartedAt": "2026-10-13T09:00:00.000000Z",
+      "activePhase": "correctness",
+      "phaseStartedAt": "2026-10-13T09:00:00.000000Z",
+      "revision": 2,
+      "spentMicros": 0,
+      "reservedMicros": 34850,
+      "overrunMicros": 0,
+      "reservedCalls": 1,
+      "modelCalls": 0,
+      "phaseCalls": 0,
+      "dedupCalls": 0,
+      "stopReason": null,
+      "unexpected": true
+    }
+  },
+  "review-call-reservation-v1": {
+    "positive": {
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "modelCallId": "11111111-1111-4111-8111-111111111111",
+      "passId": "correctness",
+      "state": "RESERVED",
+      "reservedMicros": 34850,
+      "actualMicros": null,
+      "overrunMicros": 0,
+      "revision": 1
+    },
+    "negative": {
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "modelCallId": "11111111-1111-4111-8111-111111111111",
+      "passId": "correctness",
+      "state": "RESERVED",
+      "reservedMicros": 34850,
+      "actualMicros": null,
+      "overrunMicros": 0,
+      "revision": 1,
+      "unexpected": true
+    }
+  }
+}

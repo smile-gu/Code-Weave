@@ -1,0 +1,130 @@
+{
+  "$defs": {
+    "ExecutionContract": {
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "executionMode": {
+              "const": "SIMULATED"
+            },
+            "resultVersion": {
+              "const": "1.0"
+            }
+          }
+        },
+        {
+          "properties": {
+            "executionMode": {
+              "const": "REAL"
+            },
+            "resultVersion": {
+              "const": "2.0"
+            }
+          }
+        }
+      ],
+      "properties": {
+        "executionMode": {
+          "enum": [
+            "SIMULATED",
+            "REAL"
+          ],
+          "title": "Executionmode",
+          "type": "string"
+        },
+        "resultVersion": {
+          "enum": [
+            "1.0",
+            "2.0"
+          ],
+          "title": "Resultversion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "executionMode",
+        "resultVersion"
+      ],
+      "title": "ExecutionContract",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "const": "1.0",
+      "title": "Protocolversion",
+      "type": "string"
+    },
+    "configuredContract": {
+      "$ref": "#/$defs/ExecutionContract"
+    },
+    "status": {
+      "enum": [
+        "READY",
+        "NOT_READY"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "const": "DEEPSEEK",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Provider"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "const": "deepseek-flash",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Model"
+    },
+    "meterVersion": {
+      "anyOf": [
+        {
+          "const": "v4.1-2cba9e42-v1",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Meterversion"
+    },
+    "failureCodes": {
+      "items": {
+        "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Failurecodes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "configuredContract",
+    "status",
+    "provider",
+    "model",
+    "meterVersion",
+    "failureCodes"
+  ],
+  "title": "ReviewCapabilities",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-capabilities-v1.schema.json"
+}

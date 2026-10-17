@@ -1,0 +1,261 @@
+{
+  "$defs": {
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "contentSha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contentsha256"
+        },
+        "diffSha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diffsha256"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startline"
+        },
+        "endLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endline"
+        }
+      },
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "manifestVersion": {
+      "const": "1.1",
+      "default": "1.1",
+      "title": "Manifestversion",
+      "type": "string"
+    },
+    "modelCallId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Modelcallid",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Snapshotid",
+      "type": "string"
+    },
+    "manifestSha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Manifestsha256",
+      "type": "string"
+    },
+    "passId": {
+      "const": "correctness",
+      "title": "Passid",
+      "type": "string"
+    },
+    "investigationId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Investigationid",
+      "type": "string"
+    },
+    "modelId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Modelid",
+      "type": "string"
+    },
+    "callPurpose": {
+      "enum": [
+        "INVESTIGATION",
+        "COMPACTION",
+        "VALIDATION"
+      ],
+      "title": "Callpurpose",
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "title": "Staterevision",
+      "type": "integer"
+    },
+    "summaryVersion": {
+      "minimum": 0,
+      "title": "Summaryversion",
+      "type": "integer"
+    },
+    "sourceRefs": {
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "maxItems": 64,
+      "title": "Sourcerefs",
+      "type": "array"
+    },
+    "evidenceRefs": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Evidencerefs",
+      "type": "array"
+    },
+    "candidateRefs": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Candidaterefs",
+      "type": "array"
+    },
+    "toolSetDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Toolsetdigest",
+      "type": "string"
+    },
+    "requestDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Requestdigest",
+      "type": "string"
+    },
+    "meterId": {
+      "enum": [
+        "test-only-utf8-units",
+        "V41_REFERENCE_LOCAL_TOKENS"
+      ],
+      "title": "Meterid",
+      "type": "string"
+    },
+    "meterVersion": {
+      "enum": [
+        "1",
+        "v4.1-2cba9e42-v1"
+      ],
+      "title": "Meterversion",
+      "type": "string"
+    },
+    "estimatedInputTokens": {
+      "minimum": 0,
+      "title": "Estimatedinputtokens",
+      "type": "integer"
+    },
+    "inputBudget": {
+      "exclusiveMinimum": 0,
+      "title": "Inputbudget",
+      "type": "integer"
+    },
+    "reservedOutputTokens": {
+      "exclusiveMinimum": 0,
+      "title": "Reservedoutputtokens",
+      "type": "integer"
+    },
+    "protocolSafetyMargin": {
+      "exclusiveMinimum": 0,
+      "title": "Protocolsafetymargin",
+      "type": "integer"
+    },
+    "createdAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Createdat",
+      "type": "string"
+    },
+    "conservativeInputTokens": {
+      "minimum": 0,
+      "title": "Conservativeinputtokens",
+      "type": "integer"
+    },
+    "uncertaintyReserveTokens": {
+      "minimum": 1024,
+      "title": "Uncertaintyreservetokens",
+      "type": "integer"
+    },
+    "policyVersion": {
+      "const": "deepseek-compatible-budget-v1",
+      "title": "Policyversion",
+      "type": "string"
+    }
+  },
+  "required": [
+    "modelCallId",
+    "runId",
+    "snapshotId",
+    "manifestSha256",
+    "passId",
+    "investigationId",
+    "modelId",
+    "callPurpose",
+    "stateRevision",
+    "summaryVersion",
+    "sourceRefs",
+    "toolSetDigest",
+    "requestDigest",
+    "meterId",
+    "meterVersion",
+    "estimatedInputTokens",
+    "inputBudget",
+    "reservedOutputTokens",
+    "protocolSafetyMargin",
+    "createdAt",
+    "conservativeInputTokens",
+    "uncertaintyReserveTokens",
+    "policyVersion"
+  ],
+  "title": "CompatibleContextManifest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-context-manifest-v1.1.schema.json"
+}

@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "executionMode": {
+      "enum": [
+        "REAL",
+        "SIMULATED"
+      ],
+      "title": "Executionmode",
+      "type": "string"
+    },
+    "resultVersion": {
+      "const": "3.0",
+      "title": "Resultversion",
+      "type": "string"
+    }
+  },
+  "required": [
+    "executionMode",
+    "resultVersion"
+  ],
+  "title": "MultipassExecutionContract",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-execution-contract-v2.schema.json"
+}

@@ -1,0 +1,86 @@
+{
+  "$defs": {
+    "MultipassExecutionContract": {
+      "additionalProperties": false,
+      "properties": {
+        "executionMode": {
+          "enum": [
+            "REAL",
+            "SIMULATED"
+          ],
+          "title": "Executionmode",
+          "type": "string"
+        },
+        "resultVersion": {
+          "const": "3.0",
+          "title": "Resultversion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "executionMode",
+        "resultVersion"
+      ],
+      "title": "MultipassExecutionContract",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "const": "1.1",
+      "title": "Protocolversion",
+      "type": "string"
+    },
+    "configuredContract": {
+      "$ref": "#/$defs/MultipassExecutionContract"
+    },
+    "planVersions": {
+      "items": {
+        "const": "1.0",
+        "type": "string"
+      },
+      "maxItems": 1,
+      "minItems": 1,
+      "title": "Planversions",
+      "type": "array"
+    },
+    "feeReservation": {
+      "enum": [
+        "READY",
+        "NOT_READY"
+      ],
+      "title": "Feereservation",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "READY",
+        "NOT_READY"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "failureCodes": {
+      "items": {
+        "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Failurecodes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "configuredContract",
+    "planVersions",
+    "feeReservation",
+    "status",
+    "failureCodes"
+  ],
+  "title": "MultipassCapabilities",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-capabilities-v2.schema.json"
+}

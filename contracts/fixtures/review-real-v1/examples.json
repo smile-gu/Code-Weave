@@ -1,0 +1,385 @@
+{
+  "review-provider-request-v1": {
+    "positive": {
+      "model": "deepseek-flash",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply OK."
+        }
+      ],
+      "thinking": {
+        "type": "disabled"
+      },
+      "stream": false,
+      "max_tokens": 4096,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "description": "Read fixed source",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "title": "Path",
+                  "type": "string"
+                },
+                "startLine": {
+                  "default": 1,
+                  "minimum": 1,
+                  "title": "Startline",
+                  "type": "integer"
+                },
+                "maxLines": {
+                  "default": 200,
+                  "maximum": 1000,
+                  "minimum": 1,
+                  "title": "Maxlines",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path"
+              ],
+              "title": "ReadFile",
+              "type": "object"
+            }
+          }
+        }
+      ],
+      "tool_choice": "auto"
+    },
+    "negative": {
+      "model": "deepseek-flash",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Reply OK."
+        }
+      ],
+      "thinking": {
+        "type": "disabled"
+      },
+      "stream": false,
+      "max_tokens": 4096,
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "read_file",
+            "description": "Read fixed source",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "pattern": {
+                  "maxLength": 1024,
+                  "minLength": 1,
+                  "title": "Pattern",
+                  "type": "string"
+                },
+                "maxResults": {
+                  "default": 100,
+                  "maximum": 500,
+                  "minimum": 1,
+                  "title": "Maxresults",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "pattern"
+              ],
+              "title": "GlobFiles",
+              "type": "object"
+            }
+          }
+        }
+      ],
+      "tool_choice": "auto"
+    }
+  },
+  "review-provider-response-v1": {
+    "positive": {
+      "id": "synthetic-completion",
+      "object": "chat.completion",
+      "created": 0,
+      "model": "deepseek-flash",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": "stop",
+          "message": {
+            "role": "assistant",
+            "content": "{\"ok\":true}"
+          }
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 17,
+        "completion_tokens": 1,
+        "total_tokens": 18
+      }
+    },
+    "negative": {
+      "id": "synthetic-completion",
+      "object": "chat.completion",
+      "created": 0,
+      "model": "deepseek-flash",
+      "choices": [
+        {
+          "index": 0,
+          "finish_reason": "stop",
+          "message": {
+            "role": "assistant",
+            "content": "{\"ok\":true}"
+          }
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 17,
+        "completion_tokens": 1,
+        "total_tokens": 18
+      },
+      "unexpected": "reject"
+    }
+  },
+  "review-provider-call-mapping-v1": {
+    "positive": {
+      "modelCallId": "11111111-1111-4111-8111-111111111111",
+      "toolCallId": "11111111-1111-4111-8111-111111111111",
+      "providerToolCallId": "provider-call-1"
+    },
+    "negative": {
+      "modelCallId": "11111111-1111-4111-8111-111111111111",
+      "toolCallId": "11111111-1111-4111-8111-111111111111",
+      "providerToolCallId": "provider-call-1",
+      "unexpected": "reject"
+    }
+  },
+  "review-model-call-v1": {
+    "positive": {
+      "modelCallId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "purpose": "INVESTIGATION",
+      "provider": "DEEPSEEK",
+      "model": "deepseek-flash",
+      "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "manifestRef": {
+        "artifactId": "11111111-1111-4111-8111-111111111111",
+        "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "byteSize": 256,
+        "coverage": "FULL",
+        "redactionState": "NONE"
+      },
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "estimatedInputTokens": 17,
+      "reservedOutputTokens": 4096,
+      "status": "PREPARED",
+      "createdAt": "2026-10-10T14:00:00.000000Z",
+      "updatedAt": "2026-10-10T14:00:00.000000Z",
+      "usage": null,
+      "failureCode": null,
+      "remoteOutcomeUnknown": false
+    },
+    "negative": {
+      "modelCallId": "11111111-1111-4111-8111-111111111111",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "purpose": "INVESTIGATION",
+      "provider": "DEEPSEEK",
+      "model": "deepseek-flash",
+      "requestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "manifestRef": {
+        "artifactId": "11111111-1111-4111-8111-111111111111",
+        "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "byteSize": 256,
+        "coverage": "FULL",
+        "redactionState": "NONE"
+      },
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "estimatedInputTokens": 17,
+      "reservedOutputTokens": 4096,
+      "status": "PREPARED",
+      "createdAt": "2026-10-10T14:00:00.000000Z",
+      "updatedAt": "2026-10-10T14:00:00.000000Z",
+      "usage": null,
+      "failureCode": null,
+      "remoteOutcomeUnknown": false,
+      "unexpected": "reject"
+    }
+  },
+  "review-execution-contract-v1": {
+    "positive": {
+      "executionMode": "REAL",
+      "resultVersion": "2.0"
+    },
+    "negative": {
+      "executionMode": "REAL",
+      "resultVersion": "2.0",
+      "unexpected": "reject"
+    }
+  },
+  "review-capabilities-v1": {
+    "positive": {
+      "protocolVersion": "1.0",
+      "configuredContract": {
+        "executionMode": "REAL",
+        "resultVersion": "2.0"
+      },
+      "status": "NOT_READY",
+      "provider": "DEEPSEEK",
+      "model": "deepseek-flash",
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "failureCodes": [
+        "PROVIDER_CREDENTIAL_UNAVAILABLE"
+      ]
+    },
+    "negative": {
+      "protocolVersion": "1.0",
+      "configuredContract": {
+        "executionMode": "REAL",
+        "resultVersion": "2.0"
+      },
+      "status": "NOT_READY",
+      "provider": "DEEPSEEK",
+      "model": "deepseek-flash",
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "failureCodes": [
+        "PROVIDER_CREDENTIAL_UNAVAILABLE"
+      ],
+      "unexpected": "reject"
+    }
+  },
+  "review-harness-result-v2": {
+    "positive": {
+      "resultVersion": "2.0",
+      "resultId": "11111111-1111-4111-8111-111111111111",
+      "runId": "22222222-2222-4222-8222-222222222222",
+      "snapshotId": "33333333-3333-4333-8333-333333333333",
+      "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "generatedAt": "2026-10-10T14:00:00.000000Z",
+      "passResults": [
+        {
+          "passId": "correctness",
+          "status": "INCOMPLETE",
+          "checkedScope": [
+            "src/Demo.java"
+          ],
+          "coverage": "PARTIAL",
+          "limitations": [
+            "Call budget exhausted"
+          ],
+          "incompleteReasons": [
+            "MODEL_CALL_LIMIT"
+          ],
+          "unvalidatedCandidates": 0,
+          "findingIds": [],
+          "usage": {
+            "modelCalls": 1,
+            "inputTokens": 17,
+            "outputTokens": 2
+          }
+        }
+      ],
+      "evidence": [],
+      "findings": [],
+      "reportDraft": {
+        "markdown": "",
+        "byteSize": 0
+      },
+      "diagnostics": {
+        "executionMode": "REAL",
+        "contextManifestArtifactIds": [
+          "66666666-6666-4666-8666-666666666666"
+        ],
+        "modelCallIds": [
+          "44444444-4444-4444-8444-444444444444"
+        ],
+        "meterVersion": "v4.1-2cba9e42-v1",
+        "limitations": [
+          "Finite local meter samples"
+        ]
+      }
+    },
+    "negative": {
+      "resultVersion": "2.0",
+      "resultId": "11111111-1111-4111-8111-111111111111",
+      "runId": "22222222-2222-4222-8222-222222222222",
+      "snapshotId": "33333333-3333-4333-8333-333333333333",
+      "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "generatedAt": "2026-10-10T14:00:00.000000Z",
+      "passResults": [
+        {
+          "passId": "correctness",
+          "status": "INCOMPLETE",
+          "checkedScope": [
+            "src/Demo.java"
+          ],
+          "coverage": "PARTIAL",
+          "limitations": [
+            "Call budget exhausted"
+          ],
+          "incompleteReasons": [
+            "MODEL_CALL_LIMIT"
+          ],
+          "unvalidatedCandidates": 0,
+          "findingIds": [],
+          "usage": {
+            "modelCalls": 1,
+            "inputTokens": 17,
+            "outputTokens": 2
+          }
+        }
+      ],
+      "evidence": [],
+      "findings": [],
+      "reportDraft": {
+        "markdown": "",
+        "byteSize": 0
+      },
+      "diagnostics": {
+        "executionMode": "REAL",
+        "contextManifestArtifactIds": [
+          "66666666-6666-4666-8666-666666666666"
+        ],
+        "modelCallIds": [
+          "44444444-4444-4444-8444-444444444444"
+        ],
+        "meterVersion": "v4.1-2cba9e42-v1",
+        "limitations": [
+          "Finite local meter samples"
+        ],
+        "unexpected": "reject"
+      }
+    }
+  },
+  "review-graph-state-v2": {
+    "positive": {
+      "stateVersion": "2.0",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "reviewThreadId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "investigationId": "11111111-1111-4111-8111-111111111111",
+      "userGoalDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scopeDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "toolSetDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "negative": {
+      "stateVersion": "2.0",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "reviewThreadId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "investigationId": "11111111-1111-4111-8111-111111111111",
+      "userGoalDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scopeDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "toolSetDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": "reject"
+    }
+  }
+}

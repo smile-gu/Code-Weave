@@ -1,0 +1,110 @@
+{
+  "$defs": {
+    "ContentCoordinates": {
+      "additionalProperties": false,
+      "properties": {
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        },
+        "startsMidLine": {
+          "title": "Startsmidline",
+          "type": "boolean"
+        },
+        "endsMidLine": {
+          "title": "Endsmidline",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "startLine",
+        "endLine",
+        "startsMidLine",
+        "endsMidLine"
+      ],
+      "title": "ContentCoordinates",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifactId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Artifactid",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "text": {
+      "title": "Text",
+      "type": "string"
+    },
+    "coverage": {
+      "enum": [
+        "FULL",
+        "PARTIAL",
+        "SAMPLED"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "redactionState": {
+      "enum": [
+        "NONE",
+        "APPLIED",
+        "NOT_APPLICABLE"
+      ],
+      "title": "Redactionstate",
+      "type": "string"
+    },
+    "nextCursor": {
+      "anyOf": [
+        {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Nextcursor"
+    },
+    "hasMore": {
+      "title": "Hasmore",
+      "type": "boolean"
+    },
+    "coordinates": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContentCoordinates"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "artifactId",
+    "sha256",
+    "text",
+    "coverage",
+    "redactionState",
+    "nextCursor",
+    "hasMore"
+  ],
+  "title": "ContentPage",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-artifact-content-page-v1.schema.json"
+}

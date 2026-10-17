@@ -25,16 +25,19 @@ public final class ClaudeCommandFactory {
         command.add("--verbose");
         command.add("--permission-mode");
         command.add(profile.permissionMode());
-        command.add("--session-id");
-        command.add(request.sessionId().toString());
         command.add("--max-budget-usd");
         command.add(Double.toString(profile.maxBudgetUsd()));
 
         if (profile.safeMode()) {
             command.add("--safe-mode");
         }
-        if (!profile.sessionPersistence()) {
+        if (request.conversationMode() == ClaudeConversationMode.EPHEMERAL) {
+            command.add("--session-id");
+            command.add(request.sessionId().toString());
             command.add("--no-session-persistence");
+        } else if (request.conversationMode() == ClaudeConversationMode.RESUME_PERSISTENT) {
+            command.add("--resume");
+            command.add(request.nativeClaudeSessionId());
         }
         command.add("--tools");
         command.addAll(profile.tools());
@@ -43,7 +46,7 @@ public final class ClaudeCommandFactory {
 
         return new ClaudeLaunchSpec(
                 command,
-                request.worktree().normalize(),
+                request.workspaceRoot().normalize(),
                 ClaudePromptRenderer.render(request),
                 profile.tools(),
                 profile.startupTimeout(),

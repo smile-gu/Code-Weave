@@ -1,0 +1,148 @@
+package com.codingreview.controlplane.session.persistence;
+
+import com.codingreview.controlplane.session.model.CodingSession;
+import com.codingreview.controlplane.session.model.CodingSessionStatus;
+import com.codingreview.controlplane.workspace.change.policy.model.ChangePolicy;
+import com.codingreview.controlplane.workspace.git.model.GitRepositorySnapshot;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/** 验证 Session JSON 快照的写入、覆盖、排序和损坏隔离。 */
+class FileCodingSessionRepositoryTest {
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void preservesClosedSnapshotAndNanoseconds() throws Exception {
+        var repository = repository();
+        var closed = activeSession(UUID.randomUUID(), "关闭", Instant.parse("2026-09-08T01:00:00Z"))
+                .close(Instant.parse("2026-09-08T01:00:01.123456789Z"));
+        repository.save(closed);
+        assertThat(repository.find(closed.sessionId())).contains(closed);
+    }
+
+    @Test
+    void savesAndReloadsActiveSessionWithStableDocument() throws Exception {
+        FileCodingSessionRepository repository = repository();
+        CodingSession session = activeSession(
+                UUID.randomUUID(), "用户模块", Instant.parse("2026-08-18T06:00:00Z"));
+
+        repository.save(session);
+
+        assertThat(repository.find(session.sessionId())).contains(session);
+        assertThat(session.activeReviewBaselineCommit()).isEqualTo("abc123");
+        Path sessionDirectory = tempDir.resolve("runtime/sessions").resolve(session.sessionId().toString());
+        assertThat(sessionDirectory.resolve("session.json")).isRegularFile();
+        try (var files = Files.list(sessionDirectory)) {
+            assertThat(files).allMatch(path -> path.getFileName().toString().equals("session.json"));
+        }
+    }
+
+    @Test
+    void ordersRecentSessionsAndSkipsCorruptedSnapshot() throws Exception {
+        FileCodingSessionRepository repository = repository();
+        CodingSession older = activeSession(
+                UUID.randomUUID(), "较早会话", Instant.parse("2026-08-18T05:00:00Z"));
+        CodingSession newer = activeSession(
+                UUID.randomUUID(), "最近会话", Instant.parse("2026-08-18T07:00:00Z"));
+        repository.save(older);
+        repository.save(newer);
+
+        Path corrupted = tempDir.resolve("runtime/sessions")
+                .resolve(UUID.randomUUID().toString()).resolve("session.json");
+        Files.createDirectories(corrupted.getParent());
+        Files.writeString(corrupted, "{not-json", StandardCharsets.UTF_8);
+
+        assertThat(repository.findRecent(20))
+                .extracting(CodingSession::title)
+                .containsExactly("最近会话", "较早会话");
+    }
+
+    @Test
+    void replacesPreviousSnapshotWithoutLeavingTemporaryFiles() throws Exception {
+        FileCodingSessionRepository repository = repository();
+        CodingSession active = activeSession(
+                UUID.randomUUID(), "待更新会话", Instant.parse("2026-08-18T06:00:00Z"));
+        CodingSession failed = active.fail(
+                "SESSION_REPOSITORY_MISSING", "真实工作区已不存在。", active.updatedAt().plusSeconds(5));
+
+        repository.save(active);
+        repository.save(failed);
+
+        assertThat(repository.find(active.sessionId())).contains(failed);
+        Path sessionDirectory = tempDir.resolve("runtime/sessions")
+                .resolve(active.sessionId().toString());
+        try (var files = Files.list(sessionDirectory)) {
+            assertThat(files).extracting(path -> path.getFileName().toString())
+                    .containsExactly("session.json");
+        }
+    }
+
+    @Test
+    void restoresLegacyActiveWorktreeSessionAsReadOnly() throws Exception {
+        UUID sessionId = UUID.randomUUID();
+        Path directory = tempDir.resolve("runtime/sessions").resolve(sessionId.toString());
+        Files.createDirectories(directory);
+        String json = """
+                {
+                  "schemaVersion": 2,
+                  "sessionId": "%s",
+                  "title": "历史会话",
+                  "status": "ACTIVE",
+                  "sourceRepository": "%s",
+                  "worktreePath": "%s",
+                  "baseRef": "HEAD",
+                  "resolvedCommit": "abc123",
+                  "sourceRepositoryDirty": false,
+                  "allowedPaths": ["src/**"],
+                  "deniedPaths": ["target/**"],
+                  "claudeSessionId": null,
+                  "createdAt": "2026-08-18T06:00:00Z",
+                  "updatedAt": "2026-08-18T06:00:00Z",
+                  "failureCode": null,
+                  "failureMessage": null
+                }
+                """.formatted(
+                sessionId,
+                tempDir.resolve("legacy-repository").toAbsolutePath().toString().replace("\\", "\\\\"),
+                tempDir.resolve("runtime/worktrees/legacy").toAbsolutePath().toString().replace("\\", "\\\\")
+        );
+        Files.writeString(directory.resolve("session.json"), json, StandardCharsets.UTF_8);
+
+        CodingSession restored = repository().find(sessionId).orElseThrow();
+
+        assertThat(restored.status()).isEqualTo(CodingSessionStatus.LEGACY_READ_ONLY);
+        assertThat(restored.usesRealRepository()).isFalse();
+        assertThat(restored.activeReviewBaselineCommit()).isEqualTo("abc123");
+    }
+
+    private FileCodingSessionRepository repository() {
+        return new FileCodingSessionRepository(
+                tempDir.resolve("runtime").toAbsolutePath(),
+                JsonMapper.builder().findAndAddModules().build()
+        );
+    }
+
+    private CodingSession activeSession(UUID sessionId, String title, Instant time) throws Exception {
+        Path repository = tempDir.resolve("repository-" + sessionId).toAbsolutePath();
+        Files.createDirectories(repository);
+        CodingSession initializing = CodingSession.initializing(
+                sessionId, title, repository, "main",
+                new ChangePolicy(List.of("src/**"), List.of("target/**")),
+                time.minusSeconds(10)
+        );
+        return initializing.activateRealRepository(
+                new GitRepositorySnapshot(repository, "main", "abc123", false), time);
+    }
+}

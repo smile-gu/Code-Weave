@@ -8,11 +8,11 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** 验证 M0 命令参数、能力限制以及 Prompt 的传递方式。 */
+/** 验证 Claude 命令参数、能力限制以及 Prompt 的传递方式。 */
 class ClaudeCommandFactoryTest {
 
     @Test
-    void createsRestrictedM0CommandAndKeepsPromptOnStdin() {
+    void createsRestrictedEphemeralCommandAndKeepsPromptOnStdin() {
         UUID sessionId = UUID.randomUUID();
         ClaudeRunRequest request = new ClaudeRunRequest(
                 sessionId,
@@ -26,17 +26,60 @@ class ClaudeCommandFactoryTest {
         ClaudeLaunchSpec spec = new ClaudeCommandFactory().create(
                 Path.of("D:/develop/nodejs/claude.cmd"),
                 request,
-                CapabilityProfile.m0Restricted()
+                CapabilityProfile.codingSessionRestricted()
         );
 
         assertThat(spec.command())
                 .contains("--safe-mode", "--no-session-persistence", "--max-budget-usd", "1.0")
                 .containsSubsequence("--output-format", "stream-json")
                 .containsSubsequence("--permission-mode", "dontAsk")
-                .containsSubsequence("--session-id", sessionId.toString());
+                .containsSubsequence("--session-id", sessionId.toString())
+                .contains("--allowedTools");
         assertThat(spec.command()).doesNotContain(request.taskPrompt(), "Bash");
         assertThat(spec.standardInput()).contains(request.taskPrompt());
-        assertThat(spec.workingDirectory()).isEqualTo(request.worktree().normalize());
+        assertThat(spec.workingDirectory()).isEqualTo(request.workspaceRoot().normalize());
         assertThat(spec.allowedTools()).containsExactly("Read", "Glob", "Grep", "Edit", "Write");
+    }
+
+    @Test
+    void startsPersistentConversationWithoutForcingSessionId() {
+        ClaudeRunRequest request = request(
+                ClaudeConversationMode.START_PERSISTENT, null
+        );
+
+        ClaudeLaunchSpec spec = create(request);
+
+        assertThat(spec.command())
+                .doesNotContain("--session-id", "--resume", "--no-session-persistence");
+    }
+
+    @Test
+    void resumesPersistentConversationWithNativeClaudeSessionId() {
+        ClaudeRunRequest request = request(
+                ClaudeConversationMode.RESUME_PERSISTENT, "claude-native-session"
+        );
+
+        ClaudeLaunchSpec spec = create(request);
+
+        assertThat(spec.command())
+                .containsSubsequence("--resume", "claude-native-session")
+                .doesNotContain("--session-id", "--no-session-persistence");
+    }
+
+    /** 创建指定原生会话模式的测试请求。 */
+    private ClaudeRunRequest request(ClaudeConversationMode mode, String nativeId) {
+        return new ClaudeRunRequest(
+                UUID.randomUUID(), Path.of("D:/runtime/worktrees/session"),
+                "继续完成用户模块", List.of(), List.of("src/**"), List.of(".git/**"),
+                mode, nativeId
+        );
+    }
+
+    /** 使用 Coding 能力配置创建启动规格。 */
+    private ClaudeLaunchSpec create(ClaudeRunRequest request) {
+        return new ClaudeCommandFactory().create(
+                Path.of("D:/develop/nodejs/claude.cmd"), request,
+                CapabilityProfile.codingSessionRestricted()
+        );
     }
 }

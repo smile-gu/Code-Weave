@@ -9,7 +9,6 @@ import com.codingreview.controlplane.verification.maven.model.MavenVerificationR
 import com.codingreview.controlplane.verification.maven.model.MavenVerificationResult;
 import com.codingreview.controlplane.verification.maven.model.MavenVerificationStatus;
 import com.codingreview.controlplane.verification.maven.report.SurefireReportParser;
-import com.codingreview.controlplane.workspace.worktree.model.WorktreeHandle;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -84,6 +83,20 @@ class MavenVerifierImplTest {
             assertThat(failure.testName()).isEqualTo("works");
             assertThat(failure.message()).isEqualTo("expected true");
         });
+    }
+
+    @Test
+    void doesNotPassWhenSurefireReportsFailureDespiteZeroExitCode() throws Exception {
+        String runId = "run-test-failure-ignored";
+        FileRunEventJournal journal = new FileRunEventJournal(runtimeRoot(), objectMapper);
+
+        MavenVerificationResult result = verifier(
+                "test-failure-ignored", journal, Duration.ofSeconds(5), 1024 * 1024
+        ).verify(request(runId, createWorktree(runId)));
+
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.status()).isEqualTo(MavenVerificationStatus.TEST_FAILED);
+        assertThat(result.testSummary().hasTestFailures()).isTrue();
     }
 
     @Test
@@ -214,10 +227,7 @@ class MavenVerifierImplTest {
     }
 
     private MavenVerificationRequest request(String runId, Path worktree) {
-        return new MavenVerificationRequest(
-                new WorktreeHandle(worktree, worktree, runId, "HEAD", "fixture-commit", false),
-                1
-        );
+        return new MavenVerificationRequest(runId, worktree, 1);
     }
 
     private Path createWorktree(String runId) throws Exception {

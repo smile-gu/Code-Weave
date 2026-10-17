@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "SourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Path"
+        },
+        "contentSha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contentsha256"
+        },
+        "diffSha256": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Diffsha256"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startline"
+        },
+        "endLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endline"
+        }
+      },
+      "title": "SourceRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "summaryVersion": {
+      "exclusiveMinimum": 0,
+      "title": "Summaryversion",
+      "type": "integer"
+    },
+    "sourceMessageIds": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "minItems": 1,
+      "title": "Sourcemessageids",
+      "type": "array"
+    },
+    "sourceDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Sourcedigest",
+      "type": "string"
+    },
+    "previousSummaryVersion": {
+      "minimum": 0,
+      "title": "Previoussummaryversion",
+      "type": "integer"
+    },
+    "summaryText": {
+      "maxLength": 16384,
+      "minLength": 1,
+      "title": "Summarytext",
+      "type": "string"
+    },
+    "referencedArtifactIds": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Referencedartifactids",
+      "type": "array"
+    },
+    "sourceRefs": {
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "maxItems": 64,
+      "title": "Sourcerefs",
+      "type": "array"
+    },
+    "referencedEvidenceIds": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Referencedevidenceids",
+      "type": "array"
+    },
+    "referencedCandidateIds": {
+      "items": {
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "title": "Referencedcandidateids",
+      "type": "array"
+    },
+    "modelId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Modelid",
+      "type": "string"
+    },
+    "estimatedTokens": {
+      "minimum": 0,
+      "title": "Estimatedtokens",
+      "type": "integer"
+    },
+    "createdAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Createdat",
+      "type": "string"
+    }
+  },
+  "required": [
+    "summaryVersion",
+    "sourceMessageIds",
+    "sourceDigest",
+    "previousSummaryVersion",
+    "summaryText",
+    "referencedArtifactIds",
+    "sourceRefs",
+    "modelId",
+    "estimatedTokens",
+    "createdAt"
+  ],
+  "title": "Summary",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-compaction-summary-v1.schema.json"
+}

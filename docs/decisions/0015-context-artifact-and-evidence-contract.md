@@ -1,0 +1,392 @@
+# ADR-0015：Context、Artifact 与 Evidence 治理契约
+
+- 状态：已冻结；批次 3 Artifact/只读工具已通过复审；批次 4 State/Context/Compaction 以假模型实现，待复审；真实模型/Evidence未实现
+- 日期：2026-09-09
+- 范围：Review Agent 模型请求、上下文压缩、长内容存储、证据形成与 Result Envelope
+- 上游：ADR-0009、ADR-0014
+
+批次 1 的空 Result Envelope、原始字节保存与原子成功事务已通过复审。批次 3 Artifact 与基础只读工具已通过复审并纳入基线 dc311d7。批次 4 实现受限 LangGraph State、独立 Checkpointer、Context 与 Compaction 的测试协议子集；实际能力及阶段限制见 ADR-0016。Evidence/Finding、真实 Provider 和生产 Token 治理仍未实现。
+
+## 1. 问题与边界
+
+Review Agent 需要持续读取代码、工具结果、历史消息和项目经验。若把它们全部塞入消息历史，会超出模型窗口；若用一个摘要替换全部事实，则无法证明 Finding 对应哪份代码和证据；若把 Tool Result 直接当 Evidence，则截断、抽样或错误归属会被包装成确定性结论。
+
+因此冻结五个独立边界：
+
+| 对象 | 保存什么 | 不负责什么 |
+|---|---|---|
+| LangGraph State | 当前 Pass、调查目标、未闭合 Candidate、引用和恢复状态 | 大内容与产品长期历史 |
+| Context | 单次模型调用的有界临时投影 | 全部历史或事实唯一副本 |
+| Summary | 已闭合旧交互的叙事压缩 | Snapshot、用户裁决、Finding 或 Evidence 的唯一记录 |
+| Artifact | 长内容及完整性元数据 | 判断问题是否成立 |
+| Evidence | 经服务端验证的来源、范围与 Snapshot 归属 | 模型隐藏思维过程 |
+
+`ReasoningSummary` 解释 Evidence 如何支持 Claim，不产生新的客观 Evidence。Memory 只能提供调查线索，不能直接证明当前 Snapshot。
+
+## 2. 模型请求预算
+
+每个 Model Adapter 必须提供明确 Context Window 和可信 Token Meter：
+
+`inputBudget = contextWindow - reservedOutputTokens - protocolSafetyMargin`
+
+计量点是最终 Provider Request，包括消息角色、内容块、Tool Schema、Skill、包装文本和 Provider 必需开销；不得用字符数、UTF-16 长度或单个 ToolMessage 大小替代。
+
+| 优先级 | 内容 | 预算行为 |
+|---:|---|---|
+| P0 | System Policy、当前用户请求、Snapshot/范围、当前 Pass、未闭合 Candidate 身份 | 不静默裁剪 |
+| P1 | 当前关键 Evidence、最近有效 Tool Result、核心 Tool Schema | 当前调查需要，否则缩小调查或失败 |
+| P2 | 当前主 Skill、Summary、最近交互 | 可压缩或减少 |
+| P3 | Project Memory、参考资料和较旧非关键上下文 | 可不注入 |
+
+```mermaid
+flowchart TD
+    A[装载 P0 与必需 Schema] --> B{最小集合是否超限}
+    B -->|是| C[CONTEXT_MINIMUM_EXCEEDS_BUDGET]
+    B -->|否| D[加入 P1 至 P3]
+    D --> E[组装最终 Provider Request]
+    E --> F[完整请求 Token 计量]
+    F -->|预算内| G[先保存 Context Manifest]
+    G --> H[调用模型]
+    F -->|超限| I[减少 P3 与非关键 P2]
+    I --> J[Spill 或缩小旧 Tool 预览]
+    J --> K[必要时压缩已闭合旧消息]
+    K --> L{引用合法且 Token 下降}
+    L -->|是| E
+    L -->|否| M[有界失败，不无限压缩]
+```
+
+P0 与必需 Schema 已超限时模型调用次数必须为零。Harness 应要求缩小范围、减少本轮工具或换用更大窗口模型，而不是删除安全策略、用户目标或 Snapshot 身份。
+
+## 3. Context Assembly Manifest
+
+每次真实模型调用前可靠保存有界 `ContextAssemblyManifest`，至少记录：
+
+- `modelCallId`、`runId`、`snapshotId`、`passId`、`investigationId`；
+- `modelId`、`summaryVersion`；
+- 来源消息、Evidence、Artifact 等 `sourceRefs`；
+- 实际发送工具名称/Schema/版本形成的 `toolSetDigest`；
+- `estimatedInputTokens`、`inputBudget`、`reservedOutputTokens` 和时间。
+
+Manifest 不保存密钥、完整 System Prompt、完整源码或完整 Tool 输出。它作为 Run Diagnostic Artifact 保存，并由 State/Checkpoint 引用。保存失败时返回 `CONTEXT_MANIFEST_WRITE_FAILED`，不得调用模型。响应 Usage 和模型输出通过 `modelCallId` 关联；Manifest 用于诊断和评测，不是 Finding Evidence。
+
+## 4. Compaction
+
+Summary 只压缩叙事、调查经过、已排除假设和仍有价值的未结构化信息。以下事实始终从结构化状态重新注入：
+
+- 用户原始请求与裁决；
+- Review Snapshot、固定 Diff 与 Manifest；
+- 当前 Pass、范围与未闭合 Candidate；
+- 已提交 Artifact、Evidence、Finding、Result 和 Handoff。
+
+```mermaid
+sequenceDiagram
+    participant C as Context Assembler
+    participant S as Summarizer
+    participant V as Summary Validator
+    participant A as Artifact Store
+    participant K as Checkpointer
+    C->>S: 连续且已闭合的旧消息范围
+    S-->>V: 结构化 Summary Candidate
+    V->>V: 校验来源、引用、角色和 Token
+    alt 合法且 Token 下降
+        V->>A: 保存 Summary Artifact
+        A-->>V: artifactId
+        V->>K: 提交 Summary 引用和保留尾部
+        K-->>C: Checkpoint 已确认
+    else 任一步失败
+        V-->>C: 保留旧有效视图
+    end
+```
+
+Summary 至少记录版本、被替换的完整消息 ID、来源摘要、前一 Summary 版本、正文、引用的 Evidence/Candidate、模型、Token 和时间。
+
+压缩不变量：
+
+- 被替换范围必须连续且已闭合。
+- Tool Call 与对应 Tool Result 不得拆开，未完成 Tool Call 不得压缩。
+- 不在模型请求或 Tool 批次中途并发替换活动视图。
+- Summary 以不可信数据角色注入，不能改变策略或权限。
+- 只有 Summary Artifact 和 Checkpoint 均确认保存、引用合法且 Token 实际下降后才替换视图。
+- 每次尝试必须推进范围并降低 Token；达到次数或质量阈值后停止。
+
+Checkpoint Namespace 使用 `reviewThreadId + snapshotId`，但每个 Checkpoint 记录 `runId`。遗留 `RUNNING` Run 不因存在 Checkpoint 自动恢复。新 Run 只能继承最后 `SAFE_FOR_NEW_RUN` 状态显式列出的 Summary、Evidence 和 Artifact ID；同 Snapshot 不等于可以读取所有历史 Run 内容。
+
+## 5. Artifact Store
+
+Python 后续持久化 `review_artifacts` 元数据，至少包含：`artifactId/runId/snapshotId/kind/producer/mediaType/encoding/byteSize/sha256/coverage/redactionState/createdAt/integrityState`。
+
+Artifact 类型至少包括 Snapshot Diff、Source Excerpt、Tool Output、Build Report、Static Analysis Report、Context Manifest、Compaction Summary 和可选报告渲染。
+
+`coverage` 语义：
+
+| coverage | 含义 | 可支持的结论 |
+|---|---|---|
+| `FULL` | 明确范围已完整读取或完整执行并保存 | 可在该范围内表达完整性结论 |
+| `PARTIAL` | 因上限、截断或读取范围只获得部分内容 | 可证明已显示的正面事实，不能证明没有其他异常 |
+| `SAMPLED` | 有意抽样 | 只支撑样本范围，不能外推全量 |
+
+文件系统和 SQLite 不共享事务，写入顺序冻结为：
+
+```mermaid
+flowchart LR
+    A[流式写入同卷 Staging] --> B[上限与 SHA-256]
+    B --> C[关闭并刷新]
+    C --> D[不覆盖原子发布]
+    D --> E[提交 READY 元数据]
+    E --> F{提交可确认}
+    F -->|是| G[返回 artifactId]
+    F -->|否| H[重读元数据]
+    H -->|一致| G
+    H -->|不一致| I[不返回引用，保留孤儿诊断]
+```
+
+只有 READY 且实际大小、SHA-256 匹配的 Artifact 可以被引用。读取发现不一致时标记 `CORRUPTED`，依赖它的 Evidence 不再有效。第一版不做跨 Artifact 去重和自动 GC。
+
+敏感 Tool 输出按类型策略先检测和脱敏，再持久化规范内容；Evidence 必须明确引用脱敏版本。普通日志、SSE 和错误响应不得包含原始秘密。
+
+内部读取接口计划为：
+
+```http
+GET /internal/v1/review-runs/{runId}/artifacts/{artifactId}
+GET /internal/v1/review-runs/{runId}/artifacts/{artifactId}/content?cursor=opaque
+```
+
+读取必须校验认证、原始所有者、当前 Run、Thread、Snapshot 和 SAFE 继承白名单。Cursor 由服务端生成并限制页面大小；UTF-8 文本不能切坏 code point，单个超长行也受限；二进制默认只返回元数据。模型、Java 和浏览器都不能用绝对路径读取 Python Artifact，浏览器仍只经过 Java。
+
+## 6. Evidence 与 Finding
+
+Evidence 类型冻结为：
+
+- `CODE`
+- `STATIC_ANALYSIS`
+- `BUILD_TEST`
+- `RUNTIME`
+- `LOAD_TEST`
+- `DOMAIN_CONTEXT`
+
+`SEMANTIC_REASONING` 不再是 Evidence 类型。模型推理保存在 `ReasoningSummary`，防止用“模型认为如此”循环证明模型结论。
+
+`review_evidence` 至少记录 `evidenceId/runId/snapshotId/evidenceType/sourceRefs/producer/coverage/summary/capturedAt`。代码引用必须包含 Snapshot 相对路径、行号或 Symbol、完整文件摘要；Artifact 引用必须包含 Artifact ID、摘要、类型、coverage 和必要结构化结果。
+
+模型只提交 Evidence Candidate。服务端从受信 Runtime 注入 `runId/snapshotId`，并验证代码路径、位置、哈希、Artifact 所有权、完整性和 coverage 后，才保存不可变 EvidenceRecord。Tool Result 默认只是调查材料，不自动成为 Evidence。
+
+| Finding 状态 | 证据门禁 |
+|---|---|
+| `VERIFIED` | 至少一个当前 Snapshot 的有效 Evidence、完整 ReasoningSummary、明确触发条件并检查关键反例 |
+| `RISK` | 有当前依据，但仍依赖未验证假设、运行环境或不完整 coverage |
+| `SUGGESTION` | 有代码或领域依据、收益与取舍，不得包装成已发生 Bug |
+| `REJECTED` | 证据不足、反例成立、重复或不适用；不进入正文 |
+
+确定性语义问题允许 `CODE Evidence + ReasoningSummary` 进入 VERIFIED，不强制测试或双工具证据。性能、流量和量化 Claim 缺少对应 RUNTIME/LOAD_TEST 时最多为 RISK。Memory 不能进入 `evidenceIds`，必须在当前 Snapshot 或环境重新验证。Severity 与 Confidence 必须分开。
+
+## 7. Review Result Envelope
+
+ADR-0009 规定 Result、`SUCCEEDED` 和终态事件同一 SQLite 事务提交。本 ADR 冻结最小 Result：
+
+```json
+{
+  "resultVersion": "1.0",
+  "resultId": "result-uuid",
+  "runId": "run-uuid",
+  "snapshotId": "snapshot-uuid",
+  "manifestSha256": "sha256:value",
+  "generatedAt": "2026-09-09T07:57:45Z",
+  "passResults": [],
+  "evidence": [],
+  "findings": [],
+  "reportDraft": {
+    "markdown": "# Review Report",
+    "byteSize": 15
+  },
+  "diagnostics": {
+    "contextManifestArtifactIds": []
+  }
+}
+```
+
+Result 中的 Evidence 是最终不可变打包副本，运行时可变权威位置仍是 `review_evidence`。Result 不嵌入完整源码、Diff 或日志；Markdown 是有界展示层，必须能从结构化 Findings 重建或校验主要条目，不能反向创造 Finding。成功事务前所有 Artifact 引用必须 READY 且摘要一致。
+
+## 8. 持久化事实源
+
+```mermaid
+flowchart TB
+    R[(review_runs)] --> RS[Run 当前状态]
+    K[(LangGraph Checkpoint)] --> GS[内部节点与工作状态]
+    A[(review_artifacts)] --> AC[长内容]
+    E[(review_evidence)] --> EV[已验证来源]
+    O[(review_results)] --> RP[不可变最终包]
+    J[Java 产品存储] --> UP[用户报告、裁决与 Handoff]
+```
+
+同一事实只有一个可变权威位置；其他位置只保存引用或明确的终态副本。Context Manifest、Summary 和 Memory 都不是 Evidence。Checkpoint 不替代 Run 状态，也不证明工具可以安全重放。
+
+## 9. Prompt Injection 与权限
+
+System Policy 是稳定最高层策略。当前用户输入保留用户指令身份；Snapshot 与 Evidence 锚点是结构化数据而非权限指令。仓库文本、Tool 输出、Summary、Memory 和 MCP 数据均按不可信数据注入；内置 Skill 低于安全策略且只能缩权。
+
+工具是否出现在模型视图不构成授权。所有 Tool、Artifact 和 Evidence 操作必须在执行入口重新校验身份、范围和策略。模型输出、Candidate 与 Evidence Candidate 都是不可信输入。
+
+## 10. 稳定失败码
+
+Context/Compaction 至少包括：
+
+- `CONTEXT_MODEL_CAPACITY_UNKNOWN`
+- `CONTEXT_TOKEN_METER_UNAVAILABLE`
+- `CONTEXT_MINIMUM_EXCEEDS_BUDGET`
+- `CONTEXT_ASSEMBLY_EXCEEDS_BUDGET`
+- `CONTEXT_MANIFEST_WRITE_FAILED`
+- `COMPACTION_GENERATION_FAILED`
+- `COMPACTION_REFERENCE_INVALID`
+- `COMPACTION_NO_PROGRESS`
+- `CONTEXT_WINDOW_REJECTED_BY_PROVIDER`
+
+Artifact 至少包括：`ARTIFACT_LIMIT_EXCEEDED`、`ARTIFACT_WRITE_FAILED`、`ARTIFACT_STATE_WRITE_FAILED`、`ARTIFACT_NOT_FOUND`、`ARTIFACT_ACCESS_DENIED`、`ARTIFACT_CURSOR_INVALID`、`ARTIFACT_INTEGRITY_FAILED`、`ARTIFACT_CONTENT_UNSUPPORTED`。
+
+Evidence/Finding 至少包括：`EVIDENCE_SOURCE_NOT_FOUND`、`EVIDENCE_SNAPSHOT_MISMATCH`、`EVIDENCE_ARTIFACT_NOT_READY`、`EVIDENCE_REFERENCE_INVALID`、`EVIDENCE_PERSISTENCE_FAILED`、`FINDING_EVIDENCE_INSUFFICIENT`、`FINDING_SCOPE_VIOLATION`。
+
+关键 Evidence 保存失败、Snapshot 错配、Artifact 完整性和最小 Context 预算失败不得降格成普通 ToolMessage 后继续忽略。
+
+## 11. 验收重点
+
+实现必须使用确定性假模型、真实临时 Artifact 目录和临时 SQLite，至少证明：
+
+- 最终请求整体超限会在模型调用前失败，Tool Schema、中文、Emoji 和 Provider 包装计入预算；
+- Context Manifest 保存失败时模型调用次数为零；
+- 连续压缩不丢 Snapshot、用户目标、Candidate 和 Evidence，未完成 Tool Call 不被压缩；
+- Summary 失败、非法引用、Checkpoint 未确认或 Token 无下降时旧视图保持有效；
+- 大输出流式保存，半成品不公开，UTF-8 分页和单行上限正确；
+- 猜测其他 Run 的 Artifact ID、跨 Snapshot Evidence 和模型伪造身份均被拒绝；
+- PARTIAL 可证明已出现异常，但不能证明不存在其他异常；
+- `CODE + ReasoningSummary` 可支持确定性 VERIFIED，量化 Claim 无运行证据时最多为 RISK；
+- Artifact 存在但 Evidence 保存失败时 Finding 不得 VERIFIED；
+- Markdown 不能引入结构化 Findings 中不存在的问题。
+
+测试必须断言失败路径上的模型、Tool 和持久化调用次数，不能只检查错误文字。
+
+## 12. 第一版范围
+
+- 首版只实现 Project Memory，Global Memory 延后；Memory 数据模型在独立批次冻结。
+- 不保存模型隐藏思维过程或每次完整 Prompt 明文。
+- 不复制 DeepSeek 完整 Session Surface 或事件溯源引擎。
+- 不允许无限 Compaction、盲目重试超窗请求或以字符数冒充 Token。
+- 不把 Summary、Memory、Context Manifest、截断输出或抽样结果冒充完整 Evidence。
+- 不在本 ADR 实现 Memory、Skill、MCP、Maven 或 Analyzer；能力随第一个真实消费者逐批落地。
+
+本 ADR 冻结目标设计，不代表上述组件已经实现。
+
+## 批次 5 Evidence 专项补修（2026-10-11）
+
+模型不负责计算来源摘要。只读工具在 `data.evidenceReferences` 提供可复制的规范引用；
+旧 `sourceRefs` 继续用于 Context 的来源追踪。final 引用使用原始整文件摘要，
+Diff 引用使用原始整份 changes.diff 摘要和全文件物理 LF 行坐标，header/hunk marker 不可引用。
+Diff 页标明起止物理行与半行状态，投影和校验共用 hunk 解析器；半行须按连续 Cursor 拼接。
+当前不支持 base。原用户输入在固定 anchors 中给 USER_INPUT 引用及保守、有效的候选示例。
+
+Artifact ContentPage v1 扩展可选 coordinates：起止行与半行状态属于已存 Artifact，
+不能当作原源码的行号。分页仍按完整信封预算缩小正文，保存 Cursor，不递归 Spill。
+Artifact 捕获 FULL 和 Evidence 材料 FULL 含义不同：已有脱敏状态必须传递到材料覆盖，
+被脱敏材料不能作为 FULL Evidence 发布。
+
+整批提交先检查 Scope、Candidate 引用和全部材料，再用现有 Evidence 表单事务发布整批事实。
+提交丢确认后独立核对全部不可变记录；存储或 Checkpoint 不确定时停止，不重发模型。
+语义预校验失败没有部分事实。事实发布后的其他故障不进入语义重试，保留失败事实以供诊断。
+
+明确的 SubmissionIssue 才可纠错，与 JSON/Schema 错误共用现有最多两次纠错和总模型预算。
+模型引用摘要、行号、侧别、覆盖或已确认引用错误可给具体反馈；Snapshot/Artifact 篡改、
+存储失败、取消和未知资源仍立即阻断，不能以通用异常捕获继续。
+
+拒绝诊断复用认证、完整性校验、有界捕获的 SYSTEM TOOL_OUTPUT Artifact，保存调用 ID、
+提交摘要、索引、白名单字段路径、阶段、稳定原因及受控引用对象。未知路径隐藏，
+不保存原始提交、任意字段名、模型叙述或异常消息；诊断本身不能作为 CODE Evidence。
+诊断写失败保留原拒绝门禁并停止；成功诊断作为显式 Artifact 引用进入下一请求并计量。
+
+2026-10-10批次3落地：独立Artifact根与0003_artifacts迁移、认证分页、五工具统一授权、脱敏/预算/Spill和实际Future收敛；当前无跨Run继承，默认空Result不变。实现与局限见docs/review-harness-batch-3-development-handoff.md。
+
+
+## 批次 5 实施增量
+
+Result 2.0、CODE/DOMAIN_CONTEXT 来源判别、候选/验证/Pass 使用严格协议，Python 与 Java 读取同一自包含 Schema。0006_evidence 保存独立不可变事实；实际打开固定源码/物理 Diff/可信 TOOL Artifact，校验归属、摘要和行坐标。删除代码使用固定 Diff；未保存全量 base blob 时明确拒绝 base。先整文件脱敏，再选择坐标，防私钥中间行绕过。源码/Artifact 片段 16 KiB，原用户上下文 32 KiB，超限明确失败。
+
+Evidence/Candidate 锚点由平台确认后重新装配到上下文；Summary 和模型验证不生成 Evidence。候选通过独立验证及平台反例/假设/来源门禁，量化性能没有生产者只能 RISK 或拒绝。State 和 ToolGateway 统一 8 KiB 消费预算：大输出可靠转存，连续读完可信 Artifact 或源码页面才计完整覆盖，跳页/脱敏仍保留限制。最终 Evidence 副本与事实表逐项一致，调用/Artifact 引用和 usage 必须吻合，Markdown 由结构结果确定性生成。
+
+真实 Meter basis 为 V41_REFERENCE_LOCAL_TOKENS，固定来源/revision/hash/license；输入低估持久阻断，有限托管样例不等于全域精确认证。真实模式显式启用；本轮仅离线验收，实际付费和模型质量小样另行授权。
+
+更新日期：2026-10-11（批次 5 离线实施）
+
+收口校正：Artifact 是否完整捕获以原完整工具材料的摘要核对；读完截断 Artifact 不构成整文件
+覆盖。Finding 的确认目标锚点必须纳入交付 checkedScope，其他固定文件仍可用作上下文。
+观测 Usage 的整数边界是记账格式，不是发送预算；超操作窗口的实际输入同样进入持久漂移保护。
+
+
+2026-10-11 结构纠错补修：拒绝回复作为有界、脱敏的不可信历史保存，诊断本身仍不保存原提交。独立验证隔离视图及大回复的下一实际请求须包含完整脱敏回复和反馈，完整计量后保存 Manifest；无跨 Run 继承或重启重放。Schema 诊断最多 8 条白名单路径/错误类型，合法约束只取平台 Schema，不引用错误 ctx、未知字段名或原值。提交阶段明确先确认 Evidence ID 再提交候选，现有两次纠错、原子发布和所有来源门禁不变。见 docs/review-harness-batch-5-submission-correction-fix.md。
+
+
+## 2026-10-12 批次 5A 摘要协议局部收敛（冻结稿34）
+
+此项显式替代旧摘要模型输出summaryText/referencedArtifactIds/sourceRefs的要求。真实COMPACTION仅纯文本、无tools、无json_object；模型负责叙事，平台负责Summary结构来源。既有“摘要带来源”指持久Summary产物，不要求模型重新生成UUID/hash/来源对象。INVESTIGATION/VALIDATION及Evidence/Candidate/factChecks不变。
+
+平台从进入压缩前已确认State、前序有效Summary与闭合prefix结构引用去重合并，Summary和压缩后State共用受信集合。保留来源归属/hash、FULL发布、完整请求计量、Token严格下降、Checkpoint确认、取消与预算门禁；来源集合超限明确失败，不删锚点求成功。正文中的未知ID或JSON样式文本不注册来源或权限。
+
+正文脱敏后须非空，最多8192字符/16384 UTF-8字节；截断、工具调用、Usage/漂移异常仍拒绝，不自动重试/换模型。FakeAdapter协议独立，不要求真实子项返回模型引用。持久Summary/State及外部Result2.0结构不变，旧产物不改。细节与新鲜离线矩阵见 docs/review-harness-batch-5a-compaction-text-protocol.md；新模板尚无付费验收，旧JSON样例不认证新请求。Evidence/Candidate句柄不在本项冻结范围。
+
+
+## 2026-10-12 兼容型 Token 预算（冻结稿40）
+
+此项替代任何输入低估立即全局阻断的旧规则。DeepSeek 策略 deepseek-compatible-budget-v1：完整请求 E，U=max(1024,ceil(E/10))，C=E+U；C≤27648 才发送，软水位比较 C。所有真实调用目的共用策略，Run 内不按 Usage 学习或放宽。
+
+E<A≤C 告警 INPUT_ESTIMATE_UNDERCOUNT；C<A≤27648 告警 INPUT_ESTIMATE_RESERVE_EXCEEDED。告警绑定 ModelCall 并发布认证可读 SYSTEM Artifact，保存 E/C/A/差值/版本，不复制模型正文。A>27648 或实际总量>32768 时先保存 Usage，再停止，不执行返回工具。旧 PROVIDER_TOKEN_METER_DRIFT 字节保留，但不再毒化 Readiness；坏资产、资源 UNCERTAIN 等保护保留。
+
+真实 Context Manifest 写严格 1.1（新增 C/U/policyVersion），1.0 历史严格读取；ModelCall v1 新字段可选，历史缺省字段不补 null 重写。Result2.0 与 Java/UI 报告合同未变。没有已确认稳定结构化超窗错误码，生产恢复 DISABLED，仅严格分类接口 Mock；HTTP400/超时不自动重发。余量是工程策略，不保证误差最坏界；Tokenizer/DSML 不改。
+
+本轮只离线，具体新鲜证据见 docs/review-harness-batch-5-compatible-token-budget.md；旧全量、Java/UI 与真实验收不能代替本轮证据。
+
+
+## 2026-10-12 用户调整：取消工具累计硬上限，默认256K窗口
+
+用户明确取消所有工具累计次数的限制，并要求提高Token预算，随后指定默认256K与接近大窗口前压缩。此授权替代冻结25/40中的32次工具及32K操作窗口；不修改其他安全边界，不进入批次6。
+
+当前策略deepseek-compatible-budget-v2：W=262144（256×1024），O=4096，P=1024，B=257024。U仍max(1024,ceil(E/10))，C=E+U；C≤B才发送。已存在闭合可压缩历史且C>0.8B时自动压缩；80%为工程软水位，不等到耗尽窗口。边界C205619无需压缩，C205620触发；E233658+C余量可恰好放入B，E233659拒绝。摘要、调查、提交和验证共用，压缩须严格减少Token且最终预算内，平台锚点/配对/Checkpointer保护保留。
+
+Provider档案仍引用已核对的官方1M容量来源，256K为本平台自定操作窗口，不宣称重新认证Provider最大容量。本文不把用户Codex 500K/475K的5%显示差异当作已知实现依据；本次官方配置文档无法读取，原因未确认。余量不是数学保证，超窗恢复保持DISABLED。
+
+取消graph_max_tool_calls配置和Context的累计次数阻断；State2.0的toolCallCount与providerCallMappings去除总量数值约束，仍非负/唯一/实际计数一致。每响应最多8工具、模型调用16、图步/墙钟、Token、输出与Checkpoint字节等现有限制不变，故“不限制工具总数”不等于无限时长或无限模型请求。旧32/64配置不再支持，新启动不得继续使用旧参数。工具预算耗尽的既有分支不再从新生产入口触发，旧失败原事实保留。
+
+预算历史兼容：旧1.0/1.1 Manifest严格读取，新Manifest1.2绑定v2及B257024；旧ModelCall缺省字段/策略v1仍按旧B27648校验，不重写原字节。ModelCall新v2数值上限同步扩大。Result2.0结构不变，累计inputTokens最大范围扩大为16×262144，Python和共享Schema同步，Java仍使用同一Schema。旧真实Result保留，无手改不可变产物。Tokenizer、Evidence、候选、factChecks不改。
+
+真实烟测费用预留随新输入预算同步为每请求最坏0.546816元（现有峰值输入2、输出8元每百万的管理策略），16请求全量最坏8.749056元；不自动视作8元预算可承受全量最坏。本轮零API调用，下次付费必须基于最新价格、现有累计费用和逐请求预留重新核对，不重用旧1.409024元预留描述。
+
+离线回归新增超过64/80历史工具计数仍能规范续接与持久、40K输入及Usage、真正超预算先保存Usage再拒绝、Manifest版本/Schema、256K软水位、原ID配对和取消。最终新鲜矩阵结果完成后追加；中间64K运行不是最终256K证据。Java共享合同专项5通过，预算数值更改后已重跑。保持未提交、未推送，先离线复审。
+
+
+## 2026-10-13 局部句柄协议（冻结43）
+
+真实入口State3.0：平台s/e/c，模型n仅本批；同批新Evidence+Candidate可COMPLETE。Registry绑定Run/Snapshot且保存观察范围/原Source和UUID映射，模型用局部选择、验证c专属s原文，平台解析回既有内部UUID/FactCheck。Evidence批事务与Checkpoint独立，精确确认后才采用，失确认停止不重分配/重放。半行/未展示/转存预览/脱敏/候选专属与修正门禁保留；纯文本压缩不建映射。内部Schema及fixtures独立，外部Result2.0、Java/UI字段不变；256K与字节/集合限额不扩大。旧State2严格读取、Fake不迁移，生产无自动旧Run续跑。交付与新鲜证据见docs/review-harness-batch-5-local-handles.md；仅离线、未提交/推送、不进入批次6。
+
+
+## 2026-10-13 批次6A1：Result3.0独立协议
+
+多Pass结果保持Run/Snapshot/hash/UTC及1MiB Envelope边界，六维固定顺序；selected、SKIPPED理由和SELECTED_COMPLETE/INCOMPLETE显式保存。没有材料可INCOMPLETE但不伪造checkedScope/FULL。3.0不放宽2.0单correctness约束。全RunEvidence128/Candidate32仍共享；已交付贡献candidateIds加未验证计数不乘六。
+
+Finding贡献记录保留passId/candidateId/evidenceIds/codeReferences/原disposition/validationModelCallId，primary取固定Pass顺序后candidateId字典序，展示不将同一合并项重复生成多条Finding。引用与主判断一致性校验不是模型根因去重证明；可信候选比较与实际去重编排在6A3。报告按结构六维/primary Finding确定性生成，并对UTF-8大小和内容校验；没有模型润色调用。
+
+feeSummary为精确微元管理摘要，不是Provider账单。overrunMicros保留单次预留超额累积，即便尚未突破Run授权总額；有效Usage结算/预留可靠性由6A2账本证明，6A1仅字段与一致性约束。不因新协议改变Evidence/半行/来源身份/取消/资源释放/终态事务。历史public偏差、同模型局限、256K/POSIX未验与超窗恢复DISABLED仍保留。
+
+
+## 2026-10-13 批次6A2：调用与费用同事实确认
+
+ModelCall2.0明确Pass与v2保守输入预算；费用按C与max_output预留，使用整数微元向上取整，实际Usage与结算原子保存。超预留先存真实Usage/overrun后阻断；只有确认未发送PREPARED可退款，DISPATCHING未知保留预留并停止该Run。Context新协议费用IO跟踪真实事务完成，取消不得假称回滚；HTTP期限取请求/Run/阶段剩余最小值，资源清理期限保持原义。价格快照绑定授权并发送前核实未变价，历史过期费用仍可审计。State4/串行Pass和Result3.0交付尚属6A3，不改变原Evidence、引用、Checkpoint及终态门禁。详见6A2交付记录。
+
+
+## 2026-10-13 批次6A3：State4与Pass隔离
+
+当前Pass独立消息/摘要/inspection/计数；共享Registry保留稳定e/c真实身份，同材料在不同Pass重新观察并分配不同s，不自动把前Pass结论当Evidence。候选passId、专属来源/半行/事实核对/纠错额度门禁保持。全Run32候选/128Evidence不乘六，Checkpoint/Artifact/Result字节有限；State4临近消息集合上限可压缩闭合前缀。六Pass串行复用调查与独立验证，300/2000/10账本调用预算计入摘要/纠错；工具累计无新增上限。确定性召回后有界去重不造证据/改等级，贡献谱系与primary可核查。不确定保留重复；资源/存储/远端未知停止Run。见6A3交付，不以Mock成功声明六维质量。
+
+
+## 2026-10-14 批次6B：人工字段不回填模型事实
+
+人工裁决存储于独立ReportRevision/Head，只修订标题、描述、修改要求、备注、decision与用户要求。原Result2/3、Evidence、源码引用、模型等级/验证与假设保留，RISK/SUGGESTION批准修改不升级VERIFIED。批准只绑定当前精确revision/digest的非空APPROVED_FOR_FIX项；有限/不完整覆盖须确认，零Finding仅可关闭审阅。历史GET无副作用、孤儿不可作为批准对象；本轮未触及Python执行/Token/Evidence门禁，不消除历史模型质量限制，也未启动Handoff/Coding。见6B交付。
+
+
+## 批次6C交付材料
+
+Handoff保留原Finding及关联Evidence、originalDisposition/假设、人工修订和用户要求，模型原文不能成为权限指令。旧Result不改，不通过自由文本增加Finding或Python绝对路径读取权限。持久Handoff身份绑定精确报告/批准/来源摘要，Turn转换保持sourceHandoffId；历史读取不重采输入或调度Coding。离线测试不证明真实CC理解材料或修复质量，详见6C交付记录。

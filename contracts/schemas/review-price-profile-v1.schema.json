@@ -1,0 +1,81 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "profileVersion": {
+      "const": "1.0",
+      "title": "Profileversion",
+      "type": "string"
+    },
+    "priceProfileId": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "title": "Priceprofileid",
+      "type": "string"
+    },
+    "provider": {
+      "const": "DEEPSEEK",
+      "title": "Provider",
+      "type": "string"
+    },
+    "model": {
+      "const": "deepseek-flash",
+      "title": "Model",
+      "type": "string"
+    },
+    "currency": {
+      "const": "CNY",
+      "title": "Currency",
+      "type": "string"
+    },
+    "sourceUrl": {
+      "const": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+      "title": "Sourceurl",
+      "type": "string"
+    },
+    "sourceDocumentSha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Sourcedocumentsha256",
+      "type": "string"
+    },
+    "verifiedAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Verifiedat",
+      "type": "string"
+    },
+    "expiresAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Expiresat",
+      "type": "string"
+    },
+    "inputCnyPerMillion": {
+      "maxLength": 14,
+      "pattern": "^(?:[1-9][0-9]{0,5}(?:\\.[0-9]{1,6})?|1000000(?:\\.0{1,6})?|0\\.(?!0{1,6}$)[0-9]{1,6})$",
+      "title": "Inputcnypermillion",
+      "type": "string"
+    },
+    "outputCnyPerMillion": {
+      "maxLength": 14,
+      "pattern": "^(?:[1-9][0-9]{0,5}(?:\\.[0-9]{1,6})?|1000000(?:\\.0{1,6})?|0\\.(?!0{1,6}$)[0-9]{1,6})$",
+      "title": "Outputcnypermillion",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profileVersion",
+    "priceProfileId",
+    "provider",
+    "model",
+    "currency",
+    "sourceUrl",
+    "sourceDocumentSha256",
+    "verifiedAt",
+    "expiresAt",
+    "inputCnyPerMillion",
+    "outputCnyPerMillion"
+  ],
+  "title": "PriceProfile",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-price-profile-v1.schema.json"
+}

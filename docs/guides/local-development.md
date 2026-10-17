@@ -1,0 +1,154 @@
+# 本地开发指南
+
+## 1. 环境检查
+
+| 依赖 | 最低版本 | Windows 建议 |
+|---|---:|---|
+| JDK | 21 | 使用 x64 JDK，并确认 `java -version` |
+| Maven | 3.9 | 项目可使用 `mvn` 或已有 Maven Wrapper |
+| Git | 2.40 | 确认 `git --version` |
+| Node.js | 20.19+ 或 22.12+ | Vite 8 的最低运行版本 |
+| Claude Code | 2.1 | 配置 `.cmd`、`.bat` 或 `.exe` 入口 |
+
+```powershell
+java -version
+mvn -version
+git --version
+node --version
+claude --version
+```
+
+## 2. 启动 Control Plane
+
+必须显式配置两个绝对路径：
+
+```powershell
+$env:CODE_WEAVE_RUNTIME_ROOT = "D:/code-weave-runtime"
+$env:CODE_WEAVE_CLAUDE_EXECUTABLE = "D:/develop/nodejs/claude.cmd"
+.\mvnw.cmd -pl services/control-plane spring-boot:run
+```
+
+| 环境变量 | 用途 | 是否可由 HTTP 覆盖 |
+|---|---|---|
+| `CODE_WEAVE_RUNTIME_ROOT` | Session、Turn、事件、产物和锁文件目录 | 否 |
+| `CODE_WEAVE_CLAUDE_EXECUTABLE` | Claude Code CLI 入口 | 否 |
+| `CODE_WEAVE_RUN_CONCURRENCY` | Coding Turn 并发数；启用旧版 Worktree Run 时也作为其并发数，默认 1 | 否 |
+| `CODE_WEAVE_RUN_QUEUE_CAPACITY` | Coding Turn 队列容量；启用旧版 Worktree Run 时也作为其队列容量，默认 10 | 否 |
+
+Control Plane 只监听 `127.0.0.1`。启动后可访问：
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8080/api/v1/system/readiness
+```
+
+## 3. 启动 Web 工作台
+
+```powershell
+cd apps/web-console
+npm install
+npm run dev
+```
+
+浏览器访问 `http://127.0.0.1:5173`。Vite 会把 `/api` 请求代理到 `127.0.0.1:8080`。
+
+```mermaid
+flowchart LR
+    B[浏览器 5173] --> V[Vite Dev Server]
+    V -->|静态页面| B
+    V -->|代理 /api| C[Control Plane 8080]
+    C --> G[本地 Git 与 Claude Code]
+```
+
+## 4. 手动验证正式链路
+
+1. 准备一个 Spring Boot 3.x + Maven 的本地 Git 仓库。
+2. 确认当前分支有至少一个提交。
+3. 打开 `/sessions`，输入仓库绝对路径。
+4. 仓库有既有未提交修改时，明确决定是否纳入 Session。
+5. 创建 Session，提交一轮 Coding 指令。
+6. 观察 SSE 阶段、助手 Markdown、Maven 结果和累计 Diff。
+7. 在 Review 和自测完成后手动执行一次模块级 Git Commit。
+8. 回到页面重新检查并推进活动基线。
+
+```mermaid
+flowchart TD
+    A[准备干净 Git 仓库] --> B[创建 Session]
+    B --> C[提交 Coding Turn]
+    C --> D[观察事件和 Diff]
+    D --> E[Review、修复、最终自测]
+    E --> F[手动 Git Commit]
+    F --> G[推进活动基线]
+```
+
+## 5. 自动化验证
+
+后端：
+
+```powershell
+.\mvnw.cmd -pl services/control-plane -am clean test
+```
+
+前端：
+
+```powershell
+cd apps/web-console
+npm test -- --run
+npm run build
+```
+
+旧版 Worktree Run 已退出默认运行和测试面。仅在维护早期单轮链路时显式执行：
+
+```powershell
+.\mvnw.cmd -pl services/control-plane -am -Plegacy-worktree-run-regression test
+cd apps/web-console
+npm run build:legacy-worktree-run
+npm run test:legacy-worktree-run
+```
+
+需要手动启动旧接口时，额外启用 Spring Profile：
+
+```powershell
+.\mvnw.cmd -pl services/control-plane spring-boot:run "-Dspring-boot.run.profiles=legacy-worktree-run"
+```
+
+提交前：
+
+```powershell
+git diff --check
+git status --short --branch
+```
+
+## 6. 常见故障
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| Java 无法启动 Claude | 配置成了 `claude.ps1` | 改为 `claude.cmd`、`.bat` 或 `.exe` |
+| `RUNTIME_NOT_READY` | Git、Java、Maven 或 Claude 探测失败 | 查看 readiness 每个检查项的 remediation |
+| 创建 Session 返回仓库被占用 | 同一仓库已有活动 Session 或残留锁 | 先检查历史 Session 和服务日志，不手工删除锁文件 |
+| 创建 Session 被既有修改阻止 | 仓库有未提交修改 | 提交/撤销修改，或显式选择纳入 |
+| Turn 返回工作区漂移 | Session 期间切换分支或创建了未确认提交 | 恢复活动基线，或完成模块基线推进 |
+| SSE 中断 | 浏览器、前端或服务连接重置 | 使用事件游标重连，持久日志仍是事实源 |
+| Diff 无法展示 | Diff 超过平台上限或采集失败 | 缩小模块范围并查看用户提示与服务日志 |
+
+## 7. 数据安全边界
+
+- 不要把 `runtime` 当成源码目录提交到 Git。
+- 不要手工删除仍在使用的仓库锁或 Session 快照。
+- 平台不会替用户执行 Commit、Push 或 Merge。
+- 测试旧 Worktree 链路时，不要删除其他历史 Run 的 Worktree。
+- HTTP 错误只返回可操作信息，内部命令和诊断应从 Control Plane 日志查看。
+
+## 8. 独立 Review Harness Runtime
+
+批次 1 使用 Python 3.12、FastAPI、SQLAlchemy Async 与 SQLite，独立于 Maven。安装、必填配置、显式 Alembic 迁移、单 Worker 启动和测试命令见 [服务 README](../../services/review-harness/README.md)。
+
+默认地址为 `127.0.0.1:8091`，全部内部接口需要 Bearer Token。生产启动只校验 Schema，不自动迁移。批次 2 已接通 Java Snapshot 与 Python 独立副本，当前执行器产生空 Result，模拟成功不代表审查通过。两服务必须配置同一 Snapshot Root、Execution Root 和内部 Token；旧 SQLite 必须显式升级到 0002_workspaces。Java 最小 API、根目录配置、故障保护和验收命令见 [批次 2 交付记录](../review-harness-batch-2-development-handoff.md)。真实模型、Tool 和前端 Review 尚未接入。
+
+## 批次 3 Artifact 配置
+
+Python新增必填CODE_WEAVE_REVIEW_ARTIFACT_ROOT，必须是独立、可读写的绝对目录，不能嵌套另外两根或用户仓库。显式升级到0003_artifacts。Java不需要Artifact文件直读配置。默认模拟器不自动调用工具；确定性工具Probe仅用于正式回归。
+## Harness 批次 4 的可选图诊断
+
+按服务requirements.lock安装支持Python3.12的LangGraph及SQLite Checkpointer；产品库执行alembic upgrade head到0004_context_artifacts。可选CODE_WEAVE_REVIEW_CHECKPOINT_DATABASE_URL指向独立绝对SQLite文件，父目录必须存在，不能与产品库同文件/别名，也不能在三个材料根内；示例见services/review-harness/.env.example。缺省不会启用图Checkpoint，默认模拟执行器不变。
+
+认证GET /internal/v1/graph-capabilities查看独立Checkpoint能力；model=TEST_ONLY、productionGraphEnabled=false。FakeAdapter测试单位不能用于真实Provider Token治理。图探针只能通过Executor测试注入，禁止重启resume或跨Run自动继承。完整说明见[批次4交付](../review-harness-batch-4-development-handoff.md)。

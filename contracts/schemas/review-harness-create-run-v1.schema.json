@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-create-run-v1.schema.json",
+  "title": "Create Review Run Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "runId",
+    "codingSessionId",
+    "reviewThreadId",
+    "snapshot",
+    "input"
+  ],
+  "properties": {
+    "protocolVersion": {
+      "const": "1.0"
+    },
+    "runId": {
+      "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
+    },
+    "codingSessionId": {
+      "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
+    },
+    "reviewThreadId": {
+      "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshotId",
+        "manifestSha256"
+      ],
+      "properties": {
+        "snapshotId": {
+          "$ref": "review-harness-common-v1.schema.json#/$defs/uuid"
+        },
+        "manifestSha256": {
+          "$ref": "review-harness-common-v1.schema.json#/$defs/sha256"
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32768
+        }
+      }
+    },
+    "executionContract": {
+      "$ref": "review-execution-contract-v1.schema.json"
+    }
+  }
+}

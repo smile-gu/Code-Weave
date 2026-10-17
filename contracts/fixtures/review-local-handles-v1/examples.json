@@ -1,0 +1,288 @@
+{
+  "review-graph-state-v3": {
+    "positive": {
+      "stateVersion": "3.0",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "reviewThreadId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "investigationId": "11111111-1111-4111-8111-111111111111",
+      "userGoalDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scopeDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "toolSetDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "handleRegistry": {
+        "runId": "11111111-1111-4111-8111-111111111111",
+        "snapshotId": "11111111-1111-4111-8111-111111111111",
+        "sources": [
+          {
+            "sourceHandle": "s1",
+            "source": {
+              "sourceType": "CODE",
+              "path": "src/Demo.java",
+              "side": "final",
+              "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "startLine": 1,
+              "endLine": 1
+            },
+            "observedRanges": [
+              [
+                1,
+                1
+              ]
+            ],
+            "coverage": "FULL",
+            "redactionState": "NONE"
+          }
+        ]
+      }
+    },
+    "negative": {
+      "stateVersion": "3.0",
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "reviewThreadId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "investigationId": "11111111-1111-4111-8111-111111111111",
+      "userGoalDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scopeDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "toolSetDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "handleRegistry": {
+        "runId": "11111111-1111-4111-8111-111111111111",
+        "snapshotId": "11111111-1111-4111-8111-111111111111",
+        "sources": [
+          {
+            "sourceHandle": "s1",
+            "source": {
+              "sourceType": "CODE",
+              "path": "src/Demo.java",
+              "side": "final",
+              "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "startLine": 1,
+              "endLine": 1
+            },
+            "observedRanges": [
+              [
+                1,
+                1
+              ]
+            ],
+            "coverage": "FULL",
+            "redactionState": "NONE"
+          }
+        ]
+      },
+      "unexpected": "reject"
+    }
+  },
+  "review-handle-registry-v1": {
+    "positive": {
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "sources": [
+        {
+          "sourceHandle": "s1",
+          "source": {
+            "sourceType": "CODE",
+            "path": "src/Demo.java",
+            "side": "final",
+            "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "startLine": 1,
+            "endLine": 1
+          },
+          "observedRanges": [
+            [
+              1,
+              1
+            ]
+          ],
+          "coverage": "FULL",
+          "redactionState": "NONE"
+        }
+      ]
+    },
+    "negative": {
+      "runId": "11111111-1111-4111-8111-111111111111",
+      "snapshotId": "11111111-1111-4111-8111-111111111111",
+      "sources": [
+        {
+          "sourceHandle": "s1",
+          "source": {
+            "sourceType": "CODE",
+            "path": "src/Demo.java",
+            "side": "final",
+            "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "startLine": 1,
+            "endLine": 1
+          },
+          "observedRanges": [
+            [
+              1,
+              1
+            ]
+          ],
+          "coverage": "FULL",
+          "redactionState": "NONE"
+        }
+      ],
+      "unexpected": "reject"
+    }
+  },
+  "review-local-investigation-v1": {
+    "positive": {
+      "decision": "COMPLETE",
+      "evidenceCandidates": [
+        {
+          "localKey": "n1",
+          "evidenceType": "CODE",
+          "selections": [
+            {
+              "sourceHandle": "s1",
+              "startLine": 1,
+              "endLine": 1
+            }
+          ],
+          "coverage": "FULL",
+          "summary": "Observed declaration"
+        }
+      ],
+      "candidates": [
+        {
+          "passId": "correctness",
+          "category": "Static correctness",
+          "title": "A hypothesis",
+          "claim": "A hypothesis requires verification",
+          "severity": "LOW",
+          "confidence": 0.5,
+          "evidenceLinks": [
+            {
+              "kind": "NEW",
+              "key": "n1"
+            }
+          ],
+          "codeSelections": [
+            {
+              "sourceHandle": "s1",
+              "startLine": 1,
+              "endLine": 1
+            }
+          ],
+          "reasoningSummary": {
+            "rule": "Check original material",
+            "trigger": "Read code",
+            "executionPath": "Declaration",
+            "assumptions": [],
+            "counterexamples": [
+              "The behavior may be intended"
+            ],
+            "conclusion": "Unverified"
+          },
+          "suggestion": "Verify against requirements",
+          "claimKind": "STATIC_CORRECTNESS"
+        }
+      ],
+      "checkedScope": [
+        "src/Demo.java"
+      ],
+      "scopeKind": "FINAL_FILES",
+      "coverage": "FULL",
+      "limitations": [
+        "Only this declaration was observed"
+      ],
+      "incompleteReasons": []
+    },
+    "negative": {
+      "decision": "COMPLETE",
+      "evidenceCandidates": [
+        {
+          "localKey": "n1",
+          "evidenceType": "CODE",
+          "selections": [
+            {
+              "sourceHandle": "s1",
+              "startLine": 1,
+              "endLine": 1
+            }
+          ],
+          "coverage": "FULL",
+          "summary": "Observed declaration"
+        }
+      ],
+      "candidates": [
+        {
+          "passId": "correctness",
+          "category": "Static correctness",
+          "title": "A hypothesis",
+          "claim": "A hypothesis requires verification",
+          "severity": "LOW",
+          "confidence": 0.5,
+          "evidenceLinks": [
+            {
+              "kind": "NEW",
+              "key": "n1"
+            }
+          ],
+          "codeSelections": [
+            {
+              "sourceHandle": "s1",
+              "startLine": 1,
+              "endLine": 1
+            }
+          ],
+          "reasoningSummary": {
+            "rule": "Check original material",
+            "trigger": "Read code",
+            "executionPath": "Declaration",
+            "assumptions": [],
+            "counterexamples": [
+              "The behavior may be intended"
+            ],
+            "conclusion": "Unverified"
+          },
+          "suggestion": "Verify against requirements",
+          "claimKind": "STATIC_CORRECTNESS"
+        }
+      ],
+      "checkedScope": [
+        "src/Demo.java"
+      ],
+      "scopeKind": "FINAL_FILES",
+      "coverage": "FULL",
+      "limitations": [
+        "Only this declaration was observed"
+      ],
+      "incompleteReasons": [],
+      "unexpected": "reject"
+    }
+  },
+  "review-local-validation-v1": {
+    "positive": {
+      "validations": [
+        {
+          "candidateHandle": "c1",
+          "disposition": "REJECTED",
+          "validationSummary": {
+            "basis": "Insufficient support",
+            "counterexampleChecked": "Checked intended behavior",
+            "counterexampleHolds": true,
+            "assumptionsResolved": false
+          }
+        }
+      ]
+    },
+    "negative": {
+      "validations": [
+        {
+          "candidateHandle": "c1",
+          "disposition": "REJECTED",
+          "validationSummary": {
+            "basis": "Insufficient support",
+            "counterexampleChecked": "Checked intended behavior",
+            "counterexampleHolds": true,
+            "assumptionsResolved": false
+          }
+        }
+      ],
+      "unexpected": "reject"
+    }
+  }
+}

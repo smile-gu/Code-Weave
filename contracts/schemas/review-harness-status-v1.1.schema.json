@@ -1,0 +1,184 @@
+{
+  "$defs": {
+    "FailureInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "diagnosticId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Diagnosticid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "diagnosticId"
+      ],
+      "title": "FailureInfo",
+      "type": "object"
+    },
+    "ResultDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "resultId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Resultid",
+          "type": "string"
+        },
+        "resultVersion": {
+          "const": "3.0",
+          "title": "Resultversion",
+          "type": "string"
+        },
+        "resultSha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Resultsha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resultId",
+        "resultVersion",
+        "resultSha256"
+      ],
+      "title": "ResultDescriptor",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "protocolVersion": {
+      "const": "1.1",
+      "title": "Protocolversion",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "PENDING",
+        "RUNNING",
+        "CANCELLING",
+        "SUCCEEDED",
+        "FAILED",
+        "CANCELLED"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "resourceState": {
+      "enum": [
+        "NOT_ACQUIRED",
+        "ACTIVE",
+        "RELEASING",
+        "RELEASED",
+        "UNCERTAIN"
+      ],
+      "title": "Resourcestate",
+      "type": "string"
+    },
+    "createdAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Createdat",
+      "type": "string"
+    },
+    "startedAt": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Startedat"
+    },
+    "finishedAt": {
+      "anyOf": [
+        {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Finishedat"
+    },
+    "updatedAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Updatedat",
+      "type": "string"
+    },
+    "lastEventSequence": {
+      "minimum": 1,
+      "title": "Lasteventsequence",
+      "type": "integer"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResultDescriptor"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "failure": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FailureInfo"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "recoveryCode": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Recoverycode"
+    }
+  },
+  "required": [
+    "protocolVersion",
+    "runId",
+    "status",
+    "resourceState",
+    "createdAt",
+    "startedAt",
+    "finishedAt",
+    "updatedAt",
+    "lastEventSequence",
+    "result",
+    "failure",
+    "recoveryCode"
+  ],
+  "title": "RunStatusV11",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-status-v1.1.schema.json"
+}

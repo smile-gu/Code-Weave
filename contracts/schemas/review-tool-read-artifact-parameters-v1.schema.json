@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "artifactId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Artifactid",
+      "type": "string"
+    },
+    "cursor": {
+      "anyOf": [
+        {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cursor"
+    }
+  },
+  "required": [
+    "artifactId"
+  ],
+  "title": "ReadArtifact",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-tool-read-artifact-parameters-v1.schema.json"
+}

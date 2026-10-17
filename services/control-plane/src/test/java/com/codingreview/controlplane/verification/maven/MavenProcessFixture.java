@@ -23,6 +23,10 @@ public final class MavenProcessFixture {
                 writeReport(true, false);
                 System.exit(1);
             }
+            case "test-failure-ignored" -> {
+                System.out.println("fixture test failed but build ignores it");
+                writeReport(true, false);
+            }
             case "invalid-report" -> {
                 writeReport(false, true);
                 System.exit(1);

@@ -13,13 +13,13 @@ M1 使用异步提交与轮询查询：
 
 ```text
 HTTP Controller
-    -> M0RunApplicationService
+    -> WorktreeRunApplicationService
         -> bounded TaskExecutor
-            -> M0RunOrchestrator
+            -> WorktreeRunOrchestrator
                 -> Worktree -> Claude Code -> Diff -> Policy -> Maven
 ```
 
-`POST /api/v1/m0/runs` 返回 `202 Accepted`。前端使用状态 URL 查询内存状态投影，并使用事件 URL 按 `sequence` 增量读取 NDJSON 事实。
+`POST /api/v1/legacy/worktree-runs` 返回 `202 Accepted`。前端使用状态 URL 查询内存状态投影，并使用事件 URL 按 `sequence` 增量读取 NDJSON 事实。
 
 应用服务拥有以下生命周期事件：
 

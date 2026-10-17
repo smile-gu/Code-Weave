@@ -101,13 +101,13 @@ public final class MavenVerifierImpl implements MavenVerifier {
     @Override
     public MavenVerificationResult verify(MavenVerificationRequest request) {
         Objects.requireNonNull(request, "request");
-        String runId = request.worktree().runId();
+        String runId = request.runId();
         validateRunId(runId);
-        Path worktree = request.worktree().worktreePath().normalize();
+        Path workspaceRoot = request.workspaceRoot();
         List<String> command = command();
         Instant validationStartedAt = Instant.now();
 
-        String invalidWorkspace = validateWorkspace(worktree);
+        String invalidWorkspace = validateWorkspace(workspaceRoot);
         if (invalidWorkspace != null) {
             return new MavenVerificationResult(
                     MavenVerificationStatus.START_FAILED,
@@ -118,7 +118,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
                     null,
                     null,
                     null,
-                    "无法开始 Maven 验证，请确认任务目录是包含 pom.xml 的有效 Worktree。",
+                    "无法开始 Maven 验证，请确认任务工作区包含 pom.xml。",
                     invalidWorkspace
             );
         }
@@ -126,7 +126,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
         Path artifactDirectory = artifactDirectory(runId, request.attempt());
         MavenProcessSpec spec = new MavenProcessSpec(
                 command,
-                worktree,
+                workspaceRoot,
                 artifactDirectory,
                 runtimeRoot,
                 timeout,
@@ -142,7 +142,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
 
         MavenTestSummary summary;
         try {
-            summary = reportParser.parse(worktree);
+            summary = reportParser.parse(workspaceRoot);
         } catch (MavenReportException exception) {
             appendNotice(request, "MAVEN_REPORT_INVALID",
                     "测试报告无法可靠解析，本次验证不能判定为通过。", exception.getMessage());
@@ -203,16 +203,16 @@ public final class MavenVerifierImpl implements MavenVerifier {
         return List.copyOf(command);
     }
 
-    /** 校验 Worktree 是否具备 Maven 项目的基本运行条件。 */
-    private String validateWorkspace(Path worktree) {
-        if (!worktree.isAbsolute()) {
-            return "Worktree path is not absolute: " + worktree;
+    /** 校验工作区是否具备 Maven 项目的基本运行条件。 */
+    private String validateWorkspace(Path workspaceRoot) {
+        if (!workspaceRoot.isAbsolute()) {
+            return "Workspace path is not absolute: " + workspaceRoot;
         }
-        if (!Files.isDirectory(worktree)) {
-            return "Worktree directory does not exist: " + worktree;
+        if (!Files.isDirectory(workspaceRoot)) {
+            return "Workspace directory does not exist: " + workspaceRoot;
         }
-        if (!Files.isRegularFile(worktree.resolve("pom.xml"))) {
-            return "pom.xml does not exist at Worktree root: " + worktree;
+        if (!Files.isRegularFile(workspaceRoot.resolve("pom.xml"))) {
+            return "pom.xml does not exist at Workspace root: " + workspaceRoot;
         }
         return null;
     }
@@ -225,6 +225,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
             case CANCELLED -> MavenVerificationStatus.CANCELLED;
             case LOG_LIMIT_EXCEEDED -> MavenVerificationStatus.LOG_LIMIT_EXCEEDED;
             case LOG_CAPTURE_FAILED -> MavenVerificationStatus.LOG_CAPTURE_FAILED;
+            case PROCESS_CLEANUP_FAILED -> MavenVerificationStatus.PROCESS_CLEANUP_FAILED;
             case COMPLETED -> throw new IllegalArgumentException("completed process is not a failure");
         };
         return result(status, command, process, null, userMessage(status, null), process.diagnostic());
@@ -232,12 +233,13 @@ public final class MavenVerifierImpl implements MavenVerifier {
 
     /** 根据退出码和测试报告区分通过、构建失败与测试失败。 */
     private MavenVerificationStatus classify(Integer exitCode, MavenTestSummary summary) {
+        if (summary != null && summary.hasTestFailures()) {
+            return MavenVerificationStatus.TEST_FAILED;
+        }
         if (Integer.valueOf(0).equals(exitCode)) {
             return MavenVerificationStatus.PASSED;
         }
-        return summary.hasTestFailures()
-                ? MavenVerificationStatus.TEST_FAILED
-                : MavenVerificationStatus.BUILD_FAILED;
+        return MavenVerificationStatus.BUILD_FAILED;
     }
 
     /** 生成面向用户的 Maven 验证结论。 */
@@ -254,6 +256,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
             case LOG_LIMIT_EXCEEDED -> "Maven 日志超过 100 MB 安全上限，验证已被终止。";
             case LOG_CAPTURE_FAILED -> "Maven 日志或验证产物无法可靠保存，验证已被终止。";
             case REPORT_INVALID -> "Surefire 测试报告无法可靠解析，本次验证已失败。";
+            case PROCESS_CLEANUP_FAILED -> "Maven 进程未能可靠清理，当前会话已停止继续执行。";
         };
     }
 
@@ -338,7 +341,7 @@ public final class MavenVerifierImpl implements MavenVerifier {
             ObjectNode payload
     ) {
         eventJournal.append(
-                request.worktree().runId(),
+                request.runId(),
                 "maven",
                 request.attempt(),
                 type,

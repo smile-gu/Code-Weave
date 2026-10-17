@@ -15,7 +15,7 @@ M3 使用 Server-Sent Events 作为 Run 事件的主要实时通道：
 ```text
 RunEventJournal durable append
     -> RunEventStreamHub best-effort publish
-        -> GET /api/v1/m0/runs/{runId}/stream
+        -> GET /api/v1/legacy/worktree-runs/{runId}/stream
             -> Web EventSource
 ```
 

@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-run-status-v1.schema.json",
+  "title": "Review Run Status Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocolVersion",
+    "runId",
+    "status",
+    "resourceState",
+    "createdAt",
+    "startedAt",
+    "finishedAt",
+    "updatedAt",
+    "lastEventSequence",
+    "result",
+    "failure",
+    "recoveryCode"
+  ],
+  "properties": {
+    "protocolVersion": { "const": "1.0" },
+    "runId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
+    "status": { "$ref": "review-harness-common-v1.schema.json#/$defs/runStatus" },
+    "resourceState": { "$ref": "review-harness-common-v1.schema.json#/$defs/resourceState" },
+    "createdAt": { "$ref": "review-harness-common-v1.schema.json#/$defs/utcTimestamp" },
+    "startedAt": {
+      "oneOf": [
+        { "$ref": "review-harness-common-v1.schema.json#/$defs/utcTimestamp" },
+        { "type": "null" }
+      ]
+    },
+    "finishedAt": {
+      "oneOf": [
+        { "$ref": "review-harness-common-v1.schema.json#/$defs/utcTimestamp" },
+        { "type": "null" }
+      ]
+    },
+    "updatedAt": { "$ref": "review-harness-common-v1.schema.json#/$defs/utcTimestamp" },
+    "lastEventSequence": { "type": "integer", "minimum": 0 },
+    "result": {
+      "oneOf": [
+        { "$ref": "review-harness-common-v1.schema.json#/$defs/resultDescriptor" },
+        { "type": "null" }
+      ]
+    },
+    "failure": {
+      "oneOf": [
+        { "$ref": "review-harness-common-v1.schema.json#/$defs/failure" },
+        { "type": "null" }
+      ]
+    },
+    "recoveryCode": {
+      "oneOf": [
+        { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Z][A-Z0-9_]*$" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "PENDING" } }, "required": ["status"] },
+      "then": { "properties": { "resourceState": { "const": "NOT_ACQUIRED" }, "result": { "type": "null" }, "failure": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "RUNNING" } }, "required": ["status"] },
+      "then": { "properties": { "resourceState": { "const": "ACTIVE" }, "result": { "type": "null" }, "failure": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "CANCELLING" } }, "required": ["status"] },
+      "then": { "properties": { "resourceState": { "const": "RELEASING" }, "result": { "type": "null" }, "failure": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "SUCCEEDED" } }, "required": ["status"] },
+      "then": { "properties": { "resourceState": { "const": "RELEASED" }, "result": { "$ref": "review-harness-common-v1.schema.json#/$defs/resultDescriptor" }, "failure": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "FAILED" } }, "required": ["status"] },
+      "then": { "properties": { "resourceState": { "enum": ["NOT_ACQUIRED", "RELEASED", "UNCERTAIN"] }, "result": { "type": "null" }, "failure": { "$ref": "review-harness-common-v1.schema.json#/$defs/failure" } } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "CANCELLED" } }, "required": ["status"] },
+      "then": { "properties": { "resourceState": { "enum": ["NOT_ACQUIRED", "RELEASED"] }, "result": { "type": "null" }, "failure": { "type": "null" } } }
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-health-v1.schema.json",
+  "title": "Review Harness Readiness Response v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocolVersion", "status", "acceptingRuns", "checks"],
+  "properties": {
+    "protocolVersion": { "const": "1.0" },
+    "status": { "enum": ["READY", "NOT_READY"] },
+    "acceptingRuns": { "type": "boolean" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database", "schema", "recovery", "supervisor", "snapshotStore"],
+      "properties": {
+        "database": { "enum": ["READY", "NOT_READY"] },
+        "schema": { "enum": ["READY", "NOT_READY"] },
+        "recovery": { "enum": ["READY", "NOT_READY"] },
+        "supervisor": { "enum": ["READY", "NOT_READY"] },
+        "snapshotStore": { "enum": ["READY", "NOT_READY"] }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "READY" } }, "required": ["status"] },
+      "then": {
+        "properties": {
+          "acceptingRuns": { "const": true },
+          "checks": {
+            "properties": {
+              "database": { "const": "READY" },
+              "schema": { "const": "READY" },
+              "recovery": { "const": "READY" },
+              "supervisor": { "const": "READY" },
+              "snapshotStore": { "const": "READY" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "NOT_READY" } }, "required": ["status"] },
+      "then": {
+        "properties": { "acceptingRuns": { "const": false } },
+        "not": {
+          "properties": {
+            "checks": {
+              "properties": {
+                "database": { "const": "READY" },
+                "schema": { "const": "READY" },
+                "recovery": { "const": "READY" },
+                "supervisor": { "const": "READY" },
+                "snapshotStore": { "const": "READY" }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

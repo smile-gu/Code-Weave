@@ -1,0 +1,38 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "query": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "glob": {
+      "anyOf": [
+        {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Glob"
+    },
+    "maxResults": {
+      "default": 100,
+      "maximum": 500,
+      "minimum": 1,
+      "title": "Maxresults",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "query"
+  ],
+  "title": "SearchCode",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-tool-search-code-parameters-v1.schema.json"
+}

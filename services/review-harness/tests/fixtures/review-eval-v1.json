@@ -1,0 +1,9 @@
+{
+  "basis": "Offline scripted Provider responses exercise platform gates, not DeepSeek review quality.",
+  "seeds": [
+    {"id": "nullable", "source": "class Demo { int value(Integer x) { return x.intValue(); } }\n", "counterexample": false, "claimKind": "STATIC_CORRECTNESS", "quantitative": false, "expectedFindings": 1, "expectedDisposition": "VERIFIED"},
+    {"id": "guarded", "source": "class Demo { int value(Integer x) { if (x == null) return 0; return x.intValue(); } }\n", "counterexample": true, "claimKind": "STATIC_CORRECTNESS", "quantitative": false, "expectedFindings": 0, "expectedDisposition": null},
+    {"id": "quantitative", "source": "class Demo { int value(Integer x) { return x.intValue(); } }\n", "counterexample": false, "claimKind": "QUANTITATIVE", "quantitative": true, "expectedFindings": 1, "expectedDisposition": "RISK"},
+    {"id": "mislabelled-performance", "source": "class Demo { int value(Integer x) { return x.intValue(); } }\n", "counterexample": false, "claimKind": "STATIC_CORRECTNESS", "quantitative": true, "expectedFindings": 1, "expectedDisposition": "RISK"}
+  ]
+}

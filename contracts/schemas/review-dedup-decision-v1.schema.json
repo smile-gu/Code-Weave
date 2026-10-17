@@ -1,0 +1,45 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "candidateHandles": {
+      "items": {
+        "maxLength": 16,
+        "pattern": "^c[1-9][0-9]*$",
+        "type": "string"
+      },
+      "maxItems": 32,
+      "minItems": 2,
+      "title": "Candidatehandles",
+      "type": "array"
+    },
+    "sameRootCause": {
+      "title": "Samerootcause",
+      "type": "boolean"
+    },
+    "sameTrigger": {
+      "title": "Sametrigger",
+      "type": "boolean"
+    },
+    "sameFix": {
+      "title": "Samefix",
+      "type": "boolean"
+    },
+    "rationale": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidateHandles",
+    "sameRootCause",
+    "sameTrigger",
+    "sameFix",
+    "rationale"
+  ],
+  "title": "DedupDecision",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-dedup-decision-v1.schema.json"
+}

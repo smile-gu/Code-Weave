@@ -5,6 +5,9 @@ import com.codingreview.controlplane.adapter.claude.protocol.ClaudeStreamEventMa
 import com.codingreview.controlplane.adapter.claude.protocol.ClaudeStreamProtocolException;
 import com.codingreview.controlplane.event.AgentEvent;
 import com.codingreview.controlplane.event.AgentEventType;
+import com.codingreview.controlplane.runtime.process.ProcessTreeCleaner;
+import com.codingreview.controlplane.runtime.process.RunProcessResources;
+import com.codingreview.controlplane.runtime.process.ProcessCleanupException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.BufferedReader;
@@ -14,7 +17,6 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
@@ -32,14 +34,24 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
 
     private final ClaudeStreamEventMapper eventMapper;
     private final ClaudeRuntimePolicyValidator policyValidator;
+    private final ProcessTreeCleaner processTreeCleaner;
 
     public ClaudeProcessRunnerImpl(ObjectMapper objectMapper) {
         this(new ClaudeStreamEventMapper(objectMapper));
     }
 
     public ClaudeProcessRunnerImpl(ClaudeStreamEventMapper eventMapper) {
+        this(eventMapper, new ProcessTreeCleaner());
+    }
+
+    /** 使用可替换的进程树清理器装配运行器，供可靠性测试注入失败。 */
+    ClaudeProcessRunnerImpl(
+            ClaudeStreamEventMapper eventMapper,
+            ProcessTreeCleaner processTreeCleaner
+    ) {
         this.eventMapper = Objects.requireNonNull(eventMapper, "eventMapper");
         this.policyValidator = new ClaudeRuntimePolicyValidator();
+        this.processTreeCleaner = Objects.requireNonNull(processTreeCleaner, "processTreeCleaner");
     }
 
     /** 启动 Claude Code 进程并汇总流式事件与最终状态。 */
@@ -58,34 +70,53 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
             return result(ClaudeRunStatus.START_FAILED, null, startedAt, null, exception.getMessage());
         }
 
+        try (var resources = new RunProcessResources(process, processTreeCleaner,
+                launchSpec.cancellationGracePeriod(), STREAM_SHUTDOWN_TIMEOUT)) {
         RunState state = new RunState();
         ExecutorService streamExecutor = Executors.newFixedThreadPool(2);
+        resources.readers(streamExecutor);
         Future<?> stdoutFuture = streamExecutor.submit(() -> readStdout(
                 process, state, launchSpec, eventSink
         ));
         Future<String> stderrFuture = streamExecutor.submit(() -> readStderr(process.getErrorStream()));
         writePrompt(process, state, launchSpec.standardInput());
         ClaudeRunStatus forcedStatus = awaitLifecycle(process, state, launchSpec);
-        Integer exitCode = waitForExit(process);
-        String stderr = awaitStderr(stderrFuture);
-        awaitStream(stdoutFuture);
-        streamExecutor.shutdownNow();
-        String diagnostic = joinDiagnostics(state.failureMessage, stderr);
+        boolean restoreInterrupt = Thread.interrupted();
+        try {
+            if (!resources.finish()) forcedStatus = ClaudeRunStatus.PROCESS_CLEANUP_FAILED;
+            Integer exitCode = waitForExit(process);
+            String stderr = awaitStderr(stderrFuture);
+            awaitStream(stdoutFuture);
+            streamExecutor.shutdownNow();
+            String diagnostic = joinDiagnostics(state.failureMessage, stderr);
 
-        ClaudeRunStatus status = state.failureStatus != null
-                ? state.failureStatus
-                : forcedStatus != null ? forcedStatus : determineStatus(state, exitCode);
-        Instant endedAt = Instant.now();
-        return new ClaudeRunResult(
-                status,
-                exitCode,
-                state.initialized,
-                state.terminalEvent != null,
-                state.terminalEvent,
-                startedAt,
-                endedAt,
-                diagnostic
-        );
+            ClaudeRunStatus status = state.failureStatus != null
+                    && forcedStatus != ClaudeRunStatus.PROCESS_CLEANUP_FAILED
+                    ? state.failureStatus
+                    : forcedStatus != null ? forcedStatus : determineStatus(state, exitCode);
+            Instant endedAt = Instant.now();
+            return new ClaudeRunResult(
+                    status,
+                    exitCode,
+                    state.initialized,
+                    state.nativeSessionId,
+                    state.terminalEvent != null,
+                    state.terminalEvent,
+                    startedAt,
+                    endedAt,
+                    diagnostic
+            );
+        } finally {
+            if (restoreInterrupt) Thread.currentThread().interrupt();
+        }
+        } catch (RuntimeException failure) {
+            for (Throwable suppressed : failure.getSuppressed()) {
+                if (suppressed instanceof ProcessCleanupException) {
+                    throw new ProcessCleanupException("Claude 异常退出且资源未释放", failure);
+                }
+            }
+            throw failure;
+        }
     }
 
     /** 将任务 Prompt 写入进程标准输入并关闭输入流。 */
@@ -109,12 +140,12 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
             );
 
             if (state.failureStatus != null) {
-                destroyProcessTree(process, spec.cancellationGracePeriod());
-                return state.failureStatus;
+                return destroyProcessTree(process, spec.cancellationGracePeriod())
+                        ? state.failureStatus : ClaudeRunStatus.PROCESS_CLEANUP_FAILED;
             }
             if (!state.initialized && process.isAlive()) {
-                destroyProcessTree(process, spec.cancellationGracePeriod());
-                return ClaudeRunStatus.START_TIMEOUT;
+                return destroyProcessTree(process, spec.cancellationGracePeriod())
+                        ? ClaudeRunStatus.START_TIMEOUT : ClaudeRunStatus.PROCESS_CLEANUP_FAILED;
             }
             if (!state.initialized) {
                 return null;
@@ -123,14 +154,14 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
             long deadlineNanos = state.initializedAtNanos + spec.taskTimeout().toNanos();
             while (process.isAlive()) {
                 if (state.failureStatus != null) {
-                    destroyProcessTree(process, spec.cancellationGracePeriod());
-                    return state.failureStatus;
+                    return destroyProcessTree(process, spec.cancellationGracePeriod())
+                            ? state.failureStatus : ClaudeRunStatus.PROCESS_CLEANUP_FAILED;
                 }
 
                 long remainingNanos = deadlineNanos - System.nanoTime();
                 if (remainingNanos <= 0) {
-                    destroyProcessTree(process, spec.cancellationGracePeriod());
-                    return ClaudeRunStatus.TIMED_OUT;
+                    return destroyProcessTree(process, spec.cancellationGracePeriod())
+                            ? ClaudeRunStatus.TIMED_OUT : ClaudeRunStatus.PROCESS_CLEANUP_FAILED;
                 }
                 long pollNanos = Math.min(remainingNanos,
                         TimeUnit.MILLISECONDS.toNanos(LIFECYCLE_POLL_MILLIS));
@@ -138,9 +169,9 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
             }
             return state.failureStatus;
         } catch (InterruptedException exception) {
+            boolean cleaned = destroyProcessTree(process, spec.cancellationGracePeriod());
             Thread.currentThread().interrupt();
-            destroyProcessTree(process, spec.cancellationGracePeriod());
-            return ClaudeRunStatus.CANCELLED;
+            return cleaned ? ClaudeRunStatus.CANCELLED : ClaudeRunStatus.PROCESS_CLEANUP_FAILED;
         }
     }
 
@@ -158,69 +189,8 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
     }
 
     /** 先终止最深层子进程，最后终止父进程；宽限期后强制清理仍存活的进程。 */
-    private void destroyProcessTree(Process process, Duration gracePeriod) {
-        ProcessHandle parent = process.toHandle();
-        List<ProcessHandle> descendants = descendantsPostOrder(parent);
-
-        descendants.forEach(this::destroyQuietly);
-        destroyQuietly(parent);
-        awaitTermination(descendants, parent, gracePeriod);
-
-        descendants.stream().filter(ProcessHandle::isAlive).forEach(this::destroyForciblyQuietly);
-        if (parent.isAlive()) {
-            destroyForciblyQuietly(parent);
-        }
-        awaitTermination(descendants, parent, STREAM_SHUTDOWN_TIMEOUT);
-    }
-
-    /** 按从最深子进程到父进程的顺序收集后代进程。 */
-    private List<ProcessHandle> descendantsPostOrder(ProcessHandle parent) {
-        List<ProcessHandle> result = new ArrayList<>();
-        collectDescendantsPostOrder(parent, result);
-        return result;
-    }
-
-    /** 递归收集当前进程的后代进程。 */
-    private void collectDescendantsPostOrder(ProcessHandle parent, List<ProcessHandle> result) {
-        List<ProcessHandle> children = parent.children().toList();
-        for (ProcessHandle child : children) {
-            collectDescendantsPostOrder(child, result);
-            result.add(child);
-        }
-    }
-
-    /** 在指定时限内等待整棵进程树终止。 */
-    private void awaitTermination(List<ProcessHandle> descendants, ProcessHandle parent, Duration timeout) {
-        long deadlineNanos = System.nanoTime() + Math.max(0, timeout.toNanos());
-        while (parent.isAlive() || descendants.stream().anyMatch(ProcessHandle::isAlive)) {
-            if (System.nanoTime() >= deadlineNanos) {
-                return;
-            }
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-    }
-
-    /** 尝试温和终止进程并忽略清理阶段异常。 */
-    private void destroyQuietly(ProcessHandle processHandle) {
-        try {
-            processHandle.destroy();
-        } catch (RuntimeException ignored) {
-            // 强制清理阶段会再次处理仍存活的进程。
-        }
-    }
-
-    /** 尝试强制终止进程并忽略最终清理异常。 */
-    private void destroyForciblyQuietly(ProcessHandle processHandle) {
-        try {
-            processHandle.destroyForcibly();
-        } catch (RuntimeException ignored) {
-            // 最终状态仍会通过 exitCode 和 diagnostic 暴露给上层。
-        }
+    private boolean destroyProcessTree(Process process, Duration gracePeriod) {
+        return processTreeCleaner.clean(process, gracePeriod, STREAM_SHUTDOWN_TIMEOUT);
     }
 
     /** 持续解析标准输出并实时发布通过策略校验的 Agent 事件。 */
@@ -237,6 +207,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
                 for (AgentEvent event : eventMapper.mapLine(line)) {
                     if (event.type() == AgentEventType.RUNTIME_INITIALIZED) {
                         state.initialized = true;
+                        state.nativeSessionId = event.externalId();
                         state.initializedAtNanos = System.nanoTime();
                         state.initializedLatch.countDown();
                     }
@@ -319,7 +290,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
     private ClaudeRunResult result(ClaudeRunStatus status, Integer exitCode, Instant startedAt,
                                    AgentEvent terminalEvent, String diagnostic) {
         Instant endedAt = Instant.now();
-        return new ClaudeRunResult(status, exitCode, false, terminalEvent != null, terminalEvent,
+        return new ClaudeRunResult(status, exitCode, false, null, terminalEvent != null, terminalEvent,
                 startedAt, endedAt, diagnostic);
     }
 
@@ -334,6 +305,7 @@ public final class ClaudeProcessRunnerImpl implements ClaudeProcessRunner {
     private static final class RunState {
         private final CountDownLatch initializedLatch = new CountDownLatch(1);
         private volatile boolean initialized;
+        private volatile String nativeSessionId;
         private volatile long initializedAtNanos;
         private volatile AgentEvent terminalEvent;
         private volatile ClaudeRunStatus failureStatus;

@@ -1,0 +1,364 @@
+{
+  "$defs": {
+    "ArtifactReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "ARTIFACT",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "artifactId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Artifactid",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceType",
+        "artifactId",
+        "sha256",
+        "startLine",
+        "endLine",
+        "coverage"
+      ],
+      "title": "ArtifactReference",
+      "type": "object"
+    },
+    "CandidateBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "candidateHandle": {
+          "maxLength": 16,
+          "pattern": "^c[1-9][0-9]*$",
+          "title": "Candidatehandle",
+          "type": "string"
+        },
+        "candidateId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Candidateid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidateHandle",
+        "candidateId"
+      ],
+      "title": "CandidateBinding",
+      "type": "object"
+    },
+    "CodeReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "CODE",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "side": {
+          "enum": [
+            "base",
+            "final",
+            "diff"
+          ],
+          "title": "Side",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceType",
+        "path",
+        "side",
+        "sha256",
+        "startLine",
+        "endLine"
+      ],
+      "title": "CodeReference",
+      "type": "object"
+    },
+    "EvidenceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "evidenceHandle": {
+          "maxLength": 16,
+          "pattern": "^e[1-9][0-9]*$",
+          "title": "Evidencehandle",
+          "type": "string"
+        },
+        "evidenceId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Evidenceid",
+          "type": "string"
+        },
+        "selections": {
+          "items": {
+            "$ref": "#/$defs/SourceSelection"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Selections",
+          "type": "array"
+        }
+      },
+      "required": [
+        "evidenceHandle",
+        "evidenceId",
+        "selections"
+      ],
+      "title": "EvidenceBinding",
+      "type": "object"
+    },
+    "SourceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceHandle": {
+          "maxLength": 16,
+          "pattern": "^s[1-9][0-9]*$",
+          "title": "Sourcehandle",
+          "type": "string"
+        },
+        "source": {
+          "discriminator": {
+            "mapping": {
+              "ARTIFACT": "#/$defs/ArtifactReference",
+              "CODE": "#/$defs/CodeReference",
+              "USER_INPUT": "#/$defs/UserInputReference"
+            },
+            "propertyName": "sourceType"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/CodeReference"
+            },
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "$ref": "#/$defs/UserInputReference"
+            }
+          ],
+          "title": "Source"
+        },
+        "observedRanges": {
+          "items": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "maxItems": 32,
+          "title": "Observedranges",
+          "type": "array"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "redactionState": {
+          "enum": [
+            "NONE",
+            "APPLIED"
+          ],
+          "title": "Redactionstate",
+          "type": "string"
+        },
+        "expectedCursor": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expectedcursor"
+        },
+        "pendingLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pendingline"
+        }
+      },
+      "required": [
+        "sourceHandle",
+        "source",
+        "observedRanges",
+        "coverage",
+        "redactionState"
+      ],
+      "title": "SourceBinding",
+      "type": "object"
+    },
+    "SourceSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceHandle": {
+          "maxLength": 16,
+          "pattern": "^s[1-9][0-9]*$",
+          "title": "Sourcehandle",
+          "type": "string"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startline"
+        },
+        "endLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endline"
+        }
+      },
+      "required": [
+        "sourceHandle"
+      ],
+      "title": "SourceSelection",
+      "type": "object"
+    },
+    "UserInputReference": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "const": "USER_INPUT",
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceType",
+        "sha256"
+      ],
+      "title": "UserInputReference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Snapshotid",
+      "type": "string"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/SourceBinding"
+      },
+      "maxItems": 64,
+      "title": "Sources",
+      "type": "array"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidenceBinding"
+      },
+      "maxItems": 128,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/CandidateBinding"
+      },
+      "maxItems": 32,
+      "title": "Candidates",
+      "type": "array"
+    }
+  },
+  "required": [
+    "runId",
+    "snapshotId"
+  ],
+  "title": "HandleRegistry",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-handle-registry-v1.schema.json"
+}

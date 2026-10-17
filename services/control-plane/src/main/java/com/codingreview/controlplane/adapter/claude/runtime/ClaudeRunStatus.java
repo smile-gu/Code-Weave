@@ -25,5 +25,7 @@ public enum ClaudeRunStatus {
     /** 运行超过任务超时时间。 */
     TIMED_OUT,
     /** 用户主动取消运行。 */
-    CANCELLED
+    CANCELLED,
+    /** 已知进程树在清理时限后仍未完全退出。 */
+    PROCESS_CLEANUP_FAILED
 }

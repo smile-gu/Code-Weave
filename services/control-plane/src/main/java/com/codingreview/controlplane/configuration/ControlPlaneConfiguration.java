@@ -7,16 +7,25 @@ import com.codingreview.controlplane.observability.run.FileRunEventJournal;
 import com.codingreview.controlplane.observability.run.RunEventJournal;
 import com.codingreview.controlplane.observability.run.stream.PublishingRunEventJournal;
 import com.codingreview.controlplane.observability.run.stream.RunEventStreamHub;
+import com.codingreview.controlplane.runtime.readiness.LocalRuntimeReadinessService;
+import com.codingreview.controlplane.runtime.readiness.RuntimeReadinessService;
+import com.codingreview.controlplane.runtime.readiness.probe.CommandProbe;
+import com.codingreview.controlplane.runtime.readiness.probe.LocalCommandProbe;
+import com.codingreview.controlplane.session.persistence.CodingSessionRepository;
+import com.codingreview.controlplane.session.persistence.FileCodingSessionRepository;
+import com.codingreview.controlplane.session.persistence.CodingTurnRepository;
+import com.codingreview.controlplane.session.persistence.FileCodingTurnRepository;
+import com.codingreview.controlplane.session.guard.SessionWorkspaceGuard;
 import com.codingreview.controlplane.verification.maven.MavenVerifier;
 import com.codingreview.controlplane.verification.maven.MavenVerifierImpl;
-import com.codingreview.controlplane.workflow.m0.M0RunOrchestrator;
-import com.codingreview.controlplane.workflow.m0.M0RunOrchestratorImpl;
 import com.codingreview.controlplane.workspace.change.GitChangeCollector;
 import com.codingreview.controlplane.workspace.change.GitChangeCollectorImpl;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluator;
 import com.codingreview.controlplane.workspace.change.policy.ChangePolicyEvaluatorImpl;
-import com.codingreview.controlplane.workspace.worktree.GitWorktreeManager;
-import com.codingreview.controlplane.workspace.worktree.GitWorktreeManagerImpl;
+import com.codingreview.controlplane.workspace.git.GitRepositoryInspector;
+import com.codingreview.controlplane.workspace.git.GitRepositoryInspectorImpl;
+import com.codingreview.controlplane.workspace.lock.FileRepositoryWriteLockManager;
+import com.codingreview.controlplane.workspace.lock.RepositoryWriteLockManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,9 +34,39 @@ import java.nio.file.Path;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** 集中装配 M0 核心对象，业务类本身不依赖 Spring。 */
+/** 装配正式 Coding Session/Turn 链路及其共享基础设施。 */
 @Configuration(proxyBeanMethods = false)
 public class ControlPlaneConfiguration {
+
+    /** 创建以运行目录 JSON 快照为事实源的 Coding Session 仓储。 */
+    @Bean
+    CodingSessionRepository codingSessionRepository(
+            CodeWeaveProperties properties,
+            ObjectMapper objectMapper
+    ) {
+        return new FileCodingSessionRepository(runtimeRoot(properties), objectMapper);
+    }
+
+    /** 创建按 Session 目录保存多轮 Turn 的文件仓储。 */
+    @Bean
+    CodingTurnRepository codingTurnRepository(CodeWeaveProperties properties, ObjectMapper objectMapper) {
+        return new FileCodingTurnRepository(runtimeRoot(properties), objectMapper);
+    }
+
+    /** 创建带超时和输出上限的本机只读命令探测器。 */
+    @Bean
+    CommandProbe commandProbe() {
+        return new LocalCommandProbe();
+    }
+
+    /** 创建实时检查 Coding Run 运行依赖的环境服务。 */
+    @Bean
+    RuntimeReadinessService runtimeReadinessService(
+            CodeWeaveProperties properties,
+            CommandProbe commandProbe
+    ) {
+        return new LocalRuntimeReadinessService(properties, commandProbe);
+    }
 
     /** 创建负责管理实时事件订阅的内存 Hub。 */
     @Bean
@@ -54,10 +93,22 @@ public class ControlPlaneConfiguration {
         );
     }
 
-    /** 创建负责隔离工作目录的 Git Worktree 管理器。 */
+    /** 创建只读检查用户真实 Git 工作区的基础设施。 */
     @Bean
-    GitWorktreeManager gitWorktreeManager(CodeWeaveProperties properties) {
-        return new GitWorktreeManagerImpl(runtimeRoot(properties));
+    GitRepositoryInspector gitRepositoryInspector() {
+        return new GitRepositoryInspectorImpl();
+    }
+
+    /** 创建真实仓库分支与 HEAD 防漂移门禁。 */
+    @Bean
+    SessionWorkspaceGuard sessionWorkspaceGuard(GitRepositoryInspector inspector) {
+        return new SessionWorkspaceGuard(inspector);
+    }
+
+    /** 创建基于运行目录锁文件的仓库级写锁管理器。 */
+    @Bean(destroyMethod = "close")
+    RepositoryWriteLockManager repositoryWriteLockManager(CodeWeaveProperties properties) {
+        return new FileRepositoryWriteLockManager(runtimeRoot(properties));
     }
 
     /** 使用固定能力配置创建 Claude Code Adapter。 */
@@ -68,7 +119,7 @@ public class ControlPlaneConfiguration {
     ) {
         return new ClaudeCodeAdapterImpl(
                 properties.requireClaudeExecutable(),
-                CapabilityProfile.m0Restricted(),
+                CapabilityProfile.codingSessionRestricted(),
                 objectMapper
         );
     }
@@ -94,25 +145,17 @@ public class ControlPlaneConfiguration {
         return new MavenVerifierImpl(runtimeRoot(properties), eventJournal);
     }
 
-    /** 将五个核心阶段装配为 M0 主工作流。 */
+    /** 将现有 Claude、变更、Maven 基础设施组合为 Coding 多轮编排器。 */
     @Bean
-    M0RunOrchestrator m0RunOrchestrator(
-            GitWorktreeManager worktreeManager,
-            ClaudeCodeAdapter claudeCodeAdapter,
-            GitChangeCollector changeCollector,
-            ChangePolicyEvaluator changePolicyEvaluator,
-            MavenVerifier mavenVerifier,
-            RunEventJournal eventJournal,
-            ObjectMapper objectMapper
+    com.codingreview.controlplane.workflow.coding.CodingTurnOrchestrator codingTurnOrchestrator(
+            ClaudeCodeAdapter claudeCodeAdapter, GitChangeCollector changeCollector,
+            ChangePolicyEvaluator changePolicyEvaluator, MavenVerifier mavenVerifier,
+            RunEventJournal eventJournal, ObjectMapper objectMapper,
+            SessionWorkspaceGuard workspaceGuard
     ) {
-        return new M0RunOrchestratorImpl(
-                worktreeManager,
-                claudeCodeAdapter,
-                changeCollector,
-                changePolicyEvaluator,
-                mavenVerifier,
-                eventJournal,
-                objectMapper
+        return new com.codingreview.controlplane.workflow.coding.CodingTurnOrchestratorImpl(
+                claudeCodeAdapter, changeCollector, changePolicyEvaluator, mavenVerifier,
+                eventJournal, objectMapper, workspaceGuard
         );
     }
 

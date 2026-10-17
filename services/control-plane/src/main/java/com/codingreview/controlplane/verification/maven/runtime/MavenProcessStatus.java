@@ -7,5 +7,6 @@ public enum MavenProcessStatus {
     TIMED_OUT,
     CANCELLED,
     LOG_LIMIT_EXCEEDED,
-    LOG_CAPTURE_FAILED
+    LOG_CAPTURE_FAILED,
+    PROCESS_CLEANUP_FAILED
 }

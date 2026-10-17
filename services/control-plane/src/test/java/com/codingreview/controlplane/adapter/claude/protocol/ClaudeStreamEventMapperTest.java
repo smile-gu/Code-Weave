@@ -47,6 +47,32 @@ class ClaudeStreamEventMapperTest {
     }
 
     @Test
+    void ignoresIntermediateThinkingTokenUpdates() {
+        String usageUpdate = """
+                {"type":"system","subtype":"thinking_tokens","estimated_tokens":42,"estimated_tokens_delta":1,"uuid":"usage-1","session_id":"s-1"}
+                """;
+
+        assertThat(mapper.mapLine(usageUpdate)).isEmpty();
+    }
+
+    @Test
+    void preservesExactUsageInTerminalResult() {
+        String terminalResult = """
+                {"type":"result","subtype":"success","is_error":false,"session_id":"s-1","total_cost_usd":0.110062,"usage":{"input_tokens":6286,"output_tokens":2469,"cache_read_input_tokens":16384}}
+                """;
+
+        assertThat(mapper.mapLine(terminalResult)).singleElement().satisfies(event -> {
+            assertThat(event.type()).isEqualTo(AgentEventType.RUNTIME_COMPLETED);
+            assertThat(event.payload().path("total_cost_usd").decimalValue())
+                    .isEqualByComparingTo("0.110062");
+            assertThat(event.payload().path("usage").path("input_tokens").asInt()).isEqualTo(6286);
+            assertThat(event.payload().path("usage").path("output_tokens").asInt()).isEqualTo(2469);
+            assertThat(event.payload().path("usage").path("cache_read_input_tokens").asInt())
+                    .isEqualTo(16384);
+        });
+    }
+
+    @Test
     void rejectsMalformedProtocolLines() {
         assertThatThrownBy(() -> mapper.mapLine("not-json"))
                 .isInstanceOf(ClaudeStreamProtocolException.class);

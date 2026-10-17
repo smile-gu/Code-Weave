@@ -1,32 +1,21 @@
-import { Activity, GitPullRequestArrow } from 'lucide-react'
-import { Link, Navigate, Route, Routes } from 'react-router-dom'
-import { RunCreatePage } from '../features/run-create/RunCreatePage'
-import { RunPage } from '../features/run-monitor/RunPage'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { CodingSessionListPage } from '../features/coding-session/CodingSessionListPage'
+import { WorkspaceShell } from './WorkspaceShell'
+
+// Keep the diff / Markdown workspace out of the initial home-page bundle.
+const CodingSessionDetailPage = lazy(() => import('../features/coding-session/CodingSessionDetailPage').then(module => ({ default: module.CodingSessionDetailPage })))
 
 /** 提供工作台公共外壳和页面路由。 */
 export function App() {
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <Link className="brand" to="/">
-          <span className="brand-mark"><GitPullRequestArrow size={19} /></span>
-          <span>
-            <strong>Code Weave</strong>
-            <small>Coding Run 工作台</small>
-          </span>
-        </Link>
-        <div className="local-badge">
-          <Activity size={14} />
-          本机控制平面
-        </div>
-      </header>
-      <main>
-        <Routes>
-          <Route path="/" element={<RunCreatePage />} />
-          <Route path="/runs/:runId" element={<RunPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-    </div>
+    <WorkspaceShell>
+        <Suspense fallback={<div className="page-message" role="status">正在打开工作区…</div>}><Routes>
+          <Route path="/" element={<Navigate to="/sessions" replace />} />
+          <Route path="/sessions" element={<CodingSessionListPage />} />
+          <Route path="/sessions/:sessionId" element={<CodingSessionDetailPage />} />
+          <Route path="*" element={<Navigate to="/sessions" replace />} />
+        </Routes></Suspense>
+    </WorkspaceShell>
   )
 }

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-harness-event-v1.schema.json",
+  "title": "Review Run Event Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocolVersion", "runId", "sequence", "eventType", "occurredAt", "payload"],
+  "properties": {
+    "protocolVersion": { "const": "1.0" },
+    "runId": { "$ref": "review-harness-common-v1.schema.json#/$defs/uuid" },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "REVIEW_RUN_ACCEPTED",
+        "REVIEW_RUN_STARTED",
+        "REVIEW_RUN_CANCELLING",
+        "REVIEW_RUN_SUCCEEDED",
+        "REVIEW_RUN_FAILED",
+        "REVIEW_RUN_CANCELLED",
+        "REVIEW_RUN_RESOURCES_RELEASED"
+      ]
+    },
+    "occurredAt": { "$ref": "review-harness-common-v1.schema.json#/$defs/utcTimestamp" },
+    "payload": { "type": "object" }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "eventType": { "const": "REVIEW_RUN_ACCEPTED" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "resourceState"],
+          "properties": {
+            "status": { "const": "PENDING" },
+            "resourceState": { "const": "NOT_ACQUIRED" }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "eventType": { "const": "REVIEW_RUN_STARTED" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "resourceState"],
+          "properties": {
+            "status": { "const": "RUNNING" },
+            "resourceState": { "const": "ACTIVE" }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "eventType": { "const": "REVIEW_RUN_CANCELLING" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "resourceState"],
+          "properties": {
+            "status": { "const": "CANCELLING" },
+            "resourceState": { "const": "RELEASING" }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "eventType": { "const": "REVIEW_RUN_SUCCEEDED" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "resourceState", "result"],
+          "properties": {
+            "status": { "const": "SUCCEEDED" },
+            "resourceState": { "const": "RELEASED" },
+            "result": { "$ref": "review-harness-common-v1.schema.json#/$defs/resultDescriptor" }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "eventType": { "const": "REVIEW_RUN_FAILED" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "resourceState", "failure"],
+          "properties": {
+            "status": { "const": "FAILED" },
+            "resourceState": { "enum": ["NOT_ACQUIRED", "RELEASED", "UNCERTAIN"] },
+            "failure": { "$ref": "review-harness-common-v1.schema.json#/$defs/failure" }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "eventType": { "const": "REVIEW_RUN_CANCELLED" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "resourceState"],
+          "properties": {
+            "status": { "const": "CANCELLED" },
+            "resourceState": { "enum": ["NOT_ACQUIRED", "RELEASED"] }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "eventType": { "const": "REVIEW_RUN_RESOURCES_RELEASED" },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "previousResourceState", "resourceState"],
+          "properties": {
+            "status": { "const": "FAILED" },
+            "previousResourceState": { "const": "UNCERTAIN" },
+            "resourceState": { "const": "RELEASED" },
+            "recoveryCode": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Z][A-Z0-9_]*$" }
+          }
+        }
+      }
+    }
+  ]
+}

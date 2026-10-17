@@ -20,12 +20,12 @@ public record CapabilityProfile(
         tools = List.copyOf(tools);
     }
 
-    /** M0 的最小权限配置，仅开放文件读取、检索和编辑能力。 */
-    public static CapabilityProfile m0Restricted() {
+    /** Coding Session 的受限能力配置，仅开放文件读取、检索和编辑能力。 */
+    public static CapabilityProfile codingSessionRestricted() {
         return new CapabilityProfile(
-                "M0_RESTRICTED",
+                "CODING_SESSION_RESTRICTED",
                 true,
-                false,
+                true,
                 "dontAsk",
                 List.of("Read", "Glob", "Grep", "Edit", "Write"),
                 Duration.ofSeconds(30),
@@ -34,4 +34,5 @@ public record CapabilityProfile(
                 1.00
         );
     }
+
 }

@@ -1,6 +1,9 @@
 package com.codingreview.controlplane.verification.maven.runtime;
 
 import com.codingreview.controlplane.observability.run.RunEventType;
+import com.codingreview.controlplane.runtime.process.ProcessCleanupException;
+import com.codingreview.controlplane.runtime.process.ProcessTreeCleaner;
+import com.codingreview.controlplane.runtime.process.RunProcessResources;
 import com.codingreview.controlplane.verification.maven.model.MavenLogArtifact;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -18,7 +21,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
@@ -42,9 +44,16 @@ public final class MavenProcessRunner {
     private static final long OUTPUT_EVENT_INTERVAL_NANOS = Duration.ofMillis(250).toNanos();
 
     private final ObjectMapper objectMapper;
+    private final ProcessTreeCleaner processTreeCleaner;
 
     public MavenProcessRunner(ObjectMapper objectMapper) {
+        this(objectMapper, new ProcessTreeCleaner());
+    }
+
+    /** 使用可替换的进程树清理器装配运行器，供可靠性测试注入失败。 */
+    public MavenProcessRunner(ObjectMapper objectMapper, ProcessTreeCleaner processTreeCleaner) {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper").copy();
+        this.processTreeCleaner = Objects.requireNonNull(processTreeCleaner, "processTreeCleaner");
     }
 
     /** 启动 Maven 进程并汇总生命周期、日志与退出状态。 */
@@ -74,22 +83,29 @@ public final class MavenProcessRunner {
                     "Unable to start Maven: " + exception.getMessage());
         }
 
+        try (var resources = new RunProcessResources(process, processTreeCleaner,
+                spec.cancellationGracePeriod(), STREAM_SHUTDOWN_TIMEOUT)) {
         try {
             publish(eventSink, RunEventType.PROCESS_STARTED,
                     objectMapper.createObjectNode().put("pid", process.pid()));
             process.getOutputStream().close();
         } catch (IOException exception) {
-            terminateWithEvents(process, spec.cancellationGracePeriod(), "STDIN_CLOSE_FAILED", eventSink);
-            return result(MavenProcessStatus.LOG_CAPTURE_FAILED, waitForExit(process),
+            boolean cleaned = terminateWithEvents(process, spec.cancellationGracePeriod(), "STDIN_CLOSE_FAILED", eventSink);
+            return result(cleaned ? MavenProcessStatus.LOG_CAPTURE_FAILED : MavenProcessStatus.PROCESS_CLEANUP_FAILED, waitForExit(process),
                     startedAt, null, null, "Unable to close Maven stdin: " + exception.getMessage());
         } catch (RuntimeException exception) {
-            destroyProcessTree(process, spec.cancellationGracePeriod());
+            if (!destroyProcessTree(process, spec.cancellationGracePeriod())) {
+                throw new ProcessCleanupException(
+                        "Maven process cleanup could not be confirmed", exception
+                );
+            }
             throw exception;
         }
 
         AtomicLong combinedBytes = new AtomicLong();
         AtomicReference<CaptureFailure> captureFailure = new AtomicReference<>();
         ExecutorService streamExecutor = Executors.newFixedThreadPool(2);
+        resources.readers(streamExecutor);
         Future<MavenLogArtifact> stdoutFuture = streamExecutor.submit(() -> capture(
                 process.getInputStream(), "stdout", RunEventType.PROCESS_STDOUT,
                 spec.artifactDirectory().resolve("stdout.log"), spec,
@@ -102,43 +118,74 @@ public final class MavenProcessRunner {
         ));
 
         MavenProcessStatus forcedStatus = awaitLifecycle(process, spec, captureFailure);
-        CaptureFailure failure = captureFailure.get();
-        if (process.isAlive()) {
-            String reason = failure != null ? failure.status().name()
-                    : forcedStatus == null ? "PROCESS_CLEANUP" : forcedStatus.name();
-            if (failure != null && failure.eventPublishFailure()) {
-                destroyProcessTree(process, spec.cancellationGracePeriod());
-            } else {
-                terminateWithEvents(process, spec.cancellationGracePeriod(), reason, eventSink);
+        boolean restoreInterrupt = Thread.interrupted();
+        try {
+            CaptureFailure failure = captureFailure.get();
+            boolean cleanupFailed = false;
+            if (process.isAlive()) {
+                String reason = failure != null ? failure.status().name()
+                        : forcedStatus == null ? "PROCESS_CLEANUP" : forcedStatus.name();
+                if (failure != null && failure.eventPublishFailure()) {
+                    cleanupFailed = !destroyProcessTree(process, spec.cancellationGracePeriod());
+                } else {
+                    cleanupFailed = !terminateWithEvents(
+                            process, spec.cancellationGracePeriod(), reason, eventSink
+                    );
+                }
             }
+
+            cleanupFailed |= !resources.finish();
+            Integer exitCode = waitForExit(process);
+            CapturedLogs logs = awaitLogs(stdoutFuture, stderrFuture, captureFailure);
+            streamExecutor.shutdownNow();
+            failure = captureFailure.get();
+
+            if (failure != null && failure.eventPublishFailure()) {
+                if (cleanupFailed) {
+                    throw new ProcessCleanupException(
+                            "Maven event persistence failed and process cleanup could not be confirmed",
+                            failure.runtimeCause()
+                    );
+                }
+                throw failure.runtimeCause();
+            }
+
+            try {
+            publish(eventSink, RunEventType.PROCESS_EXIT_OBSERVED,
+                    nullableIntegerPayload("exitCode", exitCode));
+
+            MavenProcessStatus status = cleanupFailed
+                    ? MavenProcessStatus.PROCESS_CLEANUP_FAILED
+                    : failure != null
+                    ? failure.status()
+                    : forcedStatus == null ? MavenProcessStatus.COMPLETED : forcedStatus;
+            if (logs.complete()) {
+                ObjectNode payload = objectMapper.createObjectNode();
+                payload.set("stdout", objectMapper.valueToTree(logs.stdout()));
+                payload.set("stderr", objectMapper.valueToTree(logs.stderr()));
+                publish(eventSink, RunEventType.LOG_CAPTURE_COMPLETED, payload);
+            }
+
+            String diagnostic = failure != null
+                    ? failure.cause().getMessage()
+                    : logs.diagnostic();
+            return result(status, exitCode, startedAt, logs.stdout(), logs.stderr(), diagnostic);
+            } catch (RuntimeException eventFailure) {
+                if (cleanupFailed) throw new ProcessCleanupException(
+                        "Maven 资源清理失败，后续事件也未能保存", eventFailure);
+                throw eventFailure;
+            }
+        } finally {
+            if (restoreInterrupt) Thread.currentThread().interrupt();
         }
-
-        Integer exitCode = waitForExit(process);
-        CapturedLogs logs = awaitLogs(stdoutFuture, stderrFuture, captureFailure);
-        streamExecutor.shutdownNow();
-        failure = captureFailure.get();
-
-        if (failure != null && failure.eventPublishFailure()) {
-            throw failure.runtimeCause();
+        } catch (RuntimeException failure) {
+            for (Throwable suppressed : failure.getSuppressed()) {
+                if (suppressed instanceof ProcessCleanupException) {
+                    throw new ProcessCleanupException("Maven 异常退出且资源未释放", failure);
+                }
+            }
+            throw failure;
         }
-
-        publish(eventSink, RunEventType.PROCESS_EXIT_OBSERVED,
-                nullableIntegerPayload("exitCode", exitCode));
-
-        MavenProcessStatus status = failure != null
-                ? failure.status()
-                : forcedStatus == null ? MavenProcessStatus.COMPLETED : forcedStatus;
-        if (logs.complete()) {
-            ObjectNode payload = objectMapper.createObjectNode();
-            payload.set("stdout", objectMapper.valueToTree(logs.stdout()));
-            payload.set("stderr", objectMapper.valueToTree(logs.stderr()));
-            publish(eventSink, RunEventType.LOG_CAPTURE_COMPLETED, payload);
-        }
-
-        String diagnostic = failure != null
-                ? failure.cause().getMessage()
-                : logs.diagnostic();
-        return result(status, exitCode, startedAt, logs.stdout(), logs.stderr(), diagnostic);
     }
 
     /** 持续采集单个输出流并生成可校验的日志产物。 */
@@ -290,7 +337,7 @@ public final class MavenProcessRunner {
     }
 
     /** 在记录终止事件的同时清理 Maven 进程树。 */
-    private void terminateWithEvents(
+    private boolean terminateWithEvents(
             Process process,
             Duration gracePeriod,
             String reason,
@@ -300,76 +347,24 @@ public final class MavenProcessRunner {
             publish(eventSink, RunEventType.PROCESS_TERMINATION_REQUESTED,
                     objectMapper.createObjectNode().put("reason", reason));
         } catch (RuntimeException exception) {
-            destroyProcessTree(process, gracePeriod);
+            if (!destroyProcessTree(process, gracePeriod)) {
+                throw new ProcessCleanupException(
+                        "Maven process cleanup could not be confirmed", exception
+                );
+            }
             throw exception;
         }
-        destroyProcessTree(process, gracePeriod);
-        publish(eventSink, RunEventType.PROCESS_TERMINATED,
-                objectMapper.createObjectNode().put("reason", reason));
-    }
-
-    /** 先终止最深层子进程，最后终止父进程；宽限期后强制清理仍存活的进程。 */
-    private void destroyProcessTree(Process process, Duration gracePeriod) {
-        ProcessHandle parent = process.toHandle();
-        List<ProcessHandle> descendants = descendantsPostOrder(parent);
-        descendants.forEach(this::destroyQuietly);
-        destroyQuietly(parent);
-        awaitTermination(descendants, parent, gracePeriod);
-
-        descendants.stream().filter(ProcessHandle::isAlive).forEach(this::destroyForciblyQuietly);
-        if (parent.isAlive()) {
-            destroyForciblyQuietly(parent);
+        boolean cleaned = destroyProcessTree(process, gracePeriod);
+        if (cleaned) {
+            publish(eventSink, RunEventType.PROCESS_TERMINATED,
+                    objectMapper.createObjectNode().put("reason", reason));
         }
-        awaitTermination(descendants, parent, STREAM_SHUTDOWN_TIMEOUT);
+        return cleaned;
     }
 
-    /** 按从最深子进程到父进程的顺序收集后代进程。 */
-    private List<ProcessHandle> descendantsPostOrder(ProcessHandle parent) {
-        List<ProcessHandle> result = new ArrayList<>();
-        collectDescendantsPostOrder(parent, result);
-        return result;
-    }
-
-    /** 递归收集当前进程的后代进程。 */
-    private void collectDescendantsPostOrder(ProcessHandle parent, List<ProcessHandle> result) {
-        for (ProcessHandle child : parent.children().toList()) {
-            collectDescendantsPostOrder(child, result);
-            result.add(child);
-        }
-    }
-
-    /** 在指定时限内等待整棵进程树终止。 */
-    private void awaitTermination(List<ProcessHandle> descendants, ProcessHandle parent, Duration timeout) {
-        long deadlineNanos = System.nanoTime() + Math.max(0, timeout.toNanos());
-        while (parent.isAlive() || descendants.stream().anyMatch(ProcessHandle::isAlive)) {
-            if (System.nanoTime() >= deadlineNanos) {
-                return;
-            }
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-    }
-
-    /** 尝试温和终止进程并忽略清理阶段异常。 */
-    private void destroyQuietly(ProcessHandle processHandle) {
-        try {
-            processHandle.destroy();
-        } catch (RuntimeException ignored) {
-            // 强制清理阶段会再次处理仍存活的进程。
-        }
-    }
-
-    /** 尝试强制终止进程并忽略最终清理异常。 */
-    private void destroyForciblyQuietly(ProcessHandle processHandle) {
-        try {
-            processHandle.destroyForcibly();
-        } catch (RuntimeException ignored) {
-            // 最终进程状态仍会通过结果诊断暴露给上层。
-        }
+    /** 先子后父清理进程树，并仅在所有已知进程退出后返回成功。 */
+    private boolean destroyProcessTree(Process process, Duration gracePeriod) {
+        return processTreeCleaner.clean(process, gracePeriod, STREAM_SHUTDOWN_TIMEOUT);
     }
 
     /** 等待 Maven 进程退出并返回可用的退出码。 */

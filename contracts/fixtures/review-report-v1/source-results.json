@@ -1,0 +1,872 @@
+{
+  "RISK": {
+    "resultVersion": "3.0",
+    "resultId": "11111111-1111-4111-8111-111111111111",
+    "runId": "22222222-2222-4222-8222-222222222222",
+    "snapshotId": "33333333-3333-4333-8333-333333333333",
+    "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "generatedAt": "2026-10-13T10:00:00.000000Z",
+    "passResults": [
+      {
+        "passId": "correctness",
+        "status": "INCOMPLETE",
+        "checkedScope": [
+          "src/Demo.java"
+        ],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Call budget exhausted"
+        ],
+        "incompleteReasons": [
+          "MODEL_CALL_LIMIT"
+        ],
+        "unvalidatedCandidates": 0,
+        "findingIds": [
+          "99999999-9999-4999-8999-999999999999"
+        ],
+        "usage": {
+          "modelCalls": 1,
+          "inputTokens": 17,
+          "outputTokens": 2
+        },
+        "selected": true,
+        "skipReason": null,
+        "scopeKind": "FINAL_FILES"
+      },
+      {
+        "passId": "consistency",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "security",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "performance",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "architecture",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "testing",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "77777777-7777-4777-8777-777777777777",
+        "runId": "22222222-2222-4222-8222-222222222222",
+        "snapshotId": "33333333-3333-4333-8333-333333333333",
+        "evidenceType": "CODE",
+        "sourceRefs": [
+          {
+            "sourceType": "CODE",
+            "path": "src/Demo.java",
+            "side": "final",
+            "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "startLine": 1,
+            "endLine": 1
+          }
+        ],
+        "coverage": "FULL",
+        "summary": "Observed code",
+        "producerType": "MODEL_SUBMISSION",
+        "producerId": "44444444-4444-4444-8444-444444444444",
+        "capturedAt": "2026-10-13T10:00:00.000000Z"
+      }
+    ],
+    "findings": [
+      {
+        "passId": "correctness",
+        "candidateId": "88888888-8888-4888-8888-888888888888",
+        "evidenceIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "codeReferences": [
+          {
+            "sourceType": "CODE",
+            "path": "src/Demo.java",
+            "side": "final",
+            "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "startLine": 1,
+            "endLine": 1
+          }
+        ],
+        "disposition": "RISK",
+        "validationModelCallId": "44444444-4444-4444-8444-444444444444",
+        "findingId": "99999999-9999-4999-8999-999999999999",
+        "contributions": [
+          {
+            "passId": "correctness",
+            "candidateId": "88888888-8888-4888-8888-888888888888",
+            "evidenceIds": [
+              "77777777-7777-4777-8777-777777777777"
+            ],
+            "codeReferences": [
+              {
+                "sourceType": "CODE",
+                "path": "src/Demo.java",
+                "side": "final",
+                "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "startLine": 1,
+                "endLine": 1
+              }
+            ],
+            "disposition": "RISK",
+            "validationModelCallId": "44444444-4444-4444-8444-444444444444"
+          }
+        ],
+        "category": "Null safety",
+        "title": "Null dereference",
+        "claim": "Null throws.",
+        "severity": "HIGH",
+        "confidence": 0.9,
+        "claimKind": "STATIC_CORRECTNESS",
+        "suggestion": "Restore guard.",
+        "reasoningSummary": {
+          "rule": "Null returns zero",
+          "trigger": "value(null)",
+          "executionPath": "dereference",
+          "assumptions": [],
+          "counterexamples": [
+            "Guard exists"
+          ],
+          "conclusion": "Guard missing"
+        },
+        "validationSummary": {
+          "basis": "Read source",
+          "counterexampleChecked": "No guard",
+          "counterexampleHolds": false,
+          "assumptionsResolved": true
+        }
+      }
+    ],
+    "reportDraft": {
+      "markdown": "# Multi-pass review draft\n\nCoverage: SELECTED_INCOMPLETE.\n\nSelected: true; skipReason: NONE.\n\n## correctness\n\nStatus: INCOMPLETE; scope: FINAL_FILES; coverage: PARTIAL.\n\n- src/Demo.java\n\n## Limitations\n\n- Call budget exhausted\n- MODEL\\_CALL\\_LIMIT\n\n## Null dereference\n\nRISK / HIGH.\n\nNull throws.\n\nvalue\\(null\\)\n\nRead source\n\nRestore guard.\n\n- src/Demo.java (final, lines 1-1)\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## consistency\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## security\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## performance\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## architecture\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## testing\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\n",
+      "byteSize": 1721
+    },
+    "diagnostics": {
+      "executionMode": "REAL",
+      "contextManifestArtifactIds": [
+        "66666666-6666-4666-8666-666666666666"
+      ],
+      "modelCallIds": [
+        "44444444-4444-4444-8444-444444444444"
+      ],
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "limitations": [
+        "Finite local meter samples"
+      ],
+      "dedupUsage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "feeSummary": {
+        "authorizationId": "11111111-1111-4111-8111-111111111111",
+        "currency": "CNY",
+        "maxAmountMicros": 8000001,
+        "spentMicros": 10,
+        "reservedMicros": 0,
+        "overrunMicros": 0,
+        "unknownCalls": 0
+      }
+    },
+    "reviewPlan": {
+      "planVersion": "1.0",
+      "selectedPasses": [
+        "correctness"
+      ],
+      "executionBudget": {
+        "maxModelCallsPerPass": 300,
+        "maxModelCallsPerRun": 2000,
+        "maxDedupCalls": 10,
+        "requestTimeoutSeconds": 120,
+        "passTimeoutSeconds": 1800,
+        "runTimeoutSeconds": 10800,
+        "summaryTimeoutSeconds": 600
+      },
+      "feeAuthorization": {
+        "authorizationId": "11111111-1111-4111-8111-111111111111",
+        "currency": "CNY",
+        "maxAmount": "8.000001",
+        "confirmedAt": "2026-10-13T09:00:00.000000Z",
+        "priceProfileId": "deepseek-flash-verified-v1",
+        "priceProfileDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    "coverageStatus": "SELECTED_INCOMPLETE"
+  },
+  "SUGGESTION": {
+    "resultVersion": "3.0",
+    "resultId": "11111111-1111-4111-8111-111111111111",
+    "runId": "22222222-2222-4222-8222-222222222222",
+    "snapshotId": "33333333-3333-4333-8333-333333333333",
+    "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "generatedAt": "2026-10-13T10:00:00.000000Z",
+    "passResults": [
+      {
+        "passId": "correctness",
+        "status": "INCOMPLETE",
+        "checkedScope": [
+          "src/Demo.java"
+        ],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Call budget exhausted"
+        ],
+        "incompleteReasons": [
+          "MODEL_CALL_LIMIT"
+        ],
+        "unvalidatedCandidates": 0,
+        "findingIds": [
+          "99999999-9999-4999-8999-999999999999"
+        ],
+        "usage": {
+          "modelCalls": 1,
+          "inputTokens": 17,
+          "outputTokens": 2
+        },
+        "selected": true,
+        "skipReason": null,
+        "scopeKind": "FINAL_FILES"
+      },
+      {
+        "passId": "consistency",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "security",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "performance",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "architecture",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "testing",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "77777777-7777-4777-8777-777777777777",
+        "runId": "22222222-2222-4222-8222-222222222222",
+        "snapshotId": "33333333-3333-4333-8333-333333333333",
+        "evidenceType": "CODE",
+        "sourceRefs": [
+          {
+            "sourceType": "CODE",
+            "path": "src/Demo.java",
+            "side": "final",
+            "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "startLine": 1,
+            "endLine": 1
+          }
+        ],
+        "coverage": "FULL",
+        "summary": "Observed code",
+        "producerType": "MODEL_SUBMISSION",
+        "producerId": "44444444-4444-4444-8444-444444444444",
+        "capturedAt": "2026-10-13T10:00:00.000000Z"
+      }
+    ],
+    "findings": [
+      {
+        "passId": "correctness",
+        "candidateId": "88888888-8888-4888-8888-888888888888",
+        "evidenceIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "codeReferences": [
+          {
+            "sourceType": "CODE",
+            "path": "src/Demo.java",
+            "side": "final",
+            "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "startLine": 1,
+            "endLine": 1
+          }
+        ],
+        "disposition": "SUGGESTION",
+        "validationModelCallId": "44444444-4444-4444-8444-444444444444",
+        "findingId": "99999999-9999-4999-8999-999999999999",
+        "contributions": [
+          {
+            "passId": "correctness",
+            "candidateId": "88888888-8888-4888-8888-888888888888",
+            "evidenceIds": [
+              "77777777-7777-4777-8777-777777777777"
+            ],
+            "codeReferences": [
+              {
+                "sourceType": "CODE",
+                "path": "src/Demo.java",
+                "side": "final",
+                "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "startLine": 1,
+                "endLine": 1
+              }
+            ],
+            "disposition": "SUGGESTION",
+            "validationModelCallId": "44444444-4444-4444-8444-444444444444"
+          }
+        ],
+        "category": "Null safety",
+        "title": "Null dereference",
+        "claim": "Null throws.",
+        "severity": "HIGH",
+        "confidence": 0.9,
+        "claimKind": "STATIC_CORRECTNESS",
+        "suggestion": "Restore guard.",
+        "reasoningSummary": {
+          "rule": "Null returns zero",
+          "trigger": "value(null)",
+          "executionPath": "dereference",
+          "assumptions": [],
+          "counterexamples": [
+            "Guard exists"
+          ],
+          "conclusion": "Guard missing"
+        },
+        "validationSummary": {
+          "basis": "Read source",
+          "counterexampleChecked": "No guard",
+          "counterexampleHolds": false,
+          "assumptionsResolved": true
+        }
+      }
+    ],
+    "reportDraft": {
+      "markdown": "# Multi-pass review draft\n\nCoverage: SELECTED_INCOMPLETE.\n\nSelected: true; skipReason: NONE.\n\n## correctness\n\nStatus: INCOMPLETE; scope: FINAL_FILES; coverage: PARTIAL.\n\n- src/Demo.java\n\n## Limitations\n\n- Call budget exhausted\n- MODEL\\_CALL\\_LIMIT\n\n## Null dereference\n\nSUGGESTION / HIGH.\n\nNull throws.\n\nvalue\\(null\\)\n\nRead source\n\nRestore guard.\n\n- src/Demo.java (final, lines 1-1)\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## consistency\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## security\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## performance\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## architecture\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## testing\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\n",
+      "byteSize": 1727
+    },
+    "diagnostics": {
+      "executionMode": "REAL",
+      "contextManifestArtifactIds": [
+        "66666666-6666-4666-8666-666666666666"
+      ],
+      "modelCallIds": [
+        "44444444-4444-4444-8444-444444444444"
+      ],
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "limitations": [
+        "Finite local meter samples"
+      ],
+      "dedupUsage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "feeSummary": {
+        "authorizationId": "11111111-1111-4111-8111-111111111111",
+        "currency": "CNY",
+        "maxAmountMicros": 8000001,
+        "spentMicros": 10,
+        "reservedMicros": 0,
+        "overrunMicros": 0,
+        "unknownCalls": 0
+      }
+    },
+    "reviewPlan": {
+      "planVersion": "1.0",
+      "selectedPasses": [
+        "correctness"
+      ],
+      "executionBudget": {
+        "maxModelCallsPerPass": 300,
+        "maxModelCallsPerRun": 2000,
+        "maxDedupCalls": 10,
+        "requestTimeoutSeconds": 120,
+        "passTimeoutSeconds": 1800,
+        "runTimeoutSeconds": 10800,
+        "summaryTimeoutSeconds": 600
+      },
+      "feeAuthorization": {
+        "authorizationId": "11111111-1111-4111-8111-111111111111",
+        "currency": "CNY",
+        "maxAmount": "8.000001",
+        "confirmedAt": "2026-10-13T09:00:00.000000Z",
+        "priceProfileId": "deepseek-flash-verified-v1",
+        "priceProfileDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    "coverageStatus": "SELECTED_INCOMPLETE"
+  },
+  "EMPTY": {
+    "resultVersion": "3.0",
+    "resultId": "11111111-1111-4111-8111-111111111111",
+    "runId": "22222222-2222-4222-8222-222222222222",
+    "snapshotId": "33333333-3333-4333-8333-333333333333",
+    "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "generatedAt": "2026-10-13T10:00:00.000000Z",
+    "passResults": [
+      {
+        "passId": "correctness",
+        "status": "INCOMPLETE",
+        "checkedScope": [
+          "src/Demo.java"
+        ],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Call budget exhausted"
+        ],
+        "incompleteReasons": [
+          "MODEL_CALL_LIMIT"
+        ],
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 1,
+          "inputTokens": 17,
+          "outputTokens": 2
+        },
+        "selected": true,
+        "skipReason": null,
+        "scopeKind": "FINAL_FILES"
+      },
+      {
+        "passId": "consistency",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "security",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "performance",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "architecture",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      },
+      {
+        "passId": "testing",
+        "selected": false,
+        "status": "SKIPPED",
+        "scopeKind": "FIXED_DIFF",
+        "checkedScope": [],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Not selected by user"
+        ],
+        "incompleteReasons": [],
+        "skipReason": "USER_NOT_SELECTED",
+        "unvalidatedCandidates": 0,
+        "findingIds": [],
+        "usage": {
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        }
+      }
+    ],
+    "evidence": [],
+    "findings": [],
+    "reportDraft": {
+      "markdown": "# Multi-pass review draft\n\nCoverage: SELECTED_INCOMPLETE.\n\nSelected: true; skipReason: NONE.\n\n## correctness\n\nStatus: INCOMPLETE; scope: FINAL_FILES; coverage: PARTIAL.\n\n- src/Demo.java\n\n## Limitations\n\n- Call budget exhausted\n- MODEL\\_CALL\\_LIMIT\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## consistency\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## security\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## performance\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## architecture\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\nSelected: false; skipReason: USER_NOT_SELECTED.\n\n## testing\n\nStatus: SKIPPED; scope: FIXED_DIFF; coverage: PARTIAL.\n\n\n## Limitations\n\n- Not selected by user\n\nNo validated finding is delivered for this finite scope. This is not a whole-project correctness guarantee.\n",
+      "byteSize": 1701
+    },
+    "diagnostics": {
+      "executionMode": "REAL",
+      "contextManifestArtifactIds": [
+        "66666666-6666-4666-8666-666666666666"
+      ],
+      "modelCallIds": [
+        "44444444-4444-4444-8444-444444444444"
+      ],
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "limitations": [
+        "Finite local meter samples"
+      ],
+      "dedupUsage": {
+        "modelCalls": 0,
+        "inputTokens": 0,
+        "outputTokens": 0
+      },
+      "feeSummary": {
+        "authorizationId": "11111111-1111-4111-8111-111111111111",
+        "currency": "CNY",
+        "maxAmountMicros": 8000001,
+        "spentMicros": 10,
+        "reservedMicros": 0,
+        "overrunMicros": 0,
+        "unknownCalls": 0
+      }
+    },
+    "reviewPlan": {
+      "planVersion": "1.0",
+      "selectedPasses": [
+        "correctness"
+      ],
+      "executionBudget": {
+        "maxModelCallsPerPass": 300,
+        "maxModelCallsPerRun": 2000,
+        "maxDedupCalls": 10,
+        "requestTimeoutSeconds": 120,
+        "passTimeoutSeconds": 1800,
+        "runTimeoutSeconds": 10800,
+        "summaryTimeoutSeconds": 600
+      },
+      "feeAuthorization": {
+        "authorizationId": "11111111-1111-4111-8111-111111111111",
+        "currency": "CNY",
+        "maxAmount": "8.000001",
+        "confirmedAt": "2026-10-13T09:00:00.000000Z",
+        "priceProfileId": "deepseek-flash-verified-v1",
+        "priceProfileDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    "coverageStatus": "SELECTED_INCOMPLETE"
+  },
+  "LEGACY2": {
+    "resultVersion": "2.0",
+    "resultId": "11111111-1111-4111-8111-111111111111",
+    "runId": "22222222-2222-4222-8222-222222222222",
+    "snapshotId": "33333333-3333-4333-8333-333333333333",
+    "manifestSha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "generatedAt": "2026-10-13T10:00:00.000000Z",
+    "passResults": [
+      {
+        "passId": "correctness",
+        "status": "INCOMPLETE",
+        "checkedScope": [
+          "src/Demo.java"
+        ],
+        "coverage": "PARTIAL",
+        "limitations": [
+          "Call budget exhausted"
+        ],
+        "incompleteReasons": [
+          "MODEL_CALL_LIMIT"
+        ],
+        "unvalidatedCandidates": 0,
+        "findingIds": [
+          "99999999-9999-4999-8999-999999999999"
+        ],
+        "usage": {
+          "modelCalls": 1,
+          "inputTokens": 17,
+          "outputTokens": 2
+        },
+        "scopeKind": "FINAL_FILES"
+      }
+    ],
+    "evidence": [
+      {
+        "evidenceId": "77777777-7777-4777-8777-777777777777",
+        "runId": "22222222-2222-4222-8222-222222222222",
+        "snapshotId": "33333333-3333-4333-8333-333333333333",
+        "evidenceType": "CODE",
+        "sourceRefs": [
+          {
+            "sourceType": "CODE",
+            "path": "src/Demo.java",
+            "side": "final",
+            "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "startLine": 1,
+            "endLine": 1
+          }
+        ],
+        "coverage": "FULL",
+        "summary": "Observed code",
+        "producerType": "MODEL_SUBMISSION",
+        "producerId": "44444444-4444-4444-8444-444444444444",
+        "capturedAt": "2026-10-13T10:00:00.000000Z"
+      }
+    ],
+    "findings": [
+      {
+        "passId": "correctness",
+        "candidateId": "88888888-8888-4888-8888-888888888888",
+        "evidenceIds": [
+          "77777777-7777-4777-8777-777777777777"
+        ],
+        "codeReferences": [
+          {
+            "sourceType": "CODE",
+            "path": "src/Demo.java",
+            "side": "final",
+            "sha256": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "startLine": 1,
+            "endLine": 1
+          }
+        ],
+        "disposition": "RISK",
+        "validationModelCallId": "44444444-4444-4444-8444-444444444444",
+        "findingId": "99999999-9999-4999-8999-999999999999",
+        "category": "Null safety",
+        "title": "Null dereference",
+        "claim": "Null throws.",
+        "severity": "HIGH",
+        "confidence": 0.9,
+        "claimKind": "STATIC_CORRECTNESS",
+        "suggestion": "Restore guard.",
+        "reasoningSummary": {
+          "rule": "Null returns zero",
+          "trigger": "value(null)",
+          "executionPath": "dereference",
+          "assumptions": [],
+          "counterexamples": [
+            "Guard exists"
+          ],
+          "conclusion": "Guard missing"
+        },
+        "validationSummary": {
+          "basis": "Read source",
+          "counterexampleChecked": "No guard",
+          "counterexampleHolds": false,
+          "assumptionsResolved": true
+        }
+      }
+    ],
+    "reportDraft": {
+      "markdown": "# Correctness review draft\n\nStatus: INCOMPLETE; scope: FINAL_FILES; coverage: PARTIAL.\n\n- src/Demo.java\n\n## Limitations\n\n- Call budget exhausted\n- MODEL\\_CALL\\_LIMIT\n\n## Null dereference\n\nRISK / HIGH.\n\nNull throws.\n\nvalue\\(null\\)\n\nRead source\n\nRestore guard.\n\n- src/Demo.java (final, lines 1-1)\n",
+      "byteSize": 295
+    },
+    "diagnostics": {
+      "executionMode": "REAL",
+      "contextManifestArtifactIds": [
+        "66666666-6666-4666-8666-666666666666"
+      ],
+      "modelCallIds": [
+        "44444444-4444-4444-8444-444444444444"
+      ],
+      "meterVersion": "v4.1-2cba9e42-v1",
+      "limitations": [
+        "Finite local meter samples"
+      ]
+    }
+  }
+}

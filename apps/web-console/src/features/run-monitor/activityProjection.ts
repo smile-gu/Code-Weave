@@ -1,4 +1,5 @@
-import type { RunEvent } from '../../shared/api/types'
+import { readAgentEvent, orderedEvents, isStageFact } from '../../shared/events/eventProtocol'
+import type { CodingTurn, RunEvent } from '../../shared/api/types'
 
 export type ActivityStatus = 'running' | 'success' | 'warning' | 'failed'
 export type ActivityCategory = 'run' | 'workspace' | 'agent' | 'change' | 'verification'
@@ -10,6 +11,7 @@ export type ActivityDetail = {
 
 export type ActivityItem = {
   id: string
+  parentId: string | null
   category: ActivityCategory
   title: string
   summary: string
@@ -33,6 +35,7 @@ type JsonRecord = Record<string, unknown>
 
 const stageNames: Record<string, string> = {
   worktree: '隔离工作区',
+  workspace: '工作区检查',
   coding: 'Coding Agent',
   'change-collection': '代码变更采集',
   'change-policy': '变更边界检查',
@@ -41,6 +44,7 @@ const stageNames: Record<string, string> = {
 
 const categoryByStage: Record<string, ActivityCategory> = {
   worktree: 'workspace',
+  workspace: 'workspace',
   coding: 'agent',
   'change-collection': 'change',
   'change-policy': 'change',
@@ -48,7 +52,15 @@ const categoryByStage: Record<string, ActivityCategory> = {
 }
 
 /** 将完整事实事件投影为面向用户的执行活动。 */
-export function projectActivities(events: RunEvent[]): ActivityItem[] {
+export function projectActivities(events: RunEvent[], turn?: CodingTurn): ActivityItem[] {
+  const runIds = [...new Set(events.map((event) => event.runId))]
+  if (runIds.length > 1) return runIds.flatMap((runId) =>
+    projectActivities(events.filter((event) => event.runId === runId), turn).map((item) => ({
+      ...item, id: runId + ':' + item.id, parentId: item.parentId ? runId + ':' + item.parentId : null,
+    })))
+  const formal = !!turn || events.some((event) => event.stage === 'coding-turn' || event.payload?.stageProtocolVersion !== undefined)
+  const closedStages = new Set<string>()
+  const startedStages = new Set<string>()
   const activities: ActivityItem[] = []
   const byId = new Map<string, ActivityItem>()
 
@@ -73,30 +85,41 @@ export function projectActivities(events: RunEvent[]): ActivityItem[] {
     return activity
   }
 
-  for (const event of events) {
+  for (const event of orderedEvents(events)) {
     if (event.type === 'RUN_CREATED' || event.type === 'RUN_QUEUED' || event.type === 'RUN_STARTED') {
       projectRunLifecycle(event, upsert)
       continue
     }
 
-    if (event.type === 'STAGE_STARTED' || event.type === 'STAGE_COMPLETED' || event.type === 'STAGE_FAILED') {
+    if (event.type === 'STAGE_STARTED' || event.type === 'STAGE_COMPLETED' || event.type === 'STAGE_FAILED' || event.type === 'STAGE_SKIPPED') {
+      if (formal && !isStageFact(event)) continue
+      const key = event.stage + ':' + event.attempt
+      if (closedStages.has(key)) continue
+      if (event.type === 'STAGE_STARTED') {
+        if (startedStages.has(key)) continue
+        startedStages.add(key)
+      } else {
+        if (event.type === 'STAGE_SKIPPED' && startedStages.has(key)) continue
+        closedStages.add(key)
+      }
       projectStageLifecycle(event, upsert)
       continue
     }
 
     if (event.type === 'AGENT_EVENT_OBSERVED') {
-      projectAgentEvent(event, upsert)
+      projectAgentEvent(event, upsert, formal)
       continue
     }
 
     if (event.type.startsWith('PROCESS_') || event.type === 'LOG_CAPTURE_COMPLETED'
       || event.type === 'ARTIFACT_RECORDED' || event.type === 'ANALYSIS_COMPLETED') {
-      projectVerificationEvent(event, upsert)
+      projectVerificationEvent(event, upsert, formal)
       continue
     }
 
     if (event.type === 'RUN_NOTICE') {
       const activity = upsert(`notice:${event.sequence}`, event, {
+        parentId: null,
         category: event.stage === 'maven' ? 'verification' : 'run',
         title: '运行提示',
         summary: text(event.payload.message) ?? text(event.payload.code) ?? '系统记录了一条运行提示。',
@@ -108,9 +131,32 @@ export function projectActivities(events: RunEvent[]): ActivityItem[] {
 
     if (event.type === 'RUN_COMPLETED' || event.type === 'RUN_FAILED' || event.type === 'RUN_CANCELLED') {
       projectRunTerminal(event, upsert)
+      if (formal) {
+        const terminal = byId.get('run:terminal')!
+        if (!turn || turn.status === 'RUNNING' || turn.status === 'QUEUED') {
+          terminal.title = '收到任务结束通知'
+          terminal.summary = '最终结果以持久化任务查询为准。'
+          terminal.status = 'warning'
+        } else {
+          terminal.title = turn.status === 'CANCELLED' ? '本轮已停止'
+            : turn.status === 'INTERRUPTED' ? '本轮已中断' : turn.status === 'FAILED' ? '本轮执行失败' : '本轮执行结束'
+          terminal.summary = turn.userMessage
+          terminal.status = turn.status === 'COMPLETED' ? 'success'
+            : turn.status === 'FAILED' ? 'failed' : 'warning'
+        }
+      }
     }
   }
 
+  if (turn && turn.status !== 'QUEUED' && turn.status !== 'RUNNING') {
+    for (const activity of activities) {
+      if (activity.status === 'running') {
+        activity.status = 'warning'
+        activity.title = activity.title.replace('正在', '')
+        activity.summary = '本轮已终结，此活动未提供完整结束记录。'
+      }
+    }
+  }
   return activities
 }
 
@@ -118,7 +164,7 @@ export function projectActivities(events: RunEvent[]): ActivityItem[] {
 export function projectProcessOutput(events: RunEvent[]): ProcessOutput {
   const chunks: ProcessOutputChunk[] = []
 
-  for (const event of events) {
+  for (const event of orderedEvents(events)) {
     if (event.type !== 'PROCESS_STDOUT' && event.type !== 'PROCESS_STDERR') continue
     const preview = typeof event.payload.preview === 'string' ? event.payload.preview : ''
     if (preview.length === 0) continue
@@ -137,10 +183,12 @@ function projectRunLifecycle(
   event: RunEvent,
   upsert: ActivityUpsert,
 ) {
+  const codingTurn = event.stage === 'coding-turn'
   const activity = upsert('run:lifecycle', event, {
+    parentId: null,
     category: 'run',
     title: '任务已创建',
-    summary: '正在准备执行 Coding Run。',
+    summary: codingTurn ? '正在准备执行本轮 Coding。' : '正在准备执行 Coding Run。',
     status: 'running',
   })
 
@@ -166,6 +214,7 @@ function projectStageLifecycle(event: RunEvent, upsert: ActivityUpsert) {
   const stageName = stageNames[event.stage] ?? event.stage
   const id = `stage:${event.stage}:${event.attempt}`
   const activity = upsert(id, event, {
+    parentId: null,
     category: categoryByStage[event.stage] ?? 'run',
     title: `正在执行${stageName}`,
     summary: stageStartedSummary(event),
@@ -181,26 +230,42 @@ function projectStageLifecycle(event: RunEvent, upsert: ActivityUpsert) {
     activity.summary = stageCompletedSummary(event)
     activity.status = 'success'
     addStageDetails(activity, event)
+  } else if (event.type === 'STAGE_SKIPPED') {
+    activity.title = stageName + '已跳过'
+    activity.summary = text(event.payload.message) ?? '该阶段未执行。'
+    activity.status = 'warning'
+    addDetail(activity, '跳过原因', text(event.payload.reasonCode))
   } else {
-    activity.title = `${stageName}失败`
+    activity.title = event.payload.failureKind === 'CANCELLED' ? stageName + '已停止' : stageName + '失败'
     activity.summary = text(event.payload.message) ?? text(event.payload.reason)
       ?? text(event.payload.code) ?? '该阶段未能正常完成。'
-    activity.status = 'failed'
-    addDetail(activity, '失败代码', text(event.payload.code))
+    activity.status = event.payload.failureKind === 'CANCELLED' ? 'warning' : 'failed'
+    addDetail(activity, '失败代码', text(event.payload.failureCode) ?? text(event.payload.code))
   }
 }
 
 /** 将 Agent Runtime 事件转换为可读的代码操作活动。 */
-function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
-  const agentType = text(event.payload.agentEventType)
-  const payload = record(event.payload.payload)
-  const coding = upsert(`stage:coding:${event.attempt}`, event, {
+function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert, formal = false) {
+  const normalized = readAgentEvent(event)
+  const agentType = normalized.type
+  const payload = normalized.payload
+  const codingActivityId = formal ? `agent:runtime:${event.attempt}` : `stage:coding:${event.attempt}`
+  const coding = upsert(codingActivityId, event, {
+    parentId: formal ? `stage:coding:${event.attempt}` : null,
     category: 'agent',
-    title: 'Coding Agent 正在工作',
+    title: formal ? 'Agent 活动详情' : 'Coding Agent 正在工作',
     summary: 'Agent 正在分析任务并修改代码。',
     status: 'running',
   })
 
+  if (!normalized.supported || normalized.truncated) {
+    upsert('agent:preview:' + event.eventId, event, {
+      parentId: codingActivityId, category: 'agent',
+      title: normalized.supported ? 'Agent 载荷已截断' : '暂不支持的 Agent 协议',
+      summary: normalized.preview ?? '请查看原始事件详情。', status: 'warning',
+    })
+    return
+  }
   if (agentType === 'RUNTIME_INITIALIZED') {
     const tools = stringArray(payload.tools)
     coding.title = 'Claude Code 已启动'
@@ -212,8 +277,8 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
   }
 
   if (agentType === 'RUNTIME_COMPLETED') {
-    coding.title = 'Coding Agent 已完成代码处理'
-    coding.summary = 'Agent 已返回正常终态，正在检查代码变更。'
+    coding.title = formal ? 'Agent 已返回执行结果' : 'Coding Agent 已完成代码处理'
+    coding.summary = formal ? 'Agent 已返回输出结果；阶段结论以执行器资源收敛后的事实为准。' : 'Agent 已返回正常终态，正在检查代码变更。'
     coding.status = 'success'
     return
   }
@@ -231,6 +296,7 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
     const message = text(payload.text)
     if (!message) return
     upsert(`agent:message:${event.sequence}`, event, {
+      parentId: codingActivityId,
       category: 'agent',
       title: 'Agent 阶段说明',
       summary: message,
@@ -241,6 +307,7 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
 
   if (agentType === 'DIAGNOSTIC') {
     upsert(`agent:diagnostic:${event.sequence}`, event, {
+      parentId: codingActivityId,
       category: 'agent',
       title: 'Agent 诊断提示',
       summary: text(payload.message) ?? 'Agent 记录了一条诊断信息。',
@@ -251,11 +318,11 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
 
   if (!agentType?.startsWith('TOOL_CALL_') && agentType !== 'PERMISSION_DENIED') return
 
-  const externalId = text(event.payload.externalId) ?? `sequence-${event.sequence}`
-  const toolId = `agent:tool:${externalId}`
+  const toolId = `agent:tool:${normalized.correlationKey ?? event.eventId}`
   const toolName = text(payload.name)
   const input = record(payload.input)
   const existingTool = upsert(toolId, event, {
+    parentId: codingActivityId,
     category: 'agent',
     title: toolTitle(toolName, input, 'running'),
     summary: toolSummary(toolName, input),
@@ -279,8 +346,9 @@ function projectAgentEvent(event: RunEvent, upsert: ActivityUpsert) {
 }
 
 /** 将 Maven 进程和分析事件合并为验证活动。 */
-function projectVerificationEvent(event: RunEvent, upsert: ActivityUpsert) {
-  const activity = upsert(`stage:maven:${event.attempt}`, event, {
+function projectVerificationEvent(event: RunEvent, upsert: ActivityUpsert, formal = false) {
+  const activity = upsert(formal ? `verification:process:${event.attempt}` : `stage:maven:${event.attempt}`, event, {
+    parentId: formal ? `stage:maven:${event.attempt}` : null,
     category: 'verification',
     title: '正在执行 Maven 验证',
     summary: '正在编译项目并执行测试。',
@@ -316,7 +384,7 @@ function projectVerificationEvent(event: RunEvent, upsert: ActivityUpsert) {
   } else if (event.type === 'ANALYSIS_COMPLETED') {
     const passed = text(event.payload.status) === 'PASSED'
     const tests = number(event.payload.tests) ?? 0
-    activity.title = passed ? 'Maven 验证通过' : 'Maven 验证失败'
+    activity.title = formal ? 'Maven 报告分析结束' : passed ? 'Maven 验证通过' : 'Maven 验证失败'
     activity.summary = passed
       ? tests > 0 ? `编译和测试通过，共执行 ${tests} 个测试。` : '构建通过，本次没有执行到测试。'
       : verificationFailureSummary(event)
@@ -331,9 +399,11 @@ function projectVerificationEvent(event: RunEvent, upsert: ActivityUpsert) {
 function projectRunTerminal(event: RunEvent, upsert: ActivityUpsert) {
   const completed = event.type === 'RUN_COMPLETED'
   const cancelled = event.type === 'RUN_CANCELLED'
+  const subject = event.stage === 'coding-turn' ? '本轮 Coding' : 'Coding Run'
   const activity = upsert('run:terminal', event, {
+    parentId: null,
     category: 'run',
-    title: completed ? 'Coding Run 执行完成' : cancelled ? 'Coding Run 已取消' : 'Coding Run 执行失败',
+    title: completed ? `${subject} 执行完成` : cancelled ? `${subject} 已取消` : `${subject} 执行失败`,
     summary: completed ? completedRunSummary(event) : terminalFailureSummary(event),
     status: completed ? 'success' : cancelled ? 'warning' : 'failed',
   })
@@ -355,6 +425,7 @@ function stageStartedTitle(stage: string) {
 
 /** 根据阶段开始载荷生成用户摘要。 */
 function stageStartedSummary(event: RunEvent) {
+  if (text(event.payload.message)) return text(event.payload.message)!
   if (event.stage === 'worktree') {
     const baseRef = text(event.payload.baseRef) ?? '指定版本'
     return `正在从 ${baseRef} 创建独立 Git Worktree。`
@@ -378,6 +449,7 @@ function stageCompletedTitle(stage: string) {
 
 /** 根据阶段完成载荷生成结果摘要。 */
 function stageCompletedSummary(event: RunEvent) {
+  if (text(event.payload.message)) return text(event.payload.message)!
   if (event.stage === 'worktree') {
     const commit = text(event.payload.resolvedCommit)
     return commit ? `已基于提交 ${commit.slice(0, 8)} 创建独立工作区。` : '独立工作区已经可以使用。'
@@ -459,7 +531,8 @@ function toolSummary(toolName: string | null, input: JsonRecord) {
 /** 优先使用工具返回内容生成完成摘要。 */
 function toolResultSummary(payload: JsonRecord, fallback: string) {
   const result = text(payload.content)
-  return result && result !== 'updated' ? result : fallback.replace('正在', '已完成：')
+  const concise = result && result !== 'updated' && result.length <= 160 && !result.includes('\n')
+  return concise ? result : fallback.replace('正在', '已完成：')
 }
 
 /** 从不同工具输入中提取文件、命令或搜索目标。 */
@@ -480,6 +553,7 @@ function verificationFailureSummary(event: RunEvent) {
 
 /** 根据变更数量和 Maven 状态生成成功结论。 */
 function completedRunSummary(event: RunEvent) {
+  if (text(event.payload.message)) return text(event.payload.message)!
   const files = number(event.payload.changedFiles) ?? 0
   const maven = text(event.payload.mavenStatus)
   if (maven === 'PASSED') return `修改 ${files} 个文件，Maven 验证通过。`

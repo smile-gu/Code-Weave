@@ -1,0 +1,348 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "title": "Artifactid",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "byteSize": {
+          "minimum": 0,
+          "title": "Bytesize",
+          "type": "integer"
+        },
+        "coverage": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "SAMPLED"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "redactionState": {
+          "enum": [
+            "NONE",
+            "APPLIED",
+            "NOT_APPLICABLE"
+          ],
+          "title": "Redactionstate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifactId",
+        "sha256",
+        "byteSize",
+        "coverage",
+        "redactionState"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "InputEstimateWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "INPUT_ESTIMATE_UNDERCOUNT",
+            "INPUT_ESTIMATE_RESERVE_EXCEEDED"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "estimatedInputTokens": {
+          "minimum": 0,
+          "title": "Estimatedinputtokens",
+          "type": "integer"
+        },
+        "conservativeInputTokens": {
+          "minimum": 0,
+          "title": "Conservativeinputtokens",
+          "type": "integer"
+        },
+        "uncertaintyReserveTokens": {
+          "minimum": 1024,
+          "title": "Uncertaintyreservetokens",
+          "type": "integer"
+        },
+        "actualInputTokens": {
+          "minimum": 0,
+          "title": "Actualinputtokens",
+          "type": "integer"
+        },
+        "differenceTokens": {
+          "exclusiveMinimum": 0,
+          "title": "Differencetokens",
+          "type": "integer"
+        },
+        "policyVersion": {
+          "enum": [
+            "deepseek-compatible-budget-v1",
+            "deepseek-compatible-budget-v2"
+          ],
+          "title": "Policyversion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "estimatedInputTokens",
+        "conservativeInputTokens",
+        "uncertaintyReserveTokens",
+        "actualInputTokens",
+        "differenceTokens",
+        "policyVersion"
+      ],
+      "title": "InputEstimateWarning",
+      "type": "object"
+    },
+    "ProviderUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "prompt_tokens": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Prompt Tokens",
+          "type": "integer"
+        },
+        "completion_tokens": {
+          "maximum": 4096,
+          "minimum": 0,
+          "title": "Completion Tokens",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        },
+        "prompt_cache_hit_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Cache Hit Tokens"
+        },
+        "prompt_cache_miss_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Cache Miss Tokens"
+        }
+      },
+      "required": [
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens"
+      ],
+      "title": "ProviderUsage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "modelCallId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Modelcallid",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Snapshotid",
+      "type": "string"
+    },
+    "purpose": {
+      "enum": [
+        "INVESTIGATION",
+        "COMPACTION",
+        "VALIDATION"
+      ],
+      "title": "Purpose",
+      "type": "string"
+    },
+    "provider": {
+      "const": "DEEPSEEK",
+      "title": "Provider",
+      "type": "string"
+    },
+    "model": {
+      "const": "deepseek-flash",
+      "title": "Model",
+      "type": "string"
+    },
+    "requestDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Requestdigest",
+      "type": "string"
+    },
+    "manifestRef": {
+      "$ref": "#/$defs/ArtifactRef"
+    },
+    "meterVersion": {
+      "const": "v4.1-2cba9e42-v1",
+      "title": "Meterversion",
+      "type": "string"
+    },
+    "estimatedInputTokens": {
+      "maximum": 257024,
+      "minimum": 0,
+      "title": "Estimatedinputtokens",
+      "type": "integer"
+    },
+    "reservedOutputTokens": {
+      "const": 4096,
+      "title": "Reservedoutputtokens",
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "PREPARED",
+        "DISPATCHING",
+        "RETURNED",
+        "LOCAL_CLOSED"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "createdAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Createdat",
+      "type": "string"
+    },
+    "updatedAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Updatedat",
+      "type": "string"
+    },
+    "usage": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProviderUsage"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "failureCode": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Z][A-Z0-9_]{0,127}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failurecode"
+    },
+    "remoteOutcomeUnknown": {
+      "title": "Remoteoutcomeunknown",
+      "type": "boolean"
+    },
+    "policyVersion": {
+      "anyOf": [
+        {
+          "enum": [
+            "deepseek-compatible-budget-v1",
+            "deepseek-compatible-budget-v2"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Policyversion"
+    },
+    "conservativeInputTokens": {
+      "anyOf": [
+        {
+          "maximum": 257024,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Conservativeinputtokens"
+    },
+    "uncertaintyReserveTokens": {
+      "anyOf": [
+        {
+          "minimum": 1024,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Uncertaintyreservetokens"
+    },
+    "inputEstimateWarning": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InputEstimateWarning"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "modelCallId",
+    "runId",
+    "snapshotId",
+    "purpose",
+    "provider",
+    "model",
+    "requestDigest",
+    "manifestRef",
+    "meterVersion",
+    "estimatedInputTokens",
+    "reservedOutputTokens",
+    "status",
+    "createdAt",
+    "updatedAt",
+    "usage",
+    "remoteOutcomeUnknown"
+  ],
+  "title": "ModelCall",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-model-call-v1.schema.json"
+}

@@ -10,12 +10,23 @@ public record ClaudeRunResult(
         ClaudeRunStatus status,
         Integer exitCode,
         boolean initialized,
+        String nativeSessionId,
         boolean terminalResultReceived,
         AgentEvent terminalEvent,
         Instant startedAt,
         Instant endedAt,
         String diagnostic
 ) {
+
+    /** 兼容 M5 测试和调用方构造的运行结论。 */
+    public ClaudeRunResult(
+            ClaudeRunStatus status, Integer exitCode, boolean initialized,
+            boolean terminalResultReceived, AgentEvent terminalEvent,
+            Instant startedAt, Instant endedAt, String diagnostic
+    ) {
+        this(status, exitCode, initialized, null, terminalResultReceived, terminalEvent,
+                startedAt, endedAt, diagnostic);
+    }
 
     public ClaudeRunResult {
         Objects.requireNonNull(status, "status");

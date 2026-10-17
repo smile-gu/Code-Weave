@@ -1,0 +1,326 @@
+{
+  "$defs": {
+    "LineSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceHandle": {
+          "maxLength": 16,
+          "pattern": "^s[1-9][0-9]*$",
+          "title": "Sourcehandle",
+          "type": "string"
+        },
+        "startLine": {
+          "minimum": 1,
+          "title": "Startline",
+          "type": "integer"
+        },
+        "endLine": {
+          "minimum": 1,
+          "title": "Endline",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceHandle",
+        "startLine",
+        "endLine"
+      ],
+      "title": "LineSelection",
+      "type": "object"
+    },
+    "ReasoningSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Rule",
+          "type": "string"
+        },
+        "trigger": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Trigger",
+          "type": "string"
+        },
+        "executionPath": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Executionpath",
+          "type": "string"
+        },
+        "assumptions": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "counterexamples": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "title": "Counterexamples",
+          "type": "array"
+        },
+        "conclusion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Conclusion",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "trigger",
+        "executionPath",
+        "assumptions",
+        "counterexamples",
+        "conclusion"
+      ],
+      "title": "ReasoningSummary",
+      "type": "object"
+    },
+    "SourceCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "passId": {
+          "enum": [
+            "correctness",
+            "consistency",
+            "security",
+            "performance",
+            "architecture",
+            "testing"
+          ],
+          "title": "Passid",
+          "type": "string"
+        },
+        "category": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Category",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Title",
+          "type": "string"
+        },
+        "claim": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Claim",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "LOW",
+            "MEDIUM",
+            "HIGH",
+            "CRITICAL"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reasoningSummary": {
+          "$ref": "#/$defs/ReasoningSummary"
+        },
+        "suggestion": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Suggestion",
+          "type": "string"
+        },
+        "claimKind": {
+          "enum": [
+            "STATIC_CORRECTNESS",
+            "ENVIRONMENT_DEPENDENT",
+            "QUANTITATIVE"
+          ],
+          "title": "Claimkind",
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/LineSelection"
+        },
+        "supportingSources": {
+          "items": {
+            "$ref": "#/$defs/SourceSelection"
+          },
+          "maxItems": 15,
+          "title": "Supportingsources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "passId",
+        "category",
+        "title",
+        "claim",
+        "severity",
+        "confidence",
+        "reasoningSummary",
+        "suggestion",
+        "claimKind",
+        "location"
+      ],
+      "title": "SourceCandidate",
+      "type": "object"
+    },
+    "SourceSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceHandle": {
+          "maxLength": 16,
+          "pattern": "^s[1-9][0-9]*$",
+          "title": "Sourcehandle",
+          "type": "string"
+        },
+        "startLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Startline"
+        },
+        "endLine": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Endline"
+        }
+      },
+      "required": [
+        "sourceHandle"
+      ],
+      "title": "SourceSelection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "submissionVersion": {
+      "const": "SOURCE_V1",
+      "title": "Submissionversion",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "CONTINUE",
+        "COMPLETE"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/SourceCandidate"
+      },
+      "maxItems": 8,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "checkedScope": {
+      "items": {
+        "maxLength": 1024,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 128,
+      "title": "Checkedscope",
+      "type": "array"
+    },
+    "scopeKind": {
+      "enum": [
+        "FINAL_FILES",
+        "FIXED_DIFF"
+      ],
+      "title": "Scopekind",
+      "type": "string"
+    },
+    "coverage": {
+      "enum": [
+        "FULL",
+        "PARTIAL",
+        "SAMPLED"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Limitations",
+      "type": "array"
+    },
+    "incompleteReasons": {
+      "items": {
+        "maxLength": 4096,
+        "minLength": 1,
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "maxItems": 16,
+      "title": "Incompletereasons",
+      "type": "array"
+    }
+  },
+  "required": [
+    "submissionVersion",
+    "decision",
+    "candidates",
+    "checkedScope",
+    "scopeKind",
+    "coverage",
+    "limitations",
+    "incompleteReasons"
+  ],
+  "title": "SourceInvestigation",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/schemas/review-source-investigation-v1.schema.json"
+}

@@ -1,0 +1,123 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "artifactId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Artifactid",
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Runid",
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "title": "Snapshotid",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "SOURCE_EXCERPT",
+        "TOOL_OUTPUT",
+        "CONTEXT_MANIFEST",
+        "COMPACTION_SUMMARY"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "producerType": {
+      "enum": [
+        "TOOL",
+        "SYSTEM"
+      ],
+      "title": "Producertype",
+      "type": "string"
+    },
+    "producerId": {
+      "maxLength": 160,
+      "minLength": 1,
+      "pattern": "^[a-z_]{1,64}:[0-9a-f-]{36}$",
+      "title": "Producerid",
+      "type": "string"
+    },
+    "mediaType": {
+      "enum": [
+        "text/plain",
+        "application/json",
+        "application/octet-stream"
+      ],
+      "title": "Mediatype",
+      "type": "string"
+    },
+    "encoding": {
+      "enum": [
+        "UTF-8",
+        "BINARY"
+      ],
+      "title": "Encoding",
+      "type": "string"
+    },
+    "byteSize": {
+      "minimum": 0,
+      "title": "Bytesize",
+      "type": "integer"
+    },
+    "sha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "coverage": {
+      "enum": [
+        "FULL",
+        "PARTIAL",
+        "SAMPLED"
+      ],
+      "title": "Coverage",
+      "type": "string"
+    },
+    "redactionState": {
+      "enum": [
+        "NONE",
+        "APPLIED",
+        "NOT_APPLICABLE"
+      ],
+      "title": "Redactionstate",
+      "type": "string"
+    },
+    "createdAt": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$",
+      "title": "Createdat",
+      "type": "string"
+    },
+    "integrityState": {
+      "enum": [
+        "READY",
+        "CORRUPTED"
+      ],
+      "title": "Integritystate",
+      "type": "string"
+    }
+  },
+  "required": [
+    "artifactId",
+    "runId",
+    "snapshotId",
+    "kind",
+    "producerType",
+    "producerId",
+    "mediaType",
+    "encoding",
+    "byteSize",
+    "sha256",
+    "coverage",
+    "redactionState",
+    "createdAt",
+    "integrityState"
+  ],
+  "title": "Artifact",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-weave.local/contracts/review-artifact-metadata-v1.schema.json"
+}
