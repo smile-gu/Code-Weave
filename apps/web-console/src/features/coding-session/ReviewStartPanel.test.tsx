@@ -23,6 +23,11 @@ describe('ReviewStartPanel', () => {
   it('never starts on mount or preview; binds explicit authorization to scope and price', async () => {
     const fetch = setup(); expect(fetch).not.toHaveBeenCalled()
     await prepare()
+    const baseline = screen.getByText('baseline')
+    const technical = baseline.closest('details')!
+    expect(technical).not.toHaveAttribute('open')
+    fireEvent.click(technical.querySelector('summary')!)
+    expect(technical).toHaveAttribute('open')
     const start = screen.getByRole('button', { name: '确认启动 Review' })
     expect(start).toBeDisabled()
     fireEvent.click(screen.getByLabelText(/我确认上述范围/))

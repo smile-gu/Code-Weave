@@ -91,6 +91,28 @@ describe('CodingSessionDetailPage', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
   })
 
+  it('shows query failures separately from a truly empty conversation and retries only the read', async () => {
+    vi.mocked(getCodingTurns).mockRejectedValueOnce(new Error('对话读取失败')).mockResolvedValue({ turns: [] })
+    renderPage()
+    expect(await screen.findByText('对话暂时无法读取')).toBeInTheDocument()
+    expect(screen.queryByText('开始第一次协作')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: '重新读取对话' }))
+    expect(await screen.findByText('开始第一次协作')).toBeInTheDocument()
+    expect(submitCodingTurn).not.toHaveBeenCalled()
+  })
+
+  it('keeps the full session identity and baseline in closed technical details', async () => {
+    renderPage()
+    await screen.findByText('用户模块持续开发')
+    const identity = screen.getByText(activeSession.sessionId)
+    const details = identity.closest('details')!
+    expect(details).not.toHaveAttribute('open')
+    fireEvent.click(details.querySelector('summary')!)
+    expect(details).toHaveAttribute('open')
+    expect(screen.getByText('仓库路径')).toBeInTheDocument()
+    expect(submitCodingTurn).not.toHaveBeenCalled()
+  })
+
   it('closes explicitly and confirms release without retaining cached Diff', async () => {
     const closed = { ...activeSession, status: 'CLOSED' as const }
     vi.spyOn(window, 'confirm').mockReturnValue(true)

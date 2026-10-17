@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { ApiError } from '../../shared/api/http'
 import { readHandoffs, writeHandoff } from '../../shared/api/reviewApi'
 import type { HandoffIntent, HandoffStatus, ReportApproval } from '../../shared/api/reviewApi'
+import { TechnicalDetails } from '../../shared/ui/surfaces'
 
 const statusText: Record<HandoffStatus, string> = { PREPARED: '交接已准备', SUPERSEDED: '已被新版本替代', REVOKED: '交接已撤销', STARTING: '启动意图待核实', STARTED: '已关联 Coding Turn', START_BLOCKED: '工作区已变化，请重新审查' }
 
@@ -58,7 +59,7 @@ export function ReviewHandoffPanel({ sessionId, runId, sessionActive, approval }
     <button type="button" disabled={disabled || !approval || query.isPending || query.isError || sameApproval} onClick={() => approval && void send({ action: 'prepare', body: { requestId: crypto.randomUUID(), expectedRevision: approval.revision, expectedRevisionDigest: approval.revisionDigest } })}>准备修复交接</button>
     {query.data?.map(view => <article key={view.content.handoffId}>
       <p>报告版本 {view.content.reportRevision} · {statusText[view.lifecycle.status]}</p>
-      <p>Snapshot {view.content.snapshotId}</p>
+      <TechnicalDetails><p>代码快照：<code>{view.content.snapshotId}</code></p>{view.lifecycle.turnId && <p>关联任务：<code>{view.lifecycle.turnId}</code></p>}</TechnicalDetails>
       {view.content.materials.map(material => <div key={material.review.findingId}>
         <h5>{material.review.title} · 原始等级：{material.review.originalDisposition}</h5>
         <p>{material.review.description}</p><p>{material.review.fixInstructions}</p><p>{material.review.note}</p>
@@ -67,7 +68,7 @@ export function ReviewHandoffPanel({ sessionId, runId, sessionActive, approval }
       <p>{view.content.reportInstructions}</p><p>{view.content.approvalInstructions}</p>
       <button type="button" disabled={disabled || view !== current || !sameApproval || view.lifecycle.status !== 'PREPARED'} onClick={() => void send({ action: 'start', handoffId: view.content.handoffId, body: { requestId: crypto.randomUUID(), expectedHandoffDigest: view.content.contentDigest } })}>启动 Coding</button>
       <button type="button" disabled={disabled || !['PREPARED', 'SUPERSEDED', 'START_BLOCKED'].includes(view.lifecycle.status)} onClick={() => void send({ action: 'revoke', handoffId: view.content.handoffId, body: { requestId: crypto.randomUUID(), expectedHandoffDigest: view.content.contentDigest } })}>撤销交接</button>
-      {view.lifecycle.turnId && <p>关联 Turn：{view.lifecycle.turnId}；失败或中断也不会为本交接新建第二个 Turn。</p>}
+      {view.lifecycle.turnId && <p>已关联修复任务；失败或中断不会重复启动。</p>}
       {view.lifecycle.status === 'STARTING' && <><p>启动状态待核实，保留原请求；历史读取不会重新发送。</p>
         <button type="button" disabled={disabled || !view.lifecycle.startRequestId} onClick={() => view.lifecycle.startRequestId && void send({ action: 'start', handoffId: view.content.handoffId, body: { requestId: view.lifecycle.startRequestId, expectedHandoffDigest: view.content.contentDigest } })}>核实并重试原启动</button>
       </>}

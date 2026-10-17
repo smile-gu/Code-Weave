@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { previewReview, readReviewPrice, startReview, type ReviewScope, type ReviewPrice } from '../../shared/api/reviewApi'
 import { ApiError } from '../../shared/api/http'
+import { GitBranch, ShieldCheck, ArrowRight } from 'lucide-react'
+import { Badge, TechnicalDetails } from '../../shared/ui/surfaces'
 
 const passes = { correctness: '正确性', consistency: '一致性', security: '安全', performance: '性能', architecture: '架构', testing: '测试' }
 export function ReviewStartPanel({ sessionId, blocked, onStarted }: { sessionId: string; blocked: boolean; onStarted: () => void }) {
@@ -41,22 +43,25 @@ export function ReviewStartPanel({ sessionId, blocked, onStarted }: { sessionId:
   const valid = !blocked && !unknown && !busy && confirmed && selected.length > 0 && message.trim().length > 0
     && /^(?:[1-9][0-9]{0,11}(?:\.[0-9]{1,6})?|0\.(?!0{1,6}$)[0-9]{1,6})$/.test(amount)
     && !!preview && Date.parse(preview.price.priceProfile.expiresAt) > Date.now() && preview.scope.changedPaths.length > 0
-  return <section className="session-changes">
-    <h3>启动独立 Review</h3><p>无需先执行 Coding。审查活动基线以来的当前修改；不会启动 Coding。</p>
+  const priceExpiry = preview && Number.isFinite(Date.parse(preview.price.priceProfile.expiresAt))
+    ? new Date(preview.price.priceProfile.expiresAt).toLocaleString('zh-CN', { hour12: false }) : '未知，请重新预览'
+  return <section className="review-start-panel">
+    <div className="review-start-heading"><span className="surface-icon"><ShieldCheck size={20} /></span><div><h3>启动独立 Review</h3><p>审查当前代码变更，无需先运行 Coding。</p></div>
+    <button type="button" className="primary-button" disabled={blocked || busy || unknown} onClick={() => void prepare()}>{busy ? '正在准备…' : '预览审查范围与价格'}<ArrowRight size={15} /></button></div>
     {blocked && <p>会话已关闭、Coding 正在运行或已有未结束的审查，暂不能启动。</p>}
     {unknown && <p role="alert">上次启动未确认，禁止重复发送。请刷新审查历史并核对服务端记录；刷新页面不会解除保护。</p>}
-    <button type="button" disabled={blocked || busy || unknown} onClick={() => void prepare()}>预览审查范围与价格</button>
     {error && <p role="alert">{error}</p>}
-    {preview && <div>
-      <p>分支：{preview.scope.branch} · 基线：{preview.scope.activeBaselineCommit} · HEAD：{preview.scope.headCommit}</p>
-      <ul>{preview.scope.changedPaths.map(path => <li key={path}>{path}</li>)}</ul>
+    {preview && <div className="review-start-form">
+      <div className="scope-heading"><Badge variant="outline"><GitBranch size={14} />{preview.scope.branch}</Badge><strong>{preview.scope.changedPaths.length} 个变更文件</strong></div>
+      <ul className="scope-files">{preview.scope.changedPaths.map(path => <li key={path}>{path}</li>)}</ul>
+      <TechnicalDetails label="版本与范围校验"><dl><div><dt>基线</dt><dd><code>{preview.scope.activeBaselineCommit}</code></dd></div><div><dt>HEAD</dt><dd><code>{preview.scope.headCommit}</code></dd></div></dl></TechnicalDetails>
       {!preview.scope.changedPaths.length && <p>没有可审查的修改。</p>}
-      <fieldset disabled={busy || unknown || blocked}><legend>审查维度</legend>{Object.entries(passes).map(([id, label]) => <label key={id}><input type="checkbox" checked={selected.includes(id)} onChange={e => { setConfirmed(false); setSelected(e.target.checked ? [...selected, id] : selected.filter(p => p !== id)) }} />{label} </label>)}</fieldset>
-      <p>{preview.price.priceProfile.model} · CNY／百万 Token：输入 {preview.price.priceProfile.inputCnyPerMillion}，输出 {preview.price.priceProfile.outputCnyPerMillion}。管理保守计费，不等同实际账单。价格有效至 {preview.price.priceProfile.expiresAt}。</p>
-      <label>本轮费用上限（元）<input value={amount} disabled={busy || unknown} onChange={e => { setAmount(e.target.value); setConfirmed(false) }} inputMode="decimal" /></label>
-      <label>审查要求<textarea value={message} disabled={busy || unknown} onChange={e => { setMessage(e.target.value); setConfirmed(false) }} /></label>
-      <label><input type="checkbox" checked={confirmed} disabled={busy || unknown} onChange={e => setConfirmed(e.target.checked)} />我确认上述范围、维度与费用上限，授权本轮付费审查</label>
-      <button type="button" disabled={!valid} onClick={() => void submit()}>确认启动 Review</button>
+      <fieldset className="pass-picker" disabled={busy || unknown || blocked}><legend>审查维度</legend>{Object.entries(passes).map(([id, label]) => <label key={id}><input type="checkbox" checked={selected.includes(id)} onChange={e => { setConfirmed(false); setSelected(e.target.checked ? [...selected, id] : selected.filter(p => p !== id)) }} />{label} </label>)}</fieldset>
+      <div className="review-price-note"><strong>{preview.price.priceProfile.model}</strong><span>每百万 Token：输入 ¥{preview.price.priceProfile.inputCnyPerMillion} · 输出 ¥{preview.price.priceProfile.outputCnyPerMillion}</span><small>管理保守计费，不等同实际账单。价格有效至 {priceExpiry}（本地时间）。</small></div>
+      <div className="review-config-grid"><label>本轮费用上限（元）<input value={amount} disabled={busy || unknown} onChange={e => { setAmount(e.target.value); setConfirmed(false) }} inputMode="decimal" /></label>
+      <label>审查要求<textarea value={message} disabled={busy || unknown} onChange={e => { setMessage(e.target.value); setConfirmed(false) }} /></label></div>
+      <div className="review-confirm-row"><label><input type="checkbox" checked={confirmed} disabled={busy || unknown} onChange={e => setConfirmed(e.target.checked)} />我确认上述范围、维度与费用上限，授权本轮付费审查</label>
+      <button className="primary-button" type="button" disabled={!valid} onClick={() => void submit()}>确认启动 Review</button></div>
     </div>}
   </section>
 }

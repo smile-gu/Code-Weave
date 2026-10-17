@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Clock3, FolderGit2, Info, MessagesSquare, ShieldCheck, Layers2 } from 'lucide-react'
+import { ArrowRight, Clock3, FolderGit2, Info, MessagesSquare, ShieldCheck, FolderOpen } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError } from '../../shared/api/http'
 import { createCodingSession, getRecentCodingSessions } from '../../shared/api/sessionApi'
 import type { CodingSessionStatus } from '../../shared/api/types'
 import { formatSessionTime, sessionStatusLabels } from './sessionPresentation'
+import { Badge, Card, CardContent, CardHeader, Skeleton } from '../../shared/ui/surfaces'
+import { PageEntrance } from '../../shared/ui/motion'
 
 type FormState = {
   title: string
@@ -58,15 +60,11 @@ export function CodingSessionListPage() {
   const apiError = mutation.error instanceof ApiError ? mutation.error : null
 
   return (
-    <div className="session-home">
-      <section className="session-hero">
+    <PageEntrance className="session-home">
+      <section className="session-hero" data-entrance>
         <div>
-          <span className="welcome-mark"><Layers2 size={30} /></span>
-          <p className="eyebrow">YOUR CODE. A SECOND PERSPECTIVE.</p>
-          <h1>从一次有依据的修改开始</h1>
-          <p>
-            让 Coding 专注实现，让 Review 独立求证。<br />在同一个工作区里，把想法推进为经过审阅的代码。
-          </p>
+          <h1><span>让每一次代码变更，</span><span>清晰可控。</span></h1>
+          <p>连接本地仓库，开始开发、审查与修复。</p>
         </div>
         <div className="boundary-note session-boundary">
           <Info size={18} />
@@ -77,33 +75,44 @@ export function CodingSessionListPage() {
         </div>
       </section>
 
-      <div className="session-grid">
+      <div className="workspace-stats" aria-label="最近会话概览" data-entrance>
+        {[{ label: '最近会话', value: sessionsQuery.data?.sessions.length, icon: MessagesSquare },
+          { label: '进行中', value: sessionsQuery.data?.sessions.filter(s => s.status === 'ACTIVE').length, icon: FolderOpen },
+          { label: '已关闭', value: sessionsQuery.data?.sessions.filter(s => s.status === 'CLOSED').length, icon: Clock3 }].map(({ label, value, icon: Icon }) => <Card key={label}><CardHeader><span>{label}</span><Icon size={17} /></CardHeader><CardContent>{sessionsQuery.isPending ? <Skeleton className="stat-skeleton" /> : <strong>{sessionsQuery.isError ? '—' : value}</strong>}<small>最近 20 条内</small></CardContent></Card>)}
+      </div>
+
+      <div className="session-grid" data-entrance>
         <section className="form-panel session-form-panel" id="new-session">
           <div className="section-heading">
             <span><MessagesSquare size={16} /> 创建持续会话</span>
-            <small>一个 Session 对应一个真实 Git 工作区</small>
+            <Badge variant="outline">本地仓库</Badge>
           </div>
           <p className="workspace-create-safety">直接绑定真实 Git 仓库；Coding 会修改源码。同一仓库仅允许一个活跃会话，不会自动提交或推送。</p>
           <form onSubmit={submit}>
             <label>
               <span>会话名称 <small>可选</small></span>
               <input
-                autoFocus
+                id="session-title"
+                aria-invalid={Boolean(apiError?.fieldErrors.title)}
+                aria-describedby={apiError?.fieldErrors.title ? 'session-title-error' : undefined}
                 value={form.title}
                 onChange={(event) => update('title', event.target.value)}
                 placeholder="例如：用户模块持续开发"
               />
-              {apiError?.fieldErrors.title && <em>{apiError.fieldErrors.title}</em>}
+              {apiError?.fieldErrors.title && <em id="session-title-error">{apiError.fieldErrors.title}</em>}
             </label>
             <label>
               <span>本地 Git 仓库 <b>*</b></span>
               <input
+                id="session-repository"
+                aria-invalid={Boolean(apiError?.fieldErrors.repository)}
+                aria-describedby={apiError?.fieldErrors.repository ? 'session-repository-error' : undefined}
                 value={form.repository}
                 onChange={(event) => update('repository', event.target.value)}
                 placeholder="D:\personal_project\your-spring-project"
                 required
               />
-              {apiError?.fieldErrors.repository && <em>{apiError.fieldErrors.repository}</em>}
+              {apiError?.fieldErrors.repository && <em id="session-repository-error">{apiError.fieldErrors.repository}</em>}
             </label>
             <label>
               <span>审查范围</span>
@@ -159,10 +168,10 @@ export function CodingSessionListPage() {
                     {sessionStatusLabels[session.status]}
                   </span>
                 </div>
-                <p title={session.sourceRepository}>{session.sourceRepository}</p>
+                <p title={session.sourceRepository}><FolderGit2 size={14} />{session.sourceRepository.split(/[\\/]/).filter(Boolean).at(-1)}</p>
                 <div>
-                  <span>{session.baseRef}</span>
                   <time>{formatSessionTime(session.updatedAt)}</time>
+                  <span className="session-open-label">打开工作区 <ArrowRight size={13} /></span>
                 </div>
               </Link>
             ))}
@@ -173,6 +182,6 @@ export function CodingSessionListPage() {
           </div>
         </section>
       </div>
-    </div>
+    </PageEntrance>
   )
 }

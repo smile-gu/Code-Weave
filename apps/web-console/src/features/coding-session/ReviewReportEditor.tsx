@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import { ApiError } from '../../shared/api/http'
 import { readHumanReport, writeHumanReport } from '../../shared/api/reviewApi'
 import type { FindingDecision, FindingReview, ReportIntent, ReportView } from '../../shared/api/reviewApi'
+import { Badge, TechnicalDetails } from '../../shared/ui/surfaces'
 
 const reportMessages: Record<string, string> = {
   REPORT_REVISION_CONFLICT: '报告已更新，请读取当前版本后再修改。',
@@ -31,7 +32,8 @@ function RevisionForm({ view, disabled, requiresAcknowledgement, onIntent }: { v
     setReviews(previous => previous.map((item, i) => i === index ? { ...item, [field]: value } : item))
   }
   return <div>
-    <p>报告版本 {revision.revision} · 原 Result {revision.sourceResultId} · Snapshot {revision.snapshotId}</p>
+    <p><Badge variant="outline">报告版本 {revision.revision}</Badge></p>
+    <TechnicalDetails><dl><div><dt>原始结果</dt><dd><code>{revision.sourceResultId}</code></dd></div><div><dt>代码快照</dt><dd><code>{revision.snapshotId}</code></dd></div></dl></TechnicalDetails>
     <small>人工修订保留原始等级、证据和假设。原报告仍可在下方查看。</small>
     {reviews.length === 0 && <p>没有可批准的 Finding，可关闭本次人工审阅。</p>}
     {reviews.map((item, index) => <fieldset key={item.findingId} disabled={readOnly}>
